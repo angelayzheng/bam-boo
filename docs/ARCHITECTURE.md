@@ -28,6 +28,9 @@ During local development, Vite serves the frontend and Django runs the backend s
 ## Repository structure
 
 ```text
+.github/
+	CODEOWNERS       Ownership rules for frontend, backend, docs, and repository configuration
+
 backend/
 	counter/
 		models.py       Persisted shared bam/boo count
