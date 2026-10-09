@@ -48,7 +48,8 @@ Prefer one logical change per commit. Keep commits small enough to review and av
 - Include a clear summary, testing performed, and any setup or migration notes in the pull request description.
 - Call out architecture changes and update [ARCHITECTURE.md](ARCHITECTURE.md) when the system structure changes.
 - Keep pull requests focused and link related issues when applicable.
-- Request review before merging and resolve review comments in follow-up commits.
+- Request review before merging and resolve review comments in follow-up commits (GitHub will automatically request reviews from code owners).
+- `main` is protected. Do not push directly to it. Open pull requests into `main` for review and merge.
 
 ## Before opening a pull request
 

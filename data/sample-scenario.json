@@ -1,0 +1,16 @@
+{
+  "date": "2026-10-08",
+  "day": 8,
+  "level": 8,
+  "title": "The unexpected charge",
+  "category": "Billing & payments",
+  "opening": "Hi, I'm looking at my statement and there is a charge for eighty-nine dollars that I definitely did not make. I need to know what happened here.",
+  "customerReply": "No, I still have my card with me. I only noticed the charge this morning, but I used the card at a café yesterday afternoon.",
+  "toneAnswers": ["anxious", "worried", "concerned", "stressed"],
+  "responses": [
+    "Do you still have the card, and when did you first notice the charge?",
+    "Would you like me to read your recent transactions out loud?",
+    "Are you sure someone in your household did not use the card?"
+  ],
+  "actionHint": "Secure the card and begin the unauthorized transaction process."
+}
