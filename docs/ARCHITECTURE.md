@@ -46,12 +46,19 @@ backend/
 	pyproject.toml    Black formatter configuration
 	db.sqlite3        Local database created by migrations (not committed)
 
+data/
+	sample-scenario.json  Presimulated training scenario used by the prototype
+
 frontend/
 	src/
 		main.tsx        React application entry point
-		App.tsx         Current root React component
+		App.tsx         Top-level training flow and page navigation
+		pages/          Home, level, and results page components
+		components/     Shared interface components and icons
+		scenario.ts     Shared import for repository-level scenario data
+		types.ts        Shared frontend flow types
 	    index.css       Tailwind CSS import and global styles
-		assets/         Frontend image and SVG assets
+			assets/         Frontend image and SVG assets
 	package.json      npm scripts and dependencies
 	prettier.config.ts Prettier and Tailwind class-sorting configuration
 	.prettierignore   Prettier exclusions
@@ -66,7 +73,7 @@ docs/
 
 ## Frontend
 
-The frontend is written in TypeScript. Its entry point is `frontend/src/main.tsx`; it mounts the root `App` component into the page and loads `frontend/src/index.css`. The interface is styled with Tailwind CSS utility classes in React components; `frontend/src/index.css` imports Tailwind and contains only global CSS rules.
+The frontend is written in TypeScript. Its entry point is `frontend/src/main.tsx`; it mounts the root `App` component into the page and loads `frontend/src/index.css`. Presimulated training content is stored as repository-level JSON in `data/` and imported by the interface. Vite's development filesystem allowlist includes only this shared data directory so the frontend can read file-backed content without moving it into the frontend or database. The interface is styled with Tailwind CSS utility classes in React components; `frontend/src/index.css` imports Tailwind and contains only global CSS rules.
 
 Use npm scripts from the `frontend` directory:
 
@@ -78,6 +85,8 @@ Use npm scripts from the `frontend` directory:
 Tailwind CSS is integrated through `@tailwindcss/vite` in `frontend/vite.config.ts`. Add UI styling with Tailwind utility classes rather than introducing component-specific CSS files unless a custom CSS rule is necessary.
 
 Python formatting is enforced with Black using `backend/pyproject.toml`. Frontend formatting is enforced with Prettier and `prettier-plugin-tailwindcss`; Oxlint remains available as `npm run lint:js` for TypeScript and JavaScript quality checks.
+
+The frontend uses browser history for its prototype routes: `/` renders the calendar, `/levels/:date` renders the assigned level, and `/levels/:date/complete` renders that level's results. The current level date is read from the repository-level scenario JSON; result feedback is retained in session storage to support a results-page reload during the same browser session.
 
 ## Backend
 
