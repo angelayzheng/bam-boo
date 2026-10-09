@@ -43,6 +43,7 @@ Prefer one logical change per commit. Keep commits small enough to review and av
 
 ## Branches and pull requests
 
+- Use the [pull request template](../.github/pull_request_template.md) when opening a PR, and include screenshots for UI changes.
 - Create a branch for each change, such as `feat/project-search` or `fix/login-error`.
 - Rebase or update the branch before opening a pull request when the target branch has moved.
 - Include a clear summary, testing performed, and any setup or migration notes in the pull request description.

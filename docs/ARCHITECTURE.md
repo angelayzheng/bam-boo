@@ -30,6 +30,7 @@ During local development, Vite serves the frontend and Django runs the backend s
 ```text
 .github/
 	CODEOWNERS       Ownership rules for frontend, backend, docs, and repository configuration
+	pull_request_template.md  Default PR description with changes, screenshots, testing, setup notes, and future work
 
 backend/
 	counter/
