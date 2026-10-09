@@ -3,12 +3,13 @@ import tailwindcss from '@tailwindcss/vite'
 import { defineConfig } from 'vite'
 
 // https://vite.dev/config/
+import { fileURLToPath, URL } from 'node:url'
+
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   server: {
-    proxy: {
-      '/api': 'http://127.0.0.1:8000',
-      '/media': 'http://127.0.0.1:8000',
+    fs: {
+      allow: [fileURLToPath(new URL('../data', import.meta.url))],
     },
   },
 })

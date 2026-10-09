@@ -1,10 +1,12 @@
-export const levelPath = (date: string) => `/levels/${date}`
-export const resultsPath = (date: string) => `${levelPath(date)}/complete`
+import scenario from './scenario'
+
+export const levelPath = `/levels/${scenario.date}`
+export const resultsPath = `${levelPath}/complete`
 
 export type Route = 'home' | 'level' | 'results'
 
-export function getRoute(pathname: string, date: string): Route {
-  if (pathname === levelPath(date)) return 'level'
-  if (pathname === resultsPath(date)) return 'results'
+export function getRoute(pathname: string): Route {
+  if (pathname === levelPath) return 'level'
+  if (pathname === resultsPath) return 'results'
   return 'home'
 }
