@@ -1,0 +1,70 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+cd "$(git rev-parse --show-toplevel)"
+repo_root="$PWD"
+
+if [[ -n "${BACKEND_PYTHON:-}" ]]; then
+  backend_python="$BACKEND_PYTHON"
+elif [[ "$OSTYPE" == msys* || "$OSTYPE" == cygwin* ]] && [[ -x backend/.venv/Scripts/python.exe ]]; then
+  backend_python="$repo_root/backend/.venv/Scripts/python.exe"
+elif [[ -x backend/.venv/bin/python ]]; then
+  backend_python="$repo_root/backend/.venv/bin/python"
+elif [[ -x backend/.venv-wsl/bin/python ]]; then
+  backend_python="$repo_root/backend/.venv-wsl/bin/python"
+else
+  echo "Create a native backend virtual environment and install backend/requirements.txt. See docs/SETUP.md (WSL setup)." >&2
+  exit 1
+fi
+
+if ! node -e 'process.exit(Number(process.versions.node.split(".")[0]) >= 24 ? 0 : 1)' >/dev/null 2>&1 || ! npm --version >/dev/null 2>&1; then
+  nvm_dir="${NVM_DIR:-$HOME/.nvm}"
+  if [[ -s "$nvm_dir/nvm.sh" ]]; then
+    # Git hooks may run without the interactive shell's Node version manager.
+    source "$nvm_dir/nvm.sh" --no-use
+    nvm use 24 --silent || {
+      echo "Install Node.js 24 with nvm before committing." >&2
+      exit 1
+    }
+  fi
+fi
+
+if ! node -e 'process.exit(Number(process.versions.node.split(".")[0]) >= 24 ? 0 : 1)' >/dev/null 2>&1 || ! npm --version >/dev/null 2>&1 || [[ ! -d frontend/node_modules ]]; then
+  echo "Install Node.js 24 and run 'cd frontend && npm ci' before committing." >&2
+  exit 1
+fi
+
+frontend_bin_suffix=""
+if [[ "$(node -p 'process.platform')" == win32 ]]; then
+  frontend_bin_suffix=".cmd"
+fi
+for frontend_tool in prettier oxlint tsc vite; do
+  if [[ ! -f "frontend/node_modules/.bin/$frontend_tool$frontend_bin_suffix" ]]; then
+    echo "Missing local $frontend_tool executable for this platform." >&2
+    echo "In your committing terminal, run: cd frontend && npm ci --include=dev --bin-links=true" >&2
+    exit 1
+  fi
+done
+
+if ! "$backend_python" -c 'import django, black' >/dev/null 2>&1; then
+  echo "The backend Python must run on this platform and have backend/requirements.txt installed." >&2
+  exit 1
+fi
+
+echo "Running frontend CI checks..."
+(
+  cd frontend
+  npm test
+  npm run lint
+  npm run lint:js
+  npm run build
+)
+
+echo "Running backend CI checks..."
+(
+  cd backend
+  "$backend_python" manage.py check
+  "$backend_python" -m black --check .
+  "$backend_python" manage.py makemigrations --check --dry-run
+  "$backend_python" manage.py test --noinput
+)
