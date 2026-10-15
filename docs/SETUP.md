@@ -73,6 +73,22 @@ backend\.venv\Scripts\python.exe backend\manage.py migrate
 
 The virtual environment and SQLite database are local development files and are excluded from Git.
 
+### Load the working recording
+
+After migrations, import every local level package (currently the “Forgot Password x3” recording):
+
+```bash
+backend/.venv/bin/python backend/manage.py import_levels
+```
+
+On Windows, use `backend/.venv/Scripts/python.exe` in place of `backend/.venv/bin/python`. Packages live under `backend/challenges/source_data/levels/<level_id>/`; each has a `level.json`, MP3 audio, and UTF-8 text transcripts. The importer saves metadata and the conversation tree in SQLite and publishes the local files under `backend/media/levels/<level_id>/`.
+
+Existing levels are skipped. To update their files and metadata while keeping their database IDs, run `import_levels --replace`. The existing `seed_kale_demo` command still imports just the demo, and `seed_kale_demo --force` replaces it. See [LEVELS.md](LEVELS.md) for the folder layout, manifest format, and adding levels.
+
+Run both development servers below. The frontend loads the recording through Django’s `/api/challenges/` endpoints and plays recorded MP3s through `/media/`. Vite proxies both paths to port 8000. Choose an agent reply, hear the matching customer response, and continue along that branch before submitting a next action. Browser autoplay may require pressing Play first.
+
+If the frontend shows “No recordings are available,” run `import_levels`. If transcripts or audio are missing, run `import_levels --replace`. A backend connection error requires starting Django on port 8000.
+
 ---
 
 ## Running locally
@@ -178,6 +194,13 @@ Build the frontend for production:
 ```bash
 cd frontend
 npm run build
+```
+
+Run frontend behavior tests with Node 22.18+ or 24+:
+
+```bash
+cd frontend
+npm test
 ```
 
 Check frontend formatting with Prettier and TypeScript/JavaScript quality with Oxlint:

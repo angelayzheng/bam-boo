@@ -39,8 +39,8 @@ def validate_conversation_tree(tree):
 
         {
             "type": "question",
-            "text_file": "challenges/<slug>/q1.txt",
-            "audio_file": "challenges/<slug>/q1.mp3",
+            "text_file": "levels/<level_id>/transcripts/customer/q1.txt",
+            "audio_file": "levels/<level_id>/audio/customer/q1.mp3",
             "children": [
                 {
                     "type": "response",
@@ -94,6 +94,7 @@ def validate_conversation_tree(tree):
 
 
 class Challenge(models.Model):
+    level_id = models.SlugField(max_length=160, unique=True, editable=False)
     name = models.CharField(max_length=120, unique=True)
     slug = models.SlugField(max_length=120, unique=True)
     challenge_date = models.DateField(db_index=True)
@@ -124,5 +125,7 @@ class Challenge(models.Model):
             validate_conversation_tree(self.conversation_tree)
 
     def save(self, *args, **kwargs):
+        if not self.level_id:
+            self.level_id = f"{self.challenge_date}-{self.slug}"
         self.full_clean()
         super().save(*args, **kwargs)

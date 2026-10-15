@@ -5,7 +5,8 @@ from .models import Challenge
 
 @admin.register(Challenge)
 class ChallengeAdmin(admin.ModelAdmin):
-    list_display = ("name", "category", "difficulty", "tone", "challenge_date")
+    list_display = ("level_id", "name", "category", "difficulty", "challenge_date")
     list_filter = ("category", "difficulty")
-    search_fields = ("name", "tone")
+    search_fields = ("level_id", "name", "tone")
+    readonly_fields = ("level_id",)
     prepopulated_fields = {"slug": ("name",)}

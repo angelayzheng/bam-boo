@@ -9,6 +9,7 @@ from .models import Challenge
 def _challenge_summary(challenge):
     return {
         "id": challenge.id,
+        "level_id": challenge.level_id,
         "name": challenge.name,
         "slug": challenge.slug,
         "challenge_date": challenge.challenge_date.isoformat(),
