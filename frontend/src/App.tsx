@@ -1,91 +1,60 @@
 import { useEffect, useState } from 'react'
+import HomePage from './pages/HomePage'
+import LevelPage from './pages/LevelPage'
+import ResultsPage from './pages/ResultsPage'
+import { getRoute, levelPath, resultsPath } from './routes'
+import type { ResultData } from './types'
 
-const COUNT_API_URL = 'http://127.0.0.1:8000/api/count/'
+const RESULT_STORAGE_KEY = 'bam-boo:last-level-result'
 
-interface CountResponse {
-  count: number
+function loadSavedResult(): ResultData | null {
+  try {
+    const saved = window.sessionStorage.getItem(RESULT_STORAGE_KEY)
+    return saved ? (JSON.parse(saved) as ResultData) : null
+  } catch {
+    return null
+  }
 }
 
 function App() {
-  const [count, setCount] = useState(0)
-  const [error, setError] = useState('')
-  const [pending, setPending] = useState(true)
+  const [pathname, setPathname] = useState(() => window.location.pathname)
+  const [result, setResult] = useState<ResultData | null>(loadSavedResult)
 
   useEffect(() => {
-    fetch(COUNT_API_URL)
-      .then((response) => {
-        if (!response.ok) {
-          throw new Error('Could not load the count')
-        }
-        return response.json() as Promise<CountResponse>
-      })
-      .then(({ count: savedCount }) => {
-        setCount(savedCount)
-        setError('')
-      })
-      .catch(() => setError('Could not connect to the backend'))
-      .finally(() => setPending(false))
+    const updatePathname = () => setPathname(window.location.pathname)
+    window.addEventListener('popstate', updatePathname)
+    return () => window.removeEventListener('popstate', updatePathname)
   }, [])
 
-  const updateCount = (delta: 1 | -1) => {
-    setPending(true)
-    setError('')
-
-    fetch(COUNT_API_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ delta }),
-    })
-      .then((response) => {
-        if (!response.ok) {
-          throw new Error('Could not update the count')
-        }
-        return response.json() as Promise<CountResponse>
-      })
-      .then(({ count: savedCount }) => setCount(savedCount))
-      .catch(() => setError('Could not save your choice'))
-      .finally(() => setPending(false))
+  const navigate = (path: string) => {
+    window.history.pushState({}, '', path)
+    setPathname(path)
+    window.scrollTo(0, 0)
   }
 
-  return (
-    <main className="flex min-h-screen flex-col items-center justify-center gap-5 bg-slate-950 px-4 py-8 text-slate-100">
-      <p className="font-mono text-sm font-bold tracking-[0.2em] text-cyan-300 uppercase">
-        bam-boo!
-      </p>
-      <h1 className="text-8xl leading-none font-black tracking-tight text-white sm:text-9xl">
-        {count}
-      </h1>
-      {error && (
-        <p
-          className="rounded-md border border-red-400/50 bg-red-950/50 px-3 py-2 text-sm text-red-200"
-          role="alert"
-        >
-          {error}
-        </p>
-      )}
-      <div
-        className="flex flex-wrap justify-center gap-3"
-        aria-label="Adjust count"
-      >
-        <button
-          type="button"
-          disabled={pending}
-          onClick={() => updateCount(1)}
-          className="min-w-32 rounded-full border-2 border-cyan-300 bg-cyan-300 px-5 py-3 text-lg font-bold text-slate-950 transition hover:-translate-y-0.5 hover:bg-cyan-200 focus-visible:outline-3 focus-visible:outline-offset-3 focus-visible:outline-cyan-200 disabled:cursor-wait disabled:opacity-50"
-        >
-          <span aria-hidden="true">👍</span> bam
-        </button>
-        <button
-          type="button"
-          disabled={pending}
-          onClick={() => updateCount(-1)}
-          className="min-w-32 rounded-full border-2 border-slate-600 bg-slate-900 px-5 py-3 text-lg font-bold text-slate-100 transition hover:-translate-y-0.5 hover:border-slate-400 hover:bg-slate-800 focus-visible:outline-3 focus-visible:outline-offset-3 focus-visible:outline-slate-300 disabled:cursor-wait disabled:opacity-50"
-        >
-          <span aria-hidden="true">👎</span> boo
-        </button>
-      </div>
-    </main>
-  )
+  const startLevel = () => {
+    window.speechSynthesis?.cancel()
+    setResult(null)
+    window.sessionStorage.removeItem(RESULT_STORAGE_KEY)
+    navigate(levelPath)
+  }
+
+  const completeLevel = (nextResult: ResultData) => {
+    window.speechSynthesis?.cancel()
+    setResult(nextResult)
+    window.sessionStorage.setItem(RESULT_STORAGE_KEY, JSON.stringify(nextResult))
+    navigate(resultsPath)
+  }
+
+  if (getRoute(pathname) === 'level') {
+    return <LevelPage onExit={() => navigate('/')} onComplete={completeLevel} />
+  }
+
+  if (getRoute(pathname) === 'results' && result) {
+    return <ResultsPage result={result} onHome={() => navigate('/')} onRetry={startLevel} />
+  }
+
+  return <HomePage onStart={startLevel} />
 }
 
 export default App

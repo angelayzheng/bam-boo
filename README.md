@@ -4,11 +4,11 @@
 
 ## Contributors
 
-- [Angelina Jiang](https://github.com/AngelsandDevsLOL)
-- [Eqraa Khan](https://github.com/Eqraa-Khan)
-- [Laavanya Sahay](https://github.com/laavanya-sahay)
-- [Angela Zheng](https://github.com/angelayzheng)
-- [Kenny Zheng](https://github.com/PyneKoyne)
+- [**K**enny Zheng](https://github.com/PyneKoyne)
+- [**A**ngela Zheng](https://github.com/angelayzheng)
+- [**A**ngelina Jiang](https://github.com/AngelsandDevsLOL)
+- [**L**aavanya Sahay](https://github.com/laavanya-sahay)
+- [**E**qraa Khan](https://github.com/Eqraa-Khan)
 
 ## Development
 
