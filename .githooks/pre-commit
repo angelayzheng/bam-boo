@@ -6,14 +6,10 @@ repo_root="$PWD"
 
 if [[ -n "${BACKEND_PYTHON:-}" ]]; then
   backend_python="$BACKEND_PYTHON"
-elif [[ "$OSTYPE" == msys* || "$OSTYPE" == cygwin* ]] && [[ -x backend/.venv/Scripts/python.exe ]]; then
-  backend_python="$repo_root/backend/.venv/Scripts/python.exe"
 elif [[ -x backend/.venv/bin/python ]]; then
   backend_python="$repo_root/backend/.venv/bin/python"
-elif [[ -x backend/.venv-wsl/bin/python ]]; then
-  backend_python="$repo_root/backend/.venv-wsl/bin/python"
 else
-  echo "Create a native backend virtual environment and install backend/requirements.txt. See docs/SETUP.md (WSL setup)." >&2
+  echo "Create backend/.venv with WSL/Linux Python and install backend/requirements.txt. See docs/SETUP.md." >&2
   exit 1
 fi
 

@@ -3,7 +3,6 @@ __pycache__/
 *.py[cod]
 *.sqlite3
 backend/.venv/
-backend/.venv-wsl/
 
 # Node
 frontend/node_modules/
