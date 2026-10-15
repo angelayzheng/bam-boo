@@ -7,13 +7,8 @@
 # Backend application, configuration, migrations, and dependencies.
 /backend/ @angelayzheng @AngelsandDevsLOL @Eqraa-Khan
 
-# Project documentation and repository-level guides.
-/docs/ @angelayzheng
-/README.md @angelayzheng
-/LICENSE @angelayzheng
+# Static data
+/data/ @Eqraa-Khan @PyneKoyne
 
-# Repository configuration and ownership rules.
-/.github/ @angelayzheng
-/.gitignore @angelayzheng
-/AGENTS.md @angelayzheng
-/CLAUDE.md @angelayzheng
+# Project documentation.
+/docs/ @angelayzheng
