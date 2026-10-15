@@ -42,7 +42,10 @@ function App() {
   const completeLevel = (nextResult: ResultData) => {
     window.speechSynthesis?.cancel()
     setResult(nextResult)
-    window.sessionStorage.setItem(RESULT_STORAGE_KEY, JSON.stringify(nextResult))
+    window.sessionStorage.setItem(
+      RESULT_STORAGE_KEY,
+      JSON.stringify(nextResult),
+    )
     navigate(resultsPath)
   }
 
@@ -51,7 +54,13 @@ function App() {
   }
 
   if (getRoute(pathname) === 'results' && result) {
-    return <ResultsPage result={result} onHome={() => navigate('/')} onRetry={startLevel} />
+    return (
+      <ResultsPage
+        result={result}
+        onHome={() => navigate('/')}
+        onRetry={startLevel}
+      />
+    )
   }
 
   return <HomePage onStart={startLevel} />

@@ -23,7 +23,7 @@ def count(request):
     try:
         payload = json.loads(request.body or "{}")
         delta = int(payload["delta"])
-    except (KeyError, TypeError, ValueError, json.JSONDecodeError):
+    except KeyError, TypeError, ValueError, json.JSONDecodeError:
         return JsonResponse({"error": "delta must be an integer"}, status=400)
 
     if delta not in (-1, 1):
