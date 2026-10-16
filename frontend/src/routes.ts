@@ -1,4 +1,4 @@
-import scenario from './scenario'
+import scenario from '../../data/sample-scenario.json' with { type: 'json' }
 
 export const levelPath = `/levels/${scenario.date}`
 export const resultsPath = `${levelPath}/complete`
