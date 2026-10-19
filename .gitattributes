@@ -1,3 +1,7 @@
+# Auto-detect text files and normalize them to LF on checkout/commit
 * text=auto eol=lf
 
 *.bat text eol=crlf
+
+# Ensure git hooks are always LF (important for shell scripts on all OSes)
+.githooks/* text eol=lf

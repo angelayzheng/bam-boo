@@ -9,6 +9,14 @@ bam-_boo_! is a full-stack web application with two independently run developmen
 
 The frontend and backend are intentionally separated so that each can be developed, tested, and built with its own toolchain.
 
+## Continuous integration
+
+`.github/workflows/ci.yml` runs on pushes, pull requests, and manual dispatches. Independent Ubuntu jobs use Node 24 for the frontend and Python 3.14 for the backend, with npm and pip download caches keyed by their dependency files. The frontend job installs with `npm ci`, runs the existing Node tests, checks formatting and JavaScript/TypeScript lint, and builds the production bundle. The backend job installs pinned requirements, checks Django configuration and Black formatting, checks for missing migrations, and runs Django tests with an isolated test database created and migrated by the test runner. No database service or secrets are required. The workflow validates changes; deployment is not configured.
+
+## Local Git hooks
+
+`.githooks/pre-commit` is a shared Bash hook that runs the same validation commands as CI against the entire working tree before each commit. Developers enable it per clone with `git config --local core.hooksPath .githooks` after installing dependencies. It uses local frontend dependencies, loads an installed nvm Node 24 when the shell runtime is unavailable, and selects a native backend environment. WSL development uses a Linux virtual environment at `backend/.venv`; the hook uses its `bin/python` interpreter. `BACKEND_PYTHON` overrides interpreter selection. Checks stop on the first failure and do not modify or stage source files. `.gitattributes` keeps hook scripts on LF line endings for Bash compatibility across platforms. GitHub Actions remains the validation gate for pull requests.
+
 ## System boundary
 
 ```mermaid
@@ -28,7 +36,11 @@ During local development, Vite serves the frontend and Django runs the backend s
 ## Repository structure
 
 ```text
+.githooks/
+	pre-commit       Local frontend and backend validation before commits
+
 .github/
+	workflows/ci.yml  GitHub Actions frontend and backend validation
 	CODEOWNERS       Ownership rules for frontend, backend, docs, and repository configuration
 	pull_request_template.md  Default PR description with changes, screenshots, testing, setup notes, and future work
 
@@ -66,7 +78,7 @@ frontend/
 		types.ts        Shared frontend flow types
 	    index.css       Tailwind CSS import and global styles
 			assets/         Frontend image and SVG assets
-	tests/            Node tests for API loading, branching, and answer matching
+	tests/            Node route tests using native TypeScript support
 	package.json      npm scripts and dependencies
 	prettier.config.ts Prettier and Tailwind class-sorting configuration
 	.prettierignore   Prettier exclusions
@@ -86,6 +98,7 @@ The frontend is written in TypeScript. Its entry point is `frontend/src/main.tsx
 
 Use npm scripts from the `frontend` directory:
 
+- `npm test`: run frontend route tests directly using Node 24’s built-in test runner and TypeScript support.
 - `npm run dev`: start the Vite development server on port `5173`.
 - `npm test`: run the API-loading, branch-traversal, and answer-matching tests with Node’s built-in test runner (Node 22.18+ or 24+).
 - `npm run build`: type-check the frontend and create a production build in `frontend/dist`.
@@ -93,6 +106,8 @@ Use npm scripts from the `frontend` directory:
 - `npm run preview`: preview the production build locally.
 
 Tailwind CSS is integrated through `@tailwindcss/vite` in `frontend/vite.config.ts`. Add UI styling with Tailwind utility classes rather than introducing component-specific CSS files unless a custom CSS rule is necessary.
+
+Frontend build tooling uses `@types/node` for the Node.js APIs in Vite configuration.
 
 Python formatting is enforced with Black using `backend/pyproject.toml`. Frontend formatting is enforced with Prettier and `prettier-plugin-tailwindcss`; Oxlint remains available as `npm run lint:js` for TypeScript and JavaScript quality checks.
 
@@ -162,3 +177,7 @@ Update this document in the same change whenever a structural decision changes. 
 - A directory moves or a new top-level project area is introduced.
 
 Architecture changes should be called out in pull requests and reflected in the relevant setup or contribution documentation.
+
+Route tests import `routes.ts` directly with Node 24. The route module imports the shared scenario JSON with an explicit JSON import attribute, so tests need no Vite server, filesystem watcher, or native bundler. The frontend build validates Vite integration separately. Windows users run development commands and commits from WSL using the same Linux environment.
+
+The pre-commit hook checks platform-specific local npm launchers for Prettier, Oxlint, TypeScript, and Vite before running frontend checks. Missing launchers require reinstalling development dependencies in the committing terminal; the hook does not download dependencies automatically.

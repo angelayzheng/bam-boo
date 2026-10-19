@@ -20,7 +20,7 @@ export default function AudioPlayer({
   useEffect(() => {
     if (autoPlay) {
       // Browsers can require a manual press of Play before allowing autoplay.
-      void audio.current?.play().catch(() => {})
+      void audio.current?.play().catch(() => { })
     }
   }, [autoPlay])
 

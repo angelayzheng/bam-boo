@@ -94,6 +94,16 @@ export default function LevelPage({
               style={{ width: `${(stepNumber / 3) * 100}%` }}
             />
           </div>
+          <div className="mb-2 flex justify-between text-xs font-semibold text-slate-500">
+            <span>Step {stepNumber} of 3</span>
+            <span>{Math.round((stepNumber / 3) * 100)}%</span>
+          </div>
+          <div className="h-1.5 overflow-hidden rounded-full bg-slate-200">
+            <div
+              className="h-full rounded-full bg-[#29b88e] transition-all duration-500"
+              style={{ width: `${(stepNumber / 3) * 100}%` }}
+            />
+          </div>
         </div>
 
         <div className="mb-6">
@@ -145,17 +155,56 @@ export default function LevelPage({
                   autoFocus
                   className="w-full rounded-2xl border-2 border-slate-200 bg-[#fbfcfa] px-4 py-4 text-lg font-medium text-slate-900 transition outline-none placeholder:text-slate-300 focus:border-[#29b88e] focus:ring-4 focus:ring-[#29b88e]/10"
                 />
-                <div className="mt-4 flex items-center justify-between gap-4">
-                  <p className="text-xs text-slate-400">1–2 words only</p>
-                  <button
-                    type="submit"
-                    disabled={!tone.trim()}
-                    className="rounded-xl bg-[#17243d] px-5 py-3 text-sm font-bold text-white transition hover:bg-[#223253] disabled:cursor-not-allowed disabled:opacity-35"
-                  >
-                    Lock in answer
-                  </button>
-                </div>
-              </form>
+                <p className="text-xs font-bold tracking-[0.15em] text-[#19856a] uppercase">
+                  Listen for what is underneath
+                </p>
+                <h2 className="mt-2 text-2xl font-bold tracking-tight text-[#17243d]">
+                  What is the customer’s emotional tone?
+                </h2>
+                <p className="mt-2 text-sm leading-6 text-slate-500">
+                  Use one or two words. Your first instinct is usually best.
+                </p>
+                <form
+                  className="mt-6"
+                  onSubmit={(event) => {
+                    event.preventDefault()
+                    if (tone.trim()) submitTone()
+                  }}
+                >
+                  <label htmlFor="tone" className="sr-only">
+                    Customer tone
+                  </label>
+                  <input
+                    id="tone"
+                    value={tone}
+                    onChange={(event) =>
+                      setTone(
+                        event.target.value.split(/\s+/).slice(0, 2).join(' '),
+                      )
+                    }
+                    placeholder="e.g. concerned"
+                    autoComplete="off"
+                    autoFocus
+                    className="w-full rounded-2xl border-2 border-slate-200 bg-[#fbfcfa] px-4 py-4 text-lg font-medium text-slate-900 transition outline-none placeholder:text-slate-300 focus:border-[#29b88e] focus:ring-4 focus:ring-[#29b88e]/10"
+                  />
+                  <div className="mt-4 flex items-center justify-between gap-4">
+                    <p className="text-xs text-slate-400">1–2 words only</p>
+                    <button
+                      type="submit"
+                      disabled={!tone.trim()}
+                      className="rounded-xl bg-[#17243d] px-5 py-3 text-sm font-bold text-white transition hover:bg-[#223253] disabled:cursor-not-allowed disabled:opacity-35"
+                    >
+                      Lock in answer
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={!tone.trim()}
+                      className="rounded-xl bg-[#17243d] px-5 py-3 text-sm font-bold text-white transition hover:bg-[#223253] disabled:cursor-not-allowed disabled:opacity-35"
+                    >
+                      Lock in answer
+                    </button>
+                  </div>
+                </form>
             </section>
           </div>
         )}
@@ -245,9 +294,9 @@ export default function LevelPage({
                   onClick={
                     conversationFinished
                       ? () => {
-                          setActiveAudio('')
-                          setStage('action')
-                        }
+                        setActiveAudio('')
+                        setStage('action')
+                      }
                       : sendResponse
                   }
                   className="rounded-xl bg-[#17243d] px-5 py-3 text-sm font-bold text-white transition hover:bg-[#223253] disabled:cursor-not-allowed disabled:opacity-35"

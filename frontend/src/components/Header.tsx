@@ -22,7 +22,9 @@ export default function Header({ compact = false }: HeaderProps) {
               <FlameIcon className="size-5 text-[#ff8a4c]" />
               <span>7 day streak</span>
             </div>
-            <div className="grid size-9 place-items-center rounded-full bg-[#d9f7ed] text-sm font-bold text-[#176d59] ring-2 ring-white">AM</div>
+            <div className="grid size-9 place-items-center rounded-full bg-[#d9f7ed] text-sm font-bold text-[#176d59] ring-2 ring-white">
+              AM
+            </div>
           </div>
         )}
       </div>
