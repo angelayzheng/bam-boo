@@ -111,9 +111,41 @@ class LoadVectorsCommandTests(TestCase):
         self.assertEqual(ToneVector.objects.count(), 3)
         self.assertFalse(ToneVector.objects.filter(word="old").exists())
 
-    def test_missing_file_raises_without_download(self):
-        with self.assertRaisesMessage(CommandError, "Data file not found"):
-            self._load(file="/nonexistent/path.gz")
+    def test_missing_file_downloads_automatically(self):
+        missing = Path(self.tmpdir.name) / "missing.gz"
+        with patch(
+            "tone.management.commands.load_vectors.urlretrieve"
+        ) as mock_retrieve:
+
+            def fake_download(url, dest):
+                _write_vectors_gz(Path(dest))
+
+            mock_retrieve.side_effect = fake_download
+            out, _ = self._load(file=str(missing))
+
+        mock_retrieve.assert_called_once()
+        self.assertTrue(missing.is_file())
+        self.assertIn("Download complete", out)
+        self.assertEqual(ToneVector.objects.count(), 3)
+
+    def test_failed_download_removes_partial_file(self):
+        missing = Path(self.tmpdir.name) / "missing.gz"
+        partial = missing.with_name(missing.name + ".part")
+
+        def failed_download(url, dest):
+            Path(dest).write_bytes(b"incomplete download")
+            raise OSError("download failed")
+
+        with patch(
+            "tone.management.commands.load_vectors.urlretrieve",
+            side_effect=failed_download,
+        ):
+            with self.assertRaisesMessage(OSError, "download failed"):
+                self._load(file=str(missing))
+
+        self.assertFalse(missing.exists())
+        self.assertFalse(partial.exists())
+        self.assertEqual(ToneVector.objects.count(), 0)
 
     def test_invalid_header_raises(self):
         with gzip.open(self.data_file, "wt", encoding="utf-8") as fh:
@@ -154,18 +186,3 @@ class LoadVectorsCommandTests(TestCase):
         if sys.byteorder != "little":
             new.byteswap()
         self.assertAlmostEqual(new[0], 9.0, places=5)
-
-    def test_download_flag_fetches_missing_file(self):
-        missing = Path(self.tmpdir.name) / "missing.gz"
-        with patch(
-            "tone.management.commands.load_vectors.urlretrieve"
-        ) as mock_retrieve:
-
-            def fake_download(url, dest):
-                _write_vectors_gz(Path(dest))
-
-            mock_retrieve.side_effect = fake_download
-            out, _ = self._load(file=str(missing), download=True)
-            mock_retrieve.assert_called_once()
-            self.assertIn("Download complete", out)
-            self.assertEqual(ToneVector.objects.count(), 3)
