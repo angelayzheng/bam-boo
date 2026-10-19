@@ -109,6 +109,7 @@ The Django project is configured in `backend/config`:
 - `settings.py` enables Django’s built-in apps, `django-cors-headers`, and SQLite.
 - `counter/` owns the shared count model and its JSON API.
 - `challenges/` owns dated challenges, their alternating question/response JSON trees, API serialization, `import_levels`, and the compatibility `seed_kale_demo` command. Each challenge has a unique, stable `level_id` (normally `YYYY-MM-DD-slug`), a separate unique name and slug, and its existing numeric database ID. Changing its name or schedule date does not regenerate the level ID. SQLite stores metadata and per-turn filenames; UTF-8 transcripts and MP3s remain local files. Authored packages live in `backend/challenges/source_data/levels/<level_id>/`, with `level.json`, `audio/customer/`, `audio/agent/`, `transcripts/customer/`, and `transcripts/agent/`. The importer validates selected packages and stages each complete package under `backend/media/levels/<level_id>/`. Replacement preserves database IDs and restores old files if saving fails. See [LEVELS.md](LEVELS.md) for the manifest and authoring workflow.
+- `tone/` owns the word embeddings used by the backend to find similar words. The files are uploaded to the database and can be renamed within the tone folder (using `manage.py`).
 - `users/` owns user profiles and progress endpoints.
 - `urls.py` currently defines the following routes:
   - `/`: backend service status JSON.

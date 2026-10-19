@@ -34,6 +34,7 @@ INSTALLED_APPS = [
     "corsheaders",
     "counter",
     "challenges",
+    "tone",
     "users",
     "django.contrib.admin",
     "django.contrib.auth",
