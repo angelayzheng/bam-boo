@@ -1,95 +1,60 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
-import { PauseIcon, PlayIcon } from './icons'
+import { useEffect, useRef, useState } from 'react'
+import type { ConversationNode } from '../types'
 
 interface AudioPlayerProps {
-  text: string
+  node: ConversationNode
   label: string
   autoPlay?: boolean
+  onEnded?: () => void
 }
 
 export default function AudioPlayer({
-  text,
+  node,
   label,
   autoPlay = false,
+  onEnded,
 }: AudioPlayerProps) {
-  const [playing, setPlaying] = useState(false)
-  const [progress, setProgress] = useState(0)
-  const startedAt = useRef(0)
-  const duration = Math.max(7, Math.round(text.split(' ').length / 2.4))
+  const audio = useRef<HTMLAudioElement>(null)
+  const [failed, setFailed] = useState(false)
 
-  const stop = useCallback(() => {
-    window.speechSynthesis.cancel()
-    setPlaying(false)
+  useEffect(() => {
+    if (autoPlay) {
+      // Browsers can require a manual press of Play before allowing autoplay.
+      void audio.current?.play().catch(() => {})
+    }
+  }, [autoPlay])
+
+  useEffect(() => {
+    const player = audio.current
+    return () => player?.pause()
   }, [])
 
-  const play = useCallback(() => {
-    if (!('speechSynthesis' in window)) return
-
-    window.speechSynthesis.cancel()
-    const utterance = new SpeechSynthesisUtterance(text)
-    utterance.rate = 0.96
-    utterance.pitch = 0.95
-    utterance.onend = () => {
-      setPlaying(false)
-      setProgress(100)
-    }
-    utterance.onerror = () => setPlaying(false)
-    startedAt.current = Date.now()
-    setProgress(0)
-    setPlaying(true)
-    window.speechSynthesis.speak(utterance)
-  }, [text])
-
-  useEffect(() => {
-    if (!autoPlay) return
-
-    const timer = window.setTimeout(play, 450)
-    return () => window.clearTimeout(timer)
-  }, [autoPlay, play])
-
-  useEffect(() => {
-    if (!playing) return
-
-    const timer = window.setInterval(() => {
-      const elapsed = (Date.now() - startedAt.current) / 1000
-      setProgress(Math.min(96, (elapsed / duration) * 100))
-    }, 200)
-    return () => window.clearInterval(timer)
-  }, [duration, playing])
-
-  useEffect(() => stop, [stop])
-
   return (
-    <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-[0_16px_45px_-28px_rgba(15,23,42,0.35)] sm:p-6">
-      <div className="flex items-center gap-4">
-        <button
-          type="button"
-          onClick={playing ? stop : play}
-          className="grid size-13 shrink-0 place-items-center rounded-full bg-[#17243d] text-white transition hover:scale-105 hover:bg-[#223253] focus-visible:outline-3 focus-visible:outline-offset-3 focus-visible:outline-[#66d9b7]"
-          aria-label={playing ? 'Pause customer audio' : 'Play customer audio'}
-        >
-          {playing ? <PauseIcon /> : <PlayIcon className="ml-0.5 size-5" />}
-        </button>
-        <div className="min-w-0 flex-1">
-          <div className="mb-3 flex items-center justify-between gap-4">
-            <div>
-              <p className="text-sm font-semibold text-slate-900">{label}</p>
-              <p className="text-xs text-slate-500">
-                Customer · {duration} sec
-              </p>
-            </div>
-            <span className="shrink-0 rounded-full bg-[#eefbf6] px-2.5 py-1 text-xs font-semibold text-[#167c61]">
-              {playing ? 'Playing' : progress === 100 ? 'Replay' : 'Ready'}
-            </span>
-          </div>
-          <div className="h-1.5 overflow-hidden rounded-full bg-slate-100">
-            <div
-              className="h-full rounded-full bg-[#29b88e] transition-[width] duration-200"
-              style={{ width: `${progress}%` }}
-            />
-          </div>
-        </div>
-      </div>
+    <section
+      className={`rounded-3xl border p-5 shadow-sm sm:p-6 ${node.type === 'response' ? 'border-[#bdebdc] bg-[#eefbf6]' : 'border-slate-200 bg-white'}`}
+    >
+      <p className="mb-3 text-sm font-bold text-[#17243d]">{label}</p>
+      <p className="mb-4 text-sm leading-6 text-slate-700">{node.text}</p>
+      <audio
+        ref={audio}
+        controls
+        preload="metadata"
+        src={node.audio_url}
+        aria-label={`${label} recording`}
+        className="h-10 w-full"
+        onPlay={() => {
+          document.querySelectorAll('audio').forEach((player) => {
+            if (player !== audio.current) player.pause()
+          })
+        }}
+        onEnded={onEnded}
+        onError={() => setFailed(true)}
+      />
+      {failed && (
+        <p role="alert" className="mt-3 text-sm text-red-700">
+          This audio could not be loaded. You can follow the transcript above.
+        </p>
+      )}
     </section>
   )
 }

@@ -1,15 +1,28 @@
 import Header from '../components/Header'
-import { CheckIcon } from '../components/icons'
-import scenario, { levelDate } from '../scenario'
-
-const completedDays = new Set([1, 2, 3, 4, 5, 6, 7])
+import { challengeDate } from '../challenges'
+import type { Challenge } from '../types'
 
 interface HomePageProps {
+  challenge: Challenge
   onStart: () => void
 }
 
-export default function HomePage({ onStart }: HomePageProps) {
-  const calendarDays = Array.from({ length: 35 }, (_, index) => index - 3)
+export default function HomePage({ challenge, onStart }: HomePageProps) {
+  const levelDate = challengeDate(challenge)
+  const startOfMonth = new Date(
+    levelDate.getFullYear(),
+    levelDate.getMonth(),
+    1,
+  ).getDay()
+  const daysInMonth = new Date(
+    levelDate.getFullYear(),
+    levelDate.getMonth() + 1,
+    0,
+  ).getDate()
+  const calendarDays = Array.from(
+    { length: Math.ceil((startOfMonth + daysInMonth) / 7) * 7 },
+    (_, index) => index - startOfMonth + 1,
+  )
 
   return (
     <div className="min-h-screen bg-[#f7f8f5] text-slate-900">
@@ -23,12 +36,16 @@ export default function HomePage({ onStart }: HomePageProps) {
           </div>
           <div className="flex gap-3">
             <div className="min-w-28 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
-              <p className="text-2xl font-bold text-[#17243d]">7</p>
-              <p className="text-xs font-medium text-slate-500">Levels done</p>
+              <p className="text-2xl font-bold text-[#17243d]">1</p>
+              <p className="text-xs font-medium text-slate-500">
+                Recording ready
+              </p>
             </div>
             <div className="min-w-28 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
-              <p className="text-2xl font-bold text-[#17243d]">18</p>
-              <p className="text-xs font-medium text-slate-500">Stars earned</p>
+              <p className="text-2xl font-bold text-[#17243d]">
+                {challenge.difficulty}/5
+              </p>
+              <p className="text-xs font-medium text-slate-500">Difficulty</p>
             </div>
           </div>
         </div>
@@ -45,10 +62,8 @@ export default function HomePage({ onStart }: HomePageProps) {
             </div>
             <div className="flex items-center gap-4 text-xs font-medium text-slate-500">
               <span className="flex items-center gap-1.5">
-                <span className="size-2 rounded-full bg-[#29b88e]" /> Complete
-              </span>
-              <span className="flex items-center gap-1.5">
-                <span className="size-2 rounded-full bg-[#ff9b66]" /> Today
+                <span className="size-2 rounded-full bg-[#ff9b66]" /> Available
+                recording
               </span>
             </div>
           </div>
@@ -63,9 +78,8 @@ export default function HomePage({ onStart }: HomePageProps) {
             </div>
             <div className="grid min-w-0 grid-cols-7 overflow-hidden rounded-2xl border border-slate-200 bg-slate-200">
               {calendarDays.map((day, index) => {
-                const isInMonth = day > 0 && day <= 31
-                const isComplete = completedDays.has(day)
-                const isToday = day === scenario.day
+                const isInMonth = day > 0 && day <= daysInMonth
+                const isToday = day === levelDate.getDate()
                 const isWeekend = index % 7 === 0 || index % 7 === 6
 
                 return (
@@ -77,9 +91,9 @@ export default function HomePage({ onStart }: HomePageProps) {
                     className={`relative min-h-17 min-w-0 bg-white p-1.5 text-left transition sm:min-h-24 sm:p-3 ${isToday ? 'group cursor-pointer hover:bg-[#fff7f1]' : 'cursor-default'} ${isWeekend ? 'bg-slate-50/90' : ''}`}
                     aria-label={
                       isToday
-                        ? `Start level ${scenario.level}`
+                        ? `Start ${challenge.name}`
                         : isInMonth
-                          ? `October ${day}`
+                          ? `${levelDate.toLocaleString('en-CA', { month: 'long' })} ${day}`
                           : undefined
                     }
                   >
@@ -90,11 +104,6 @@ export default function HomePage({ onStart }: HomePageProps) {
                         >
                           {day}
                         </span>
-                        {isComplete && (
-                          <span className="absolute right-2 bottom-2 grid size-6 place-items-center rounded-full bg-[#dff8ef] text-[#19856a] sm:right-3 sm:bottom-3 sm:size-7">
-                            <CheckIcon className="size-3.5" />
-                          </span>
-                        )}
                         {isToday && (
                           <span className="absolute inset-x-1 bottom-1.5 truncate rounded-xl bg-[#ff9b66] px-0.5 py-2 text-center text-[9px] font-bold text-white shadow-sm transition group-hover:bg-[#f28a50] sm:inset-x-3 sm:bottom-3 sm:px-2 sm:text-xs">
                             <span className="sm:hidden">Start</span>
@@ -102,9 +111,6 @@ export default function HomePage({ onStart }: HomePageProps) {
                               Start level
                             </span>
                           </span>
-                        )}
-                        {day > 8 && day < 16 && !isWeekend && (
-                          <span className="absolute right-3 bottom-3 hidden size-2 rounded-full bg-slate-200 sm:block" />
                         )}
                       </>
                     )}
@@ -122,11 +128,10 @@ export default function HomePage({ onStart }: HomePageProps) {
         >
           <span>
             <span className="text-xs font-bold tracking-[0.14em] text-[#75e2c1] uppercase">
-              {scenario.date} · Level{' '}
-              {scenario.level.toString().padStart(2, '0')}
+              {challenge.challenge_date} · {challenge.category}
             </span>
             <span className="mt-1 block text-lg font-bold">
-              {scenario.title}
+              {challenge.name}
             </span>
           </span>
           <span className="rounded-full bg-white/10 px-4 py-2 text-sm font-semibold">

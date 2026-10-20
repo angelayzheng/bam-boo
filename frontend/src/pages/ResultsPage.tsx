@@ -1,15 +1,17 @@
 import Header from '../components/Header'
 import { CheckIcon, StarIcon } from '../components/icons'
-import scenario, { levelDateLabel } from '../scenario'
-import type { ResultData } from '../types'
+import { challengeDateLabel } from '../challenges'
+import type { Challenge, ResultData } from '../types'
 
 interface ResultsPageProps {
+  challenge: Challenge
   result: ResultData
   onHome: () => void
   onRetry: () => void
 }
 
 export default function ResultsPage({
+  challenge,
   result,
   onHome,
   onRetry,
@@ -19,23 +21,21 @@ export default function ResultsPage({
       earned: result.toneCorrect,
       title: 'Read the tone',
       detail: result.toneCorrect
-        ? 'You recognized the customer was anxious.'
-        : 'Expected an anxious or concerned tone.',
+        ? `You recognized the customer was ${challenge.tone}.`
+        : `Expected tone: ${challenge.tone}.`,
     },
     {
       earned: result.toneTime <= 10,
       title: 'Quick instinct',
       detail:
         result.toneTime <= 10
-          ? `Identified in ${result.toneTime} seconds.`
-          : `Identified in ${result.toneTime} seconds. Aim for 10.`,
+          ? `Tone identified in ${result.toneTime} seconds.`
+          : `Tone identified in ${result.toneTime} seconds. Aim for 10.`,
     },
     {
       earned: result.actionCorrect,
-      title: 'Right next step',
-      detail: result.actionCorrect
-        ? 'You protected the card and started the dispute process.'
-        : scenario.actionHint,
+      title: 'Correct next step',
+      detail: `${result.actionCorrect ? 'You identified the next step' : 'Expected next step'}: ${challenge.required_action}.`,
     },
   ]
   const stars = achievements.filter(({ earned }) => earned).length
@@ -54,7 +54,7 @@ export default function ResultsPage({
           {stars === 3 ? 'Beautifully handled.' : 'Good work. Keep listening.'}
         </h1>
         <p className="mt-4 max-w-lg text-base leading-7 text-slate-300">
-          “{scenario.title}” · {levelDateLabel}
+          “{challenge.name}” · {challengeDateLabel(challenge)}
         </p>
 
         <div

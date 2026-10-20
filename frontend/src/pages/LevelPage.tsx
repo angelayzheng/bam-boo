@@ -2,22 +2,35 @@ import { useEffect, useRef, useState } from 'react'
 import AudioPlayer from '../components/AudioPlayer'
 import Header from '../components/Header'
 import { ArrowLeftIcon, CheckIcon } from '../components/icons'
-import scenario, { levelDateLabel } from '../scenario'
-import type { ResultData } from '../types'
+import { challengeDateLabel } from '../challenges'
+import { matchesAnswer, respond, responseOptions } from '../conversation'
+import type { Challenge, ConversationNode, ResultData } from '../types'
 
 type Stage = 'tone' | 'response' | 'action'
 
 interface LevelPageProps {
+  challenge: Challenge
   onExit: () => void
   onComplete: (result: ResultData) => void
 }
 
-export default function LevelPage({ onExit, onComplete }: LevelPageProps) {
+export default function LevelPage({
+  challenge,
+  onExit,
+  onComplete,
+}: LevelPageProps) {
   const [stage, setStage] = useState<Stage>('tone')
   const [tone, setTone] = useState('')
   const [toneTime, setToneTime] = useState(0)
   const [toneCorrect, setToneCorrect] = useState(false)
-  const [selectedResponse, setSelectedResponse] = useState<number | null>(null)
+  const [selectedResponse, setSelectedResponse] =
+    useState<ConversationNode | null>(null)
+  const [path, setPath] = useState<ConversationNode[]>([
+    challenge.conversation_tree,
+  ])
+  const [activeAudio, setActiveAudio] = useState('')
+  const options = responseOptions(path)
+  const conversationFinished = options.length === 0
   const [nextAction, setNextAction] = useState('')
   const startedAt = useRef(0)
 
@@ -30,37 +43,25 @@ export default function LevelPage({ onExit, onComplete }: LevelPageProps) {
       1,
       Math.round((Date.now() - startedAt.current) / 1000),
     )
-    const normalized = tone.toLowerCase().trim()
     setToneTime(elapsed)
-    setToneCorrect(
-      scenario.toneAnswers.some((answer) => normalized.includes(answer)),
-    )
+    setToneCorrect(matchesAnswer(tone, challenge.tone))
     setStage('response')
   }
 
   const submitAction = () => {
-    const normalized = nextAction.toLowerCase()
-    const mentionsCard = normalized.includes('card')
-    const mentionsSecure = [
-      'lock',
-      'freeze',
-      'block',
-      'cancel',
-      'secure',
-      'replace',
-    ].some((word) => normalized.includes(word))
-    const mentionsFraud = [
-      'fraud',
-      'dispute',
-      'unauthorized',
-      'investigation',
-      'claim',
-    ].some((word) => normalized.includes(word))
     onComplete({
+      challengeId: challenge.id,
       toneCorrect,
       toneTime,
-      actionCorrect: mentionsCard && (mentionsSecure || mentionsFraud),
+      actionCorrect: matchesAnswer(nextAction, challenge.required_action),
     })
+  }
+
+  const sendResponse = () => {
+    if (!selectedResponse) return
+    setPath(respond(path, selectedResponse))
+    setActiveAudio(selectedResponse.text_file)
+    setSelectedResponse(null)
   }
 
   const stepNumber = stage === 'tone' ? 1 : stage === 'response' ? 2 : 3
@@ -78,7 +79,7 @@ export default function LevelPage({ onExit, onComplete }: LevelPageProps) {
             <ArrowLeftIcon /> Exit level
           </button>
           <span className="text-right text-xs font-bold tracking-[0.12em] text-[#19856a] uppercase">
-            Level {scenario.level} · {levelDateLabel}
+            {challengeDateLabel(challenge)}
           </span>
         </div>
 
@@ -97,17 +98,17 @@ export default function LevelPage({ onExit, onComplete }: LevelPageProps) {
 
         <div className="mb-6">
           <p className="text-xs font-bold tracking-[0.14em] text-[#cf6029] uppercase">
-            {scenario.category}
+            {challenge.category}
           </p>
           <h1 className="mt-2 text-3xl font-bold tracking-[-0.025em] text-[#17243d] sm:text-4xl">
-            {scenario.title}
+            {challenge.name}
           </h1>
         </div>
 
         {stage === 'tone' && (
           <div className="animate-[fade-in_.35s_ease-out]">
             <AudioPlayer
-              text={scenario.opening}
+              node={challenge.conversation_tree}
               label="Opening statement"
               autoPlay
             />
@@ -159,62 +160,101 @@ export default function LevelPage({ onExit, onComplete }: LevelPageProps) {
           </div>
         )}
 
+        {stage !== 'tone' && (
+          <section className="mb-6" aria-label="Conversation history">
+            <h2 className="mb-4 text-xl font-bold text-[#17243d]">
+              Your conversation
+            </h2>
+            <ol
+              className="grid gap-4"
+              aria-live="polite"
+              aria-relevant="additions"
+            >
+              {path.map((node, index) => (
+                <li
+                  key={node.text_file}
+                  className={
+                    node.type === 'response' ? 'ml-6 sm:ml-12' : 'mr-6 sm:mr-12'
+                  }
+                >
+                  <AudioPlayer
+                    node={node}
+                    label={
+                      node.type === 'question'
+                        ? 'Customer'
+                        : 'You · Support agent'
+                    }
+                    autoPlay={activeAudio === node.text_file}
+                    onEnded={() =>
+                      setActiveAudio(path[index + 1]?.text_file ?? '')
+                    }
+                  />
+                </li>
+              ))}
+            </ol>
+          </section>
+        )}
+
         {stage === 'response' && (
           <div className="animate-[fade-in_.35s_ease-out]">
             <div className="mb-5 rounded-2xl border border-[#bdebdc] bg-[#eefbf6] px-4 py-3 text-sm text-[#176d59]">
               <span className="font-bold">Tone captured:</span> {tone} ·{' '}
               {toneTime} seconds
             </div>
-            <AudioPlayer
-              text={scenario.customerReply}
-              label="Customer follow-up"
-              autoPlay
-            />
-            <section className="mt-6 rounded-3xl border border-slate-200 bg-white p-6 sm:p-8">
+            <section className="rounded-3xl border border-slate-200 bg-white p-6 sm:p-8">
               <p className="text-xs font-bold tracking-[0.15em] text-[#19856a] uppercase">
                 Listen and respond
               </p>
               <h2 className="mt-2 text-2xl font-bold tracking-tight text-[#17243d]">
-                What would you ask next?
+                {conversationFinished
+                  ? 'Conversation complete'
+                  : 'What would you say next?'}
               </h2>
               <p className="mt-2 text-sm leading-6 text-slate-500">
-                Choose the response that moves the call forward with care.
+                {conversationFinished
+                  ? 'Review the customer’s final reply, then decide your next action.'
+                  : 'Choose your reply. The customer will respond based on the path you take.'}
               </p>
-              <div
-                className="mt-6 grid gap-3"
-                role="radiogroup"
-                aria-label="Follow-up response"
-              >
-                {scenario.responses.map((response, index) => (
-                  <button
-                    key={response}
-                    type="button"
-                    role="radio"
-                    aria-checked={selectedResponse === index}
-                    onClick={() => setSelectedResponse(index)}
-                    className={`flex items-start gap-4 rounded-2xl border-2 p-4 text-left transition ${selectedResponse === index ? 'border-[#29b88e] bg-[#eefbf6]' : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'}`}
-                  >
-                    <span
-                      className={`mt-0.5 grid size-6 shrink-0 place-items-center rounded-full border-2 ${selectedResponse === index ? 'border-[#29b88e] bg-[#29b88e] text-white' : 'border-slate-300'}`}
+              {!conversationFinished && (
+                <fieldset className="mt-6 grid gap-3">
+                  <legend className="sr-only">Your next response</legend>
+                  {options.map((response) => (
+                    <label
+                      key={response.text_file}
+                      className={`flex cursor-pointer items-start gap-4 rounded-2xl border-2 p-4 transition ${selectedResponse === response ? 'border-[#29b88e] bg-[#eefbf6]' : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'}`}
                     >
-                      {selectedResponse === index && (
-                        <CheckIcon className="size-3.5" />
-                      )}
-                    </span>
-                    <span className="text-sm leading-6 font-medium text-slate-700">
-                      {response}
-                    </span>
-                  </button>
-                ))}
-              </div>
+                      <input
+                        type="radio"
+                        name="response"
+                        value={response.text_file}
+                        checked={selectedResponse === response}
+                        onChange={() => setSelectedResponse(response)}
+                        className="mt-1 size-5 shrink-0 accent-[#19856a]"
+                      />
+                      <span className="text-sm leading-6 font-medium text-slate-700">
+                        {response.text}
+                      </span>
+                    </label>
+                  ))}
+                </fieldset>
+              )}
               <div className="mt-6 flex justify-end">
                 <button
                   type="button"
-                  disabled={selectedResponse === null}
-                  onClick={() => setStage('action')}
+                  disabled={!conversationFinished && selectedResponse === null}
+                  onClick={
+                    conversationFinished
+                      ? () => {
+                          setActiveAudio('')
+                          setStage('action')
+                        }
+                      : sendResponse
+                  }
                   className="rounded-xl bg-[#17243d] px-5 py-3 text-sm font-bold text-white transition hover:bg-[#223253] disabled:cursor-not-allowed disabled:opacity-35"
                 >
-                  Continue
+                  {conversationFinished
+                    ? 'Continue to next action'
+                    : 'Send response'}
                 </button>
               </div>
             </section>
@@ -251,7 +291,7 @@ export default function LevelPage({ onExit, onComplete }: LevelPageProps) {
                 rows={4}
                 value={nextAction}
                 onChange={(event) => setNextAction(event.target.value)}
-                placeholder="e.g. Freeze the card and open a fraud claim..."
+                placeholder="Describe the action you would take…"
                 autoFocus
                 className="w-full resize-none rounded-2xl border-2 border-slate-200 bg-[#fbfcfa] px-4 py-4 text-base leading-6 text-slate-900 transition outline-none placeholder:text-slate-300 focus:border-[#29b88e] focus:ring-4 focus:ring-[#29b88e]/10"
               />

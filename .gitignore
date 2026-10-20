@@ -3,6 +3,7 @@ __pycache__/
 *.py[cod]
 *.sqlite3
 backend/.venv/
+backend/media/
 
 # Node
 frontend/node_modules/
@@ -12,3 +13,7 @@ frontend/dist/
 .env
 .env.*
 !.env.example
+
+# Downloaded Numberbatch dataset (see data/README.md)
+/data/*.txt.gz
+/data/*.txt.gz.part
