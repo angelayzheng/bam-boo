@@ -99,7 +99,9 @@ class Command(BaseCommand):
             deleted, _ = ToneVector.objects.all().delete()
             self.stdout.write(f"Cleared {deleted} existing rows.")
 
-        self.stdout.write(f"Reading vectors from {data_path.name}... (may take a while)")
+        self.stdout.write(
+            f"Reading vectors from {data_path.name}... (may take a while)"
+        )
         count = 0
         batch = []
 
