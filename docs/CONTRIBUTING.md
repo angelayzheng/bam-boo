@@ -33,12 +33,6 @@ test(frontend): cover project form validation
 chore: update Django dependencies
 ```
 
-For breaking changes, add `!` after the type or scope and explain the change in the commit body or footer:
-
-```text
-feat(api)!: replace project response format
-```
-
 Prefer one logical change per commit. Keep commits small enough to review and avoid mixing formatting-only changes with behavior changes.
 
 ## Branches and pull requests
@@ -52,14 +46,24 @@ Prefer one logical change per commit. Keep commits small enough to review and av
 - Request review before merging and resolve review comments in follow-up commits (GitHub will automatically request reviews from code owners).
 - `main` is protected. Do not push directly to it. Open pull requests into `main` for review and merge.
 
+## Pre-commit checks
+
+Enable the shared hook once per clone with `git config --local core.hooksPath .githooks`. Before every commit, `.githooks/pre-commit` runs the same frontend tests, formatting, lint, build, Django checks, Black formatting, migration checks, and backend tests as CI. A failed command blocks the commit. Checks cover the entire working tree, including unstaged changes. Install both projects' dependencies first; see [SETUP.md](SETUP.md#enable-pre-commit-checks). To run the hook manually, use `bash .githooks/pre-commit` from the repository root.
+
 ## Before opening a pull request
 
 Run the checks relevant to your changes from the repository root:
 
 ```bash
 backend/.venv/bin/python backend/manage.py check
+backend/.venv/bin/python backend/manage.py test --noinput
+backend/.venv/bin/python backend/manage.py makemigrations --check --dry-run
 backend/.venv/bin/python -m black --check backend
-cd frontend && npm run build && npm run lint && npm run lint:js
+cd frontend && npm test && npm run build && npm run lint && npm run lint:js
 ```
 
 Also verify that new dependencies are recorded in the appropriate dependency file and that generated or local-only files are not included in the commit.
+
+## Continuous integration
+
+GitHub Actions runs the `Frontend` and `Backend` jobs in `.github/workflows/ci.yml` on every push and pull request. You can also start the CI workflow manually from the Actions tab after it is on the default branch. Both jobs must pass before merging; CI uses Node 24 and Python 3.14 and runs the tests and checks above.

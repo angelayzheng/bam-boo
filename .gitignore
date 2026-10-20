@@ -13,3 +13,7 @@ frontend/dist/
 .env
 .env.*
 !.env.example
+
+# Downloaded Numberbatch dataset (see data/README.md)
+/data/*.txt.gz
+/data/*.txt.gz.part
