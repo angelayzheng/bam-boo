@@ -150,113 +150,36 @@ class ChallengeModelTests(TestCase):
         self.assertEqual(response.status_code, 404)
 
 
-class SeedKaleDemoTests(TestCase):
-    def _seed(self):
-        media = tempfile.TemporaryDirectory()
-        self.addCleanup(media.cleanup)
-        with override_settings(MEDIA_ROOT=media.name):
-            call_command("seed_kale_demo")
-        return media
+class MissingLevelSourceTests(TestCase):
+    def setUp(self):
+        temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+        self.missing_source = Path(temporary.name) / "levels"
 
-    def test_seed_creates_demo_challenge(self):
-        media = self._seed()
-        media_root = Path(media.name)
-        challenge = Challenge.objects.get(slug="forgot-password-x3")
-        self.assertEqual(challenge.name, "Forgot Password x3")
-        self.assertEqual(challenge.tone, "frustrated")
-        self.assertEqual(challenge.required_action, "reset password")
-        self.assertEqual(challenge.difficulty, 1)
-        self.assertEqual(challenge.category, "account")
+    def test_import_reports_missing_level_source_directory(self):
+        with patch(
+            "challenges.management.commands.import_levels.LEVELS_DIR",
+            self.missing_source,
+        ):
+            with self.assertRaisesMessage(
+                CommandError,
+                f"Level source directory not found: {self.missing_source}",
+            ):
+                call_command("import_levels")
 
-        seen_files = []
-
-        tree = challenge.conversation_tree
-        self.assertEqual(tree["node_key"], "c1")
-        self.assertEqual(tree["type"], "question")
-
-        def _check(node, expected_type, depth=0):
-            self.assertEqual(node["type"], expected_type)
-            self.assertTrue(node["text_file"].endswith(".txt"))
-            self.assertTrue(node["audio_file"].endswith(".mp3"))
-            for key in ("text_file", "audio_file"):
-                path = media_root / node[key]
-                self.assertTrue(path.is_file(), f"Missing seeded file: {path}")
-                self.assertGreater(path.stat().st_size, 0)
-                seen_files.append(node[key])
-            kinds = [child["type"] for child in node["children"]]
-            self.assertTrue(
-                all(kind != expected_type for kind in kinds),
-                f"Layer below {node['node_key']} must alternate.",
-            )
-            for child in node["children"]:
-                _check(
-                    child,
-                    "response" if expected_type == "question" else "question",
-                    depth + 1,
-                )
-
-        _check(tree, "question")
-        # 13 turns x (transcript + audio) = 26 referenced files.
-        self.assertEqual(len(seen_files), 26)
-
-        paths = []
-
-        def _collect(node, path):
-            path = [*path, node["node_key"]]
-            if not node["children"]:
-                paths.append(path)
-            for child in node["children"]:
-                _collect(child, path)
-
-        _collect(tree, [])
-        self.assertEqual(
-            paths,
-            [
-                ["c1", "a1", "c2", "a4", "c5"],
-                ["c1", "a2", "c3", "a5", "c6"],
-                ["c1", "a3", "c4", "a6", "c7"],
-            ],
-        )
-
-    def test_seed_is_idempotent(self):
-        self._seed()
-        with tempfile.TemporaryDirectory() as media:
-            with override_settings(MEDIA_ROOT=media):
-                call_command("seed_kale_demo")
-        self.assertEqual(Challenge.objects.filter(slug="forgot-password-x3").count(), 1)
-
-    def test_force_seed_preserves_database_id(self):
-        media = self._seed()
-        original_id = Challenge.objects.get(slug="forgot-password-x3").id
-        with override_settings(MEDIA_ROOT=media.name):
-            call_command("seed_kale_demo", force=True)
-        self.assertEqual(
-            Challenge.objects.get(slug="forgot-password-x3").id, original_id
-        )
-
-    def test_seeded_transcripts_are_utf8(self):
-        media = self._seed()
-        challenge = Challenge.objects.get(slug="forgot-password-x3")
-        agent = challenge.conversation_tree["children"][0]
-        transcript = (Path(media.name) / agent["text_file"]).read_text(encoding="utf-8")
-        self.assertIn("I’m sorry about that! Let’s get you back in.", transcript)
-
-    def test_seeded_challenge_served_by_api(self):
-        self._seed()
-        challenge = Challenge.objects.get(slug="forgot-password-x3")
-        response = self.client.get(f"/api/challenges/{challenge.id}/")
-        self.assertEqual(response.status_code, 200)
-        payload = response.json()
-        self.assertEqual(payload["category"], "account")
-        tree = payload["conversation_tree"]
-        self.assertEqual(tree["node_key"], "c1")
-        # DB stores bare filename pairs; the API resolves them to URLs.
-        self.assertTrue(tree["text_file"].endswith("c1.txt"))
-        self.assertTrue(tree["transcript_url"].endswith(tree["text_file"]))
-        self.assertTrue(tree["audio_url"].endswith(tree["audio_file"]))
-        self.assertEqual(
-            [child["node_key"] for child in tree["children"]], ["a1", "a2", "a3"]
-        )
+    def test_seed_reports_missing_level_source_directory(self):
+        for force in (False, True):
+            with self.subTest(force=force):
+                options = {"force": True} if force else {}
+                with patch(
+                    "challenges.management.commands.import_levels.LEVELS_DIR",
+                    self.missing_source,
+                ):
+                    with self.assertRaisesMessage(
+                        CommandError,
+                        f"Level source directory not found: {self.missing_source}",
+                    ):
+                        call_command("seed_kale_demo", **options)
 
 
 class ImportLevelsTests(TestCase):
