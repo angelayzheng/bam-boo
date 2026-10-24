@@ -10,7 +10,7 @@ from django.core.management import call_command
 from django.core.management.base import CommandError
 from django.test import TestCase
 
-from tone.management.commands.load_vectors import _vector_bytes
+from tone.management.commands.load_vectors import Command, _vector_bytes
 from tone.models import ToneVector
 
 # A tiny three-word, two-dimension dataset that exercises the full load path
@@ -111,7 +111,7 @@ class LoadVectorsCommandTests(TestCase):
         self.assertEqual(ToneVector.objects.count(), 3)
         self.assertFalse(ToneVector.objects.filter(word="old").exists())
 
-    def test_missing_file_downloads_automatically(self):
+    def test_setup_downloads_missing_file_automatically(self):
         missing = Path(self.tmpdir.name) / "missing.gz"
         with patch(
             "tone.management.commands.load_vectors.urlretrieve"
@@ -127,6 +127,13 @@ class LoadVectorsCommandTests(TestCase):
         self.assertTrue(missing.is_file())
         self.assertIn("Download complete", out)
         self.assertEqual(ToneVector.objects.count(), 3)
+
+    def test_load_missing_file_raises(self):
+        command = Command()
+        with self.assertRaisesMessage(
+            CommandError, f"Numberbatch file does not exist: {self.data_file}"
+        ):
+            command._load_vectors(self.data_file, clear=False)
 
     def test_failed_download_removes_partial_file(self):
         missing = Path(self.tmpdir.name) / "missing.gz"

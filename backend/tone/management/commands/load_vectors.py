@@ -12,7 +12,7 @@ from django.db import transaction
 
 from tone.models import ToneVector
 
-URL = "https://conceptnet.s3.amazonaws.com/downloads/2019/numberbatch/numberbatch-en-19.08.txt.gz"
+VECTORS_URL = "https://conceptnet.s3.amazonaws.com/downloads/2019/numberbatch/numberbatch-en-19.08.txt.gz"
 FILENAME = "numberbatch-en-19.08.txt.gz"
 BATCH_SIZE = 5_000
 
@@ -52,13 +52,7 @@ class Command(BaseCommand):
             else Path(settings.BASE_DIR).parent / "data" / FILENAME
         )
 
-        # Everything that touches the database runs in one transaction, so any
-        # error (bad line, interrupted run) rolls back both the --clear and
-        # any rows loaded so far, leaving the table exactly as it was.
-        with transaction.atomic():
-            count, expected_count = self._load_vectors(
-                data_path, clear=options["clear"]
-            )
+        count, expected_count = self._setup(data_path, clear=options["clear"])
 
         if count != expected_count:
             self.stderr.write(
@@ -78,23 +72,28 @@ class Command(BaseCommand):
         data_path.parent.mkdir(parents=True, exist_ok=True)
         partial_path = data_path.with_name(data_path.name + ".part")
         try:
-            urlretrieve(URL, partial_path)
+            urlretrieve(VECTORS_URL, partial_path)
             partial_path.replace(data_path)
         except BaseException:
             partial_path.unlink(missing_ok=True)
             raise
 
-    def _load_vectors(self, data_path: Path, clear: bool) -> tuple[int, int]:
-        """Stream the file into the database. Returns (loaded, expected) counts.
-
-        Downloads the file first if it is missing.
-        """
+    def _setup(self, data_path: Path, clear: bool) -> tuple[int, int]:
+        """Download the vector file if needed, then load it into the database."""
         if not data_path.exists():
             self.stdout.write(f"Downloading Numberbatch vectors to {data_path}...")
             self._download(data_path)
             self.stdout.write(self.style.SUCCESS("Download complete."))
 
-        # Clear only after the file is confirmed to exist (or downloaded).
+        # Keep database changes atomic so a failed load rolls back --clear too.
+        with transaction.atomic():
+            return self._load_vectors(data_path, clear=clear)
+
+    def _load_vectors(self, data_path: Path, clear: bool) -> tuple[int, int]:
+        """Stream an existing file into the database; return loaded and expected counts."""
+        if not data_path.exists():
+            raise CommandError(f"Numberbatch file does not exist: {data_path}")
+
         if clear:
             deleted, _ = ToneVector.objects.all().delete()
             self.stdout.write(f"Cleared {deleted} existing rows.")
