@@ -52,7 +52,10 @@ class Command(BaseCommand):
             else Path(settings.BASE_DIR).parent / "data" / FILENAME
         )
 
-        count, expected_count = self._setup(data_path, clear=options["clear"])
+        result = self._setup(data_path, clear=options["clear"])
+        if result is None:
+            return
+        count, expected_count = result
 
         if count != expected_count:
             self.stderr.write(
@@ -78,8 +81,12 @@ class Command(BaseCommand):
             partial_path.unlink(missing_ok=True)
             raise
 
-    def _setup(self, data_path: Path, clear: bool) -> tuple[int, int]:
+    def _setup(self, data_path: Path, clear: bool) -> tuple[int, int] | None:
         """Download the vector file if needed, then load it into the database."""
+        if not clear and self._vectors_loaded():
+            self.stdout.write("Vectors already loaded; skipping.")
+            return None
+
         if not data_path.exists():
             self.stdout.write(f"Downloading Numberbatch vectors to {data_path}...")
             self._download(data_path)
@@ -88,6 +95,10 @@ class Command(BaseCommand):
         # Keep database changes atomic so a failed load rolls back --clear too.
         with transaction.atomic():
             return self._load_vectors(data_path, clear=clear)
+
+    @staticmethod
+    def _vectors_loaded() -> bool:
+        return ToneVector.objects.exists()
 
     def _load_vectors(self, data_path: Path, clear: bool) -> tuple[int, int]:
         """Stream an existing file into the database; return loaded and expected counts."""

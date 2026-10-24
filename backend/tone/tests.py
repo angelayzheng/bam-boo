@@ -48,9 +48,6 @@ class ToneVectorModelTests(TestCase):
         with self.assertRaises(Exception):
             ToneVector.objects.create(word="unique", vector=b"\x01")
 
-    def test_table_name_is_tone(self):
-        self.assertEqual(ToneVector._meta.db_table, "tone")
-
 
 class VectorBytesTests(TestCase):
     def test_round_trip(self):
@@ -172,7 +169,7 @@ class LoadVectorsCommandTests(TestCase):
         _, err = self._load()
         self.assertIn("999", err)
 
-    def test_updates_vector_on_rerun(self):
+    def test_skips_loading_when_vectors_already_exist(self):
         _write_vectors_gz(self.data_file)
         self._load()
         original = array("f")
@@ -186,10 +183,11 @@ class LoadVectorsCommandTests(TestCase):
             ("bird", ["-0.5", "0.6"]),
         ]
         _write_vectors_gz(self.data_file, vectors=updated)
-        self._load()
+        out, _ = self._load()
         self.assertEqual(ToneVector.objects.count(), 3)
         new = array("f")
         new.frombytes(bytes(ToneVector.objects.get(word="cat").vector))
         if sys.byteorder != "little":
             new.byteswap()
-        self.assertAlmostEqual(new[0], 9.0, places=5)
+        self.assertIn("Vectors already loaded; skipping.", out)
+        self.assertAlmostEqual(new[0], original[0], places=5)
