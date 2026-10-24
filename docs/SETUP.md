@@ -33,6 +33,15 @@ backend/.venv/bin/python -m pip install -r backend/requirements.txt
 backend/.venv/bin/python backend/manage.py migrate
 ```
 
+Load the ConceptNet Numberbatch word vectors (a large download, so this takes a few minutes):
+
+```bash
+backend/.venv/bin/python backend/manage.py load_vectors
+```
+
+The command downloads the vector file if needed. If vectors are already present, it skips loading by default. 
+
+
 Tailwind is included in the frontend dependencies. The virtual environment, SQLite database, and build output stay local and are not committed.
 
 ### Enable pre-commit checks
