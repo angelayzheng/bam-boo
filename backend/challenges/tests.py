@@ -95,25 +95,21 @@ class ConversationTreeValidatorTests(TestCase):
 
 
 class ChallengeModelTests(TestCase):
-    def test_level_id_is_unique_and_stable_when_metadata_changes(self):
+    def test_slug_is_unique_and_stable_when_metadata_changes(self):
         challenge = make_challenge()
-        self.assertEqual(challenge.level_id, "2026-10-14-morning-greeting")
+        self.assertEqual(challenge.slug, "morning-greeting")
         challenge.name = "Updated Greeting"
         challenge.challenge_date = "2026-10-20"
         challenge.save()
         challenge.refresh_from_db()
-        self.assertEqual(challenge.level_id, "2026-10-14-morning-greeting")
+        self.assertEqual(challenge.slug, "morning-greeting")
         with self.assertRaises(ValidationError):
-            make_challenge(
-                name="Another Greeting",
-                slug="another-greeting",
-                level_id=challenge.level_id,
-            )
+            make_challenge(name="Another Greeting", slug=challenge.slug)
 
-    def test_multiple_levels_can_share_a_date(self):
+    def test_multiple_challenges_can_share_a_date(self):
         first = make_challenge()
         second = make_challenge(name="Evening Greeting", slug="evening-greeting")
-        self.assertNotEqual(first.level_id, second.level_id)
+        self.assertNotEqual(first.slug, second.slug)
 
     def test_difficulty_bounds_enforced(self):
         with self.assertRaises(ValidationError):
@@ -128,7 +124,7 @@ class ChallengeModelTests(TestCase):
         detail = self.client.get(f"/api/challenges/{challenge.id}/")
         self.assertEqual(detail.status_code, 200)
         payload = detail.json()
-        self.assertEqual(payload["level_id"], "2026-10-14-morning-greeting")
+        self.assertEqual(payload["slug"], "morning-greeting")
         self.assertEqual(payload["name"], "Morning Greeting")
         self.assertEqual(payload["required_action"], "Greet the customer warmly.")
         self.assertEqual(payload["conversation_tree"]["node_key"], "q1")
@@ -150,39 +146,39 @@ class ChallengeModelTests(TestCase):
         self.assertEqual(response.status_code, 404)
 
 
-class MissingLevelSourceTests(TestCase):
+class MissingChallengeSourceTests(TestCase):
     def setUp(self):
         temporary = tempfile.TemporaryDirectory()
         self.addCleanup(temporary.cleanup)
-        self.missing_source = Path(temporary.name) / "levels"
+        self.missing_source = Path(temporary.name) / "challenges"
 
-    def test_import_reports_missing_level_source_directory(self):
+    def test_import_reports_missing_challenge_source_directory(self):
         with patch(
-            "challenges.management.commands.import_levels.LEVELS_DIR",
+            "challenges.management.commands.import_challenges.CHALLENGES_DIR",
             self.missing_source,
         ):
             with self.assertRaisesMessage(
                 CommandError,
-                f"Level source directory not found: {self.missing_source}",
+                f"Challenge source directory not found: {self.missing_source}",
             ):
-                call_command("import_levels")
+                call_command("import_challenges")
 
-    def test_seed_reports_missing_level_source_directory(self):
+    def test_seed_reports_missing_challenge_source_directory(self):
         for force in (False, True):
             with self.subTest(force=force):
                 options = {"force": True} if force else {}
                 with patch(
-                    "challenges.management.commands.import_levels.LEVELS_DIR",
+                    "challenges.management.commands.import_challenges.CHALLENGES_DIR",
                     self.missing_source,
                 ):
                     with self.assertRaisesMessage(
                         CommandError,
-                        f"Level source directory not found: {self.missing_source}",
+                        f"Challenge source directory not found: {self.missing_source}",
                     ):
                         call_command("seed_kale_demo", **options)
 
 
-class ImportLevelsTests(TestCase):
+class ImportChallengesTests(TestCase):
     def setUp(self):
         source = tempfile.TemporaryDirectory()
         media = tempfile.TemporaryDirectory()
@@ -194,21 +190,20 @@ class ImportLevelsTests(TestCase):
         settings_override.enable()
         self.addCleanup(settings_override.disable)
         source_override = patch(
-            "challenges.management.commands.import_levels.LEVELS_DIR", self.source
+            "challenges.management.commands.import_challenges.CHALLENGES_DIR",
+            self.source,
         )
         source_override.start()
         self.addCleanup(source_override.stop)
 
     def _package(self, slug="greeting"):
-        level_id = f"2026-10-15-{slug}"
-        folder = self.source / level_id
+        folder = self.source / slug
         tree = deepcopy(VALID_TREE)
 
         def create_files(node):
-            speaker = "customer" if node["type"] == "question" else "agent"
             key = node["node_key"]
-            node["text_file"] = f"transcripts/{speaker}/{key}.txt"
-            node["audio_file"] = f"audio/{speaker}/{key}.mp3"
+            node["text_file"] = f"transcripts/{key}.txt"
+            node["audio_file"] = f"audio/{key}.mp3"
             for field in ("text_file", "audio_file"):
                 target = folder / node[field]
                 target.parent.mkdir(parents=True, exist_ok=True)
@@ -218,7 +213,6 @@ class ImportLevelsTests(TestCase):
 
         create_files(tree)
         manifest = {
-            "level_id": level_id,
             "name": slug.title(),
             "slug": slug,
             "challenge_date": "2026-10-15",
@@ -232,15 +226,17 @@ class ImportLevelsTests(TestCase):
         return folder, manifest
 
     def _write_manifest(self, folder, manifest):
-        (folder / "level.json").write_text(json.dumps(manifest), encoding="utf-8")
+        (folder / f"{folder.name}.json").write_text(
+            json.dumps(manifest), encoding="utf-8"
+        )
 
-    def test_imports_all_levels_into_separate_local_directories(self):
+    def test_imports_all_challenges_into_separate_local_directories(self):
         for slug in ("greeting", "farewell"):
             self._package(slug)
-        call_command("import_levels")
+        call_command("import_challenges")
         self.assertEqual(Challenge.objects.count(), 2)
         for challenge in Challenge.objects.all():
-            prefix = f"levels/{challenge.level_id}/"
+            prefix = f"challenges/{challenge.slug}/"
             node = challenge.conversation_tree
             self.assertTrue(node["text_file"].startswith(prefix))
             self.assertTrue((self.media / node["audio_file"]).is_file())
@@ -248,27 +244,27 @@ class ImportLevelsTests(TestCase):
                 "Let’s begin",
                 (self.media / node["text_file"]).read_text(encoding="utf-8"),
             )
-            self.assertTrue((self.media / prefix / "level.json").is_file())
+            self.assertTrue((self.media / prefix / f"{challenge.slug}.json").is_file())
 
-    def test_selects_a_level_by_its_stable_id(self):
+    def test_selects_a_challenge_by_its_slug(self):
         _, first = self._package()
         self._package("farewell")
-        call_command("import_levels", first["level_id"])
+        call_command("import_challenges", first["slug"])
         self.assertEqual(
-            list(Challenge.objects.values_list("level_id", flat=True)),
-            [first["level_id"]],
+            list(Challenge.objects.values_list("slug", flat=True)),
+            [first["slug"]],
         )
 
-    def test_unknown_level_is_an_actionable_error(self):
-        with self.assertRaisesMessage(CommandError, "Unknown level IDs"):
-            call_command("import_levels", "missing")
+    def test_unknown_challenge_is_an_actionable_error(self):
+        with self.assertRaisesMessage(CommandError, "Unknown challenge slugs"):
+            call_command("import_challenges", "missing")
 
-    def test_missing_file_prevents_any_selected_level_from_being_imported(self):
+    def test_missing_file_prevents_any_selected_challenge_from_being_imported(self):
         self._package("first")
         folder, manifest = self._package("second")
         (folder / manifest["conversation_tree"]["audio_file"]).unlink()
         with self.assertRaisesMessage(CommandError, "Missing or empty file"):
-            call_command("import_levels")
+            call_command("import_challenges")
         self.assertEqual(Challenge.objects.count(), 0)
         self.assertEqual(list(self.media.iterdir()), [])
 
@@ -277,40 +273,40 @@ class ImportLevelsTests(TestCase):
         (folder / manifest["conversation_tree"]["text_file"]).write_bytes(
             b"Let\x92s begin"
         )
-        with self.assertRaisesMessage(CommandError, "Invalid level package"):
-            call_command("import_levels")
+        with self.assertRaisesMessage(CommandError, "Invalid challenge package"):
+            call_command("import_challenges")
 
-    def test_folder_and_manifest_ids_must_match(self):
+    def test_folder_and_manifest_slugs_must_match(self):
         folder, manifest = self._package()
-        manifest["level_id"] = "different-level"
+        manifest["slug"] = "different-challenge"
         self._write_manifest(folder, manifest)
-        with self.assertRaisesMessage(CommandError, "level_id must match"):
-            call_command("import_levels")
+        with self.assertRaisesMessage(CommandError, "slug must match"):
+            call_command("import_challenges")
 
     def test_windows_path_traversal_in_node_key_is_rejected(self):
         folder, manifest = self._package()
         node = manifest["conversation_tree"]
         node["node_key"] = "..\\outside"
-        node["text_file"] = "transcripts/customer/..\\outside.txt"
-        node["audio_file"] = "audio/customer/..\\outside.mp3"
+        node["text_file"] = "transcripts/..\\outside.txt"
+        node["audio_file"] = "audio/..\\outside.mp3"
         self._write_manifest(folder, manifest)
         with self.assertRaises(CommandError):
-            call_command("import_levels")
+            call_command("import_challenges")
 
-    def test_existing_levels_are_skipped_until_replace_is_requested(self):
+    def test_existing_challenges_are_skipped_until_replace_is_requested(self):
         folder, manifest = self._package()
-        call_command("import_levels")
+        call_command("import_challenges")
         original = Challenge.objects.get()
         manifest["name"] = "Updated Greeting"
         self._write_manifest(folder, manifest)
-        call_command("import_levels")
+        call_command("import_challenges")
         original.refresh_from_db()
         self.assertEqual(original.name, "Greeting")
-        call_command("import_levels", replace=True)
+        call_command("import_challenges", replace=True)
         updated = Challenge.objects.get()
         self.assertEqual(updated.pk, original.pk)
         self.assertEqual(updated.name, "Updated Greeting")
-        self.assertEqual(updated.level_id, original.level_id)
+        self.assertEqual(updated.slug, original.slug)
 
     def test_duplicate_names_in_batch_are_rejected_before_installing(self):
         self._package("first")
@@ -318,12 +314,12 @@ class ImportLevelsTests(TestCase):
         manifest["name"] = "First"
         self._write_manifest(folder, manifest)
         with self.assertRaisesMessage(CommandError, "duplicate name"):
-            call_command("import_levels")
+            call_command("import_challenges")
         self.assertEqual(Challenge.objects.count(), 0)
 
     def test_failed_replace_restores_published_files(self):
         folder, manifest = self._package()
-        call_command("import_levels")
+        call_command("import_challenges")
         original = Challenge.objects.get()
         relative = manifest["conversation_tree"]["text_file"]
         original_text = (
@@ -334,12 +330,12 @@ class ImportLevelsTests(TestCase):
             Challenge, "save", side_effect=RuntimeError("Simulated failure")
         ):
             with self.assertRaisesMessage(RuntimeError, "Simulated failure"):
-                call_command("import_levels", replace=True)
+                call_command("import_challenges", replace=True)
         self.assertEqual(
             (self.media / original.conversation_tree["text_file"]).read_bytes(),
             original_text,
         )
         self.assertEqual(
-            list((self.media / "levels").iterdir()),
-            [self.media / "levels" / original.level_id],
+            list((self.media / "challenges").iterdir()),
+            [self.media / "challenges" / original.slug],
         )

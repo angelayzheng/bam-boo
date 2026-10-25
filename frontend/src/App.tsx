@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react'
 import HomePage from './pages/HomePage'
-import LevelPage from './pages/LevelPage'
+import ChallengePage from './pages/ChallengePage'
 import ResultsPage from './pages/ResultsPage'
 import { loadChallenge } from './challenges'
-import { getRoute, levelPath, resultsPath } from './routes'
+import { challengePath, getRoute, resultsPath } from './routes'
 import type { Challenge, ResultData } from './types'
 
-const RESULT_STORAGE_KEY = 'bam-boo:last-level-result'
+const RESULT_STORAGE_KEY = 'bam-boo:last-challenge-result'
 
 function loadSavedResult(): ResultData | null {
   try {
@@ -54,14 +54,14 @@ function App() {
     window.scrollTo(0, 0)
   }
 
-  const startLevel = () => {
+  const startChallenge = () => {
     if (!challenge) return
     setResult(null)
     window.sessionStorage.removeItem(RESULT_STORAGE_KEY)
-    navigate(levelPath(challenge.challenge_date))
+    navigate(challengePath(challenge.challenge_date))
   }
 
-  const completeLevel = (nextResult: ResultData) => {
+  const completeChallenge = (nextResult: ResultData) => {
     if (!challenge) return
     setResult(nextResult)
     window.sessionStorage.setItem(
@@ -96,12 +96,12 @@ function App() {
     )
   }
 
-  if (getRoute(pathname, challenge.challenge_date) === 'level') {
+  if (getRoute(pathname, challenge.challenge_date) === 'challenge') {
     return (
-      <LevelPage
+      <ChallengePage
         challenge={challenge}
         onExit={() => navigate('/')}
-        onComplete={completeLevel}
+        onComplete={completeChallenge}
       />
     )
   }
@@ -115,12 +115,12 @@ function App() {
         challenge={challenge}
         result={result}
         onHome={() => navigate('/')}
-        onRetry={startLevel}
+        onRetry={startChallenge}
       />
     )
   }
 
-  return <HomePage challenge={challenge} onStart={startLevel} />
+  return <HomePage challenge={challenge} onStart={startChallenge} />
 }
 
 export default App

@@ -8,17 +8,17 @@ import type { Challenge, ConversationNode, ResultData } from '../types'
 
 type Stage = 'tone' | 'response' | 'action'
 
-interface LevelPageProps {
+interface ChallengePageProps {
   challenge: Challenge
   onExit: () => void
   onComplete: (result: ResultData) => void
 }
 
-export default function LevelPage({
+export default function ChallengePage({
   challenge,
   onExit,
   onComplete,
-}: LevelPageProps) {
+}: ChallengePageProps) {
   const [stage, setStage] = useState<Stage>('tone')
   const [tone, setTone] = useState('')
   const [toneTime, setToneTime] = useState(0)
@@ -76,7 +76,7 @@ export default function LevelPage({
             onClick={onExit}
             className="flex items-center gap-1.5 text-sm font-semibold text-slate-500 transition hover:text-slate-900"
           >
-            <ArrowLeftIcon /> Exit level
+            <ArrowLeftIcon /> Exit challenge
           </button>
           <span className="text-right text-xs font-bold tracking-[0.12em] text-[#19856a] uppercase">
             {challengeDateLabel(challenge)}
@@ -301,7 +301,7 @@ export default function LevelPage({
                   disabled={!nextAction.trim()}
                   className="rounded-xl bg-[#17243d] px-6 py-3 text-sm font-bold text-white transition hover:bg-[#223253] disabled:cursor-not-allowed disabled:opacity-35"
                 >
-                  Finish level
+                  Finish challenge
                 </button>
               </div>
             </form>
