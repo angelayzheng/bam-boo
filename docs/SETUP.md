@@ -31,6 +31,7 @@ Create the backend environment, install dependencies, and prepare the database:
 python3 -m venv backend/.venv
 backend/.venv/bin/python -m pip install -r backend/requirements.txt
 backend/.venv/bin/python backend/manage.py migrate
+backend/.venv/bin/python backend/manage.py seed_kale_demo
 ```
 
 Load the ConceptNet Numberbatch word vectors (a large download, so this takes a few minutes):
@@ -41,6 +42,7 @@ backend/.venv/bin/python backend/manage.py load_vectors
 
 The command downloads the vector file if needed. If vectors are already present, it skips loading by default. 
 
+The seed command imports the bundled demo challenge so the frontend has a challenge to load. Run it again with `--force` after editing the demo package.
 
 Tailwind is included in the frontend dependencies. The virtual environment, SQLite database, and build output stay local and are not committed.
 
