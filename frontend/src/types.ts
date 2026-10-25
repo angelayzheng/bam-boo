@@ -1,4 +1,4 @@
-export type Screen = 'home' | 'level' | 'results'
+export type Screen = 'home' | 'challenge' | 'results'
 
 export interface ConversationNode {
   type: 'question' | 'response'

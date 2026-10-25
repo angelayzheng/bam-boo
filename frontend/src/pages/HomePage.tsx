@@ -8,15 +8,15 @@ interface HomePageProps {
 }
 
 export default function HomePage({ challenge, onStart }: HomePageProps) {
-  const levelDate = challengeDate(challenge)
+  const challengeDay = challengeDate(challenge)
   const startOfMonth = new Date(
-    levelDate.getFullYear(),
-    levelDate.getMonth(),
+    challengeDay.getFullYear(),
+    challengeDay.getMonth(),
     1,
   ).getDay()
   const daysInMonth = new Date(
-    levelDate.getFullYear(),
-    levelDate.getMonth() + 1,
+    challengeDay.getFullYear(),
+    challengeDay.getMonth() + 1,
     0,
   ).getDate()
   const calendarDays = Array.from(
@@ -57,7 +57,7 @@ export default function HomePage({ challenge, onStart }: HomePageProps) {
                 {new Intl.DateTimeFormat('en-CA', {
                   month: 'long',
                   year: 'numeric',
-                }).format(levelDate)}
+                }).format(challengeDay)}
               </h2>
             </div>
             <div className="flex items-center gap-4 text-xs font-medium text-slate-500">
@@ -79,7 +79,7 @@ export default function HomePage({ challenge, onStart }: HomePageProps) {
             <div className="grid min-w-0 grid-cols-7 overflow-hidden rounded-2xl border border-slate-200 bg-slate-200">
               {calendarDays.map((day, index) => {
                 const isInMonth = day > 0 && day <= daysInMonth
-                const isToday = day === levelDate.getDate()
+                const isToday = day === challengeDay.getDate()
                 const isWeekend = index % 7 === 0 || index % 7 === 6
 
                 return (
@@ -93,7 +93,7 @@ export default function HomePage({ challenge, onStart }: HomePageProps) {
                       isToday
                         ? `Start ${challenge.name}`
                         : isInMonth
-                          ? `${levelDate.toLocaleString('en-CA', { month: 'long' })} ${day}`
+                          ? `${challengeDay.toLocaleString('en-CA', { month: 'long' })} ${day}`
                           : undefined
                     }
                   >
@@ -108,7 +108,7 @@ export default function HomePage({ challenge, onStart }: HomePageProps) {
                           <span className="absolute inset-x-1 bottom-1.5 truncate rounded-xl bg-[#ff9b66] px-0.5 py-2 text-center text-[9px] font-bold text-white shadow-sm transition group-hover:bg-[#f28a50] sm:inset-x-3 sm:bottom-3 sm:px-2 sm:text-xs">
                             <span className="sm:hidden">Start</span>
                             <span className="hidden sm:inline">
-                              Start level
+                              Start challenge
                             </span>
                           </span>
                         )}

@@ -38,6 +38,7 @@ urlpatterns = [
     path("api/count/", count, name="count"),
     path("api/challenges/", include("challenges.urls")),
     path("api/users/", include("users.urls")),
+    path("api/tone/", include("tone.urls")),
     path("admin/", admin.site.urls),
 ]
 

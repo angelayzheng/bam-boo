@@ -31,7 +31,10 @@ Create the backend environment, install dependencies, and prepare the database:
 python3 -m venv backend/.venv
 backend/.venv/bin/python -m pip install -r backend/requirements.txt
 backend/.venv/bin/python backend/manage.py migrate
+backend/.venv/bin/python backend/manage.py seed_kale_demo
 ```
+
+The seed command imports the bundled demo challenge so the frontend has a challenge to load. Run it again with `--force` after editing the demo package.
 
 Tailwind is included in the frontend dependencies. The virtual environment, SQLite database, and build output stay local and are not committed.
 

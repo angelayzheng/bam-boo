@@ -31,11 +31,11 @@ See [SETUP.md](docs/SETUP.md) and [CONTRIBUTING.md](docs/CONTRIBUTING.md) for de
 
 The React and TypeScript frontend uses Vite and Tailwind CSS. It loads challenges from Django's JSON API and guides agents through tone recognition, branching conversations, and results. During development, Vite proxies `/api/` and `/media/` requests to Django.
 
-The Django backend stores challenges, conversation trees, user profiles, scores, and word embeddings in SQLite. Audio recordings and transcripts remain local media files served separately from the database. See [ARCHITECTURE.md](docs/ARCHITECTURE.md) for service boundaries and [LEVELS.md](docs/LEVELS.md) for level authoring and imports.
+The Django backend stores challenges, conversation trees, user profiles, scores, and word embeddings in SQLite. Audio recordings and transcripts remain local media files served separately from the database. See [ARCHITECTURE.md](docs/ARCHITECTURE.md) for service boundaries and [CHALLENGES.md](docs/CHALLENGES.md) for challenge authoring and imports.
 
 ```text
 backend/
-  challenges/       Challenge models, API, level imports, and source packages
+  challenges/       Challenge models, API, challenge imports, and source packages
   config/           Django settings and URL configuration
   counter/          Shared bam/boo count model and API
   tone/             Word embedding storage and import command
@@ -49,7 +49,7 @@ data/
 docs/
   ARCHITECTURE.md   System design and service boundaries
   CONTRIBUTING.md   Development guidelines
-  LEVELS.md         Level package format and import workflow
+  CHALLENGES.md     Challenge package format and import workflow
   SETUP.md          Local development setup
 frontend/
   src/

@@ -48,7 +48,7 @@ export default function ResultsPage({
           <CheckIcon className="size-8" />
         </div>
         <p className="mt-7 text-xs font-bold tracking-[0.18em] text-[#75e2c1] uppercase">
-          Level complete
+          Challenge complete
         </p>
         <h1 className="mt-3 text-4xl font-bold tracking-[-0.035em] sm:text-5xl">
           {stars === 3 ? 'Beautifully handled.' : 'Good work. Keep listening.'}
@@ -107,7 +107,7 @@ export default function ResultsPage({
             onClick={onRetry}
             className="rounded-xl border border-white/20 px-6 py-3.5 text-sm font-bold text-white transition hover:bg-white/10"
           >
-            Retry level
+            Retry challenge
           </button>
         </div>
       </main>
