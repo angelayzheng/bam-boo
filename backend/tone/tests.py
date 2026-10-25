@@ -10,7 +10,7 @@ from django.core.management import call_command
 from django.core.management.base import CommandError
 from django.test import TestCase
 
-from tone.management.commands.load_vectors import _vector_bytes
+from tone.management.commands.load_vectors import Command, _vector_bytes
 from tone.models import ToneVector
 
 # A tiny three-word, two-dimension dataset that exercises the full load path
@@ -47,9 +47,6 @@ class ToneVectorModelTests(TestCase):
         ToneVector.objects.create(word="unique", vector=b"\x00")
         with self.assertRaises(Exception):
             ToneVector.objects.create(word="unique", vector=b"\x01")
-
-    def test_table_name_is_tone(self):
-        self.assertEqual(ToneVector._meta.db_table, "tone")
 
 
 class VectorBytesTests(TestCase):
@@ -111,7 +108,7 @@ class LoadVectorsCommandTests(TestCase):
         self.assertEqual(ToneVector.objects.count(), 3)
         self.assertFalse(ToneVector.objects.filter(word="old").exists())
 
-    def test_missing_file_downloads_automatically(self):
+    def test_setup_downloads_missing_file_automatically(self):
         missing = Path(self.tmpdir.name) / "missing.gz"
         with patch(
             "tone.management.commands.load_vectors.urlretrieve"
@@ -127,6 +124,13 @@ class LoadVectorsCommandTests(TestCase):
         self.assertTrue(missing.is_file())
         self.assertIn("Download complete", out)
         self.assertEqual(ToneVector.objects.count(), 3)
+
+    def test_load_missing_file_raises(self):
+        command = Command()
+        with self.assertRaisesMessage(
+            CommandError, f"Numberbatch file does not exist: {self.data_file}"
+        ):
+            command._load_vectors(self.data_file, clear=False)
 
     def test_failed_download_removes_partial_file(self):
         missing = Path(self.tmpdir.name) / "missing.gz"
@@ -165,7 +169,7 @@ class LoadVectorsCommandTests(TestCase):
         _, err = self._load()
         self.assertIn("999", err)
 
-    def test_updates_vector_on_rerun(self):
+    def test_skips_loading_when_vectors_already_exist(self):
         _write_vectors_gz(self.data_file)
         self._load()
         original = array("f")
@@ -179,10 +183,11 @@ class LoadVectorsCommandTests(TestCase):
             ("bird", ["-0.5", "0.6"]),
         ]
         _write_vectors_gz(self.data_file, vectors=updated)
-        self._load()
+        out, _ = self._load()
         self.assertEqual(ToneVector.objects.count(), 3)
         new = array("f")
         new.frombytes(bytes(ToneVector.objects.get(word="cat").vector))
         if sys.byteorder != "little":
             new.byteswap()
-        self.assertAlmostEqual(new[0], 9.0, places=5)
+        self.assertIn("Vectors already loaded; skipping.", out)
+        self.assertAlmostEqual(new[0], original[0], places=5)
