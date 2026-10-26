@@ -78,7 +78,7 @@ frontend/
 		types.ts        Shared frontend flow types
 	    index.css       Tailwind CSS import and global styles
 			assets/         Frontend image and SVG assets
-	tests/            Node route tests using native TypeScript support
+	tests/            API-loading and conversation tests using native TypeScript support
 	package.json      npm scripts and dependencies
 	prettier.config.ts Prettier and Tailwind class-sorting configuration
 	.prettierignore   Prettier exclusions
@@ -98,11 +98,12 @@ The frontend is written in TypeScript. Its entry point is `frontend/src/main.tsx
 
 Use npm scripts from the `frontend` directory:
 
-- `npm test`: run frontend route tests directly using Node 24’s built-in test runner and TypeScript support.
 - `npm run dev`: start the Vite development server on port `5173`.
-- `npm test`: run the API-loading, branch-traversal, and answer-matching tests with Node’s built-in test runner (Node 22.18+ or 24+).
+- `npm test`: run the API-loading, branch-traversal, and answer-matching tests with Node 24’s built-in test runner and TypeScript support.
 - `npm run build`: type-check the frontend and create a production build in `frontend/dist`.
-- `npm run lint`: run the configured frontend linter.
+- `npm run lint`: check frontend formatting with Prettier.
+- `npm run lint:js`: lint JavaScript and TypeScript with Oxlint.
+- `npm run format`: apply Prettier formatting and Tailwind class sorting.
 - `npm run preview`: preview the production build locally.
 
 Tailwind CSS is integrated through `@tailwindcss/vite` in `frontend/vite.config.ts`. Add UI styling with Tailwind utility classes rather than introducing component-specific CSS files unless a custom CSS rule is necessary.
@@ -124,7 +125,7 @@ The Django project is configured in `backend/config`:
 - `settings.py` enables Django’s built-in apps, `django-cors-headers`, and SQLite.
 - `counter/` owns the shared count model and its JSON API.
 - `challenges/` owns dated challenges, their alternating question/response JSON trees, API serialization, `import_challenges`, and the compatibility `seed_kale_demo` command. Each challenge has a unique, stable slug, a unique name, and its existing numeric database ID. Changing the name or schedule date does not change the slug. SQLite stores metadata and per-turn filenames; UTF-8 transcripts and MP3s remain local files. Authored packages live in `backend/challenges/source_data/challenges/<slug>/`, with `<slug>.json`, flat `audio/`, and flat `transcripts/` folders. The folder name must match the challenge slug. The importer validates selected packages and stages each complete package under `backend/media/challenges/<slug>/`. Replacement preserves database IDs and restores old files if saving fails. See [CHALLENGES.md](CHALLENGES.md) for the manifest and authoring workflow.
-- `tone/` owns the word embeddings used by the backend to find similar words. The files are uploaded to the database and can be renamed within the tone folder (using `manage.py`). Its tone-similarity endpoint is scaffolded but not implemented.
+- `tone/` owns ConceptNet Numberbatch word embeddings stored as word/vector rows in SQLite. The `load_vectors` management command reads a compressed vector file from `data/numberbatch-en-19.08.txt.gz` or a `--file` path, downloading it if missing. It skips downloading and loading when any vectors already exist unless `--clear` is supplied to replace them. Its tone-similarity endpoint is scaffolded but not implemented; frontend tone grading uses whole-word matching.
 - `users/` owns user profiles and progress endpoints.
 - `urls.py` currently defines the following routes:
   - `/`: backend service status JSON.
@@ -182,6 +183,6 @@ Update this document in the same change whenever a structural decision changes. 
 
 Architecture changes should be called out in pull requests and reflected in the relevant setup or contribution documentation.
 
-Route tests import `routes.ts` directly with Node 24. The route module imports the shared scenario JSON with an explicit JSON import attribute, so tests need no Vite server, filesystem watcher, or native bundler. The frontend build validates Vite integration separately. Windows users run development commands and commits from WSL using the same Linux environment.
+Frontend tests import `challenges.ts` and `conversation.ts` directly with Node 24. API tests mock browser globals and fetch responses; conversation tests exercise branch traversal and answer matching. They need no running Django or Vite server, filesystem watcher, or native bundler. The frontend build validates Vite integration separately. Windows users run development commands and commits from WSL using the same Linux environment.
 
 The pre-commit hook checks platform-specific local npm launchers for Prettier, Oxlint, TypeScript, and Vite before running frontend checks. Missing launchers require reinstalling development dependencies in the committing terminal; the hook does not download dependencies automatically.
