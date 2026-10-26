@@ -8,6 +8,29 @@ Install Git, Node.js 24 with npm, and Python 3.14 or newer.
 
 Run the commands below from the repository root unless noted otherwise.
 
+### Install FFmpeg (audio normalization only)
+
+FFmpeg is only required to run the challenge audio normalizer; it is not needed to run the app. FFmpeg is a system package, so install it separately from the Python packages in `backend/requirements.txt`.
+
+On macOS with Homebrew:
+
+```bash
+brew install ffmpeg
+```
+
+On Debian or Ubuntu, including WSL:
+
+```bash
+sudo apt update
+sudo apt install ffmpeg
+```
+
+Confirm it is available:
+
+```bash
+ffmpeg -version
+```
+
 ## First-time setup
 
 Clone the repository and enter its folder:

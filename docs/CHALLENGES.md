@@ -30,6 +30,14 @@ The importer publishes the same structure beneath `backend/media/challenges/<slu
 
 2. Add one MP3 and one UTF-8 `.txt` transcript for every turn. Keep the same filename stem as the turn's unique `node_key`. Customer turns use `type: "question"`; agent turns use `type: "response"`.
 
+   Install FFmpeg and normalize all challenge recordings from the repository root:
+
+   ```bash
+   python3 scripts/normalize_audio.py
+   ```
+
+   The script scans challenge source packages recursively, normalizes MP3 files in place to approximately `-23 LUFS` integrated loudness and no higher than `-1.5 dBTP`, and skips files already within the target. It verifies each normalized file before replacing the original. Pass `--root <directory>` to scan a different folder. The bundled demo recordings use this target.
+
 3. Create `<slug>.json` inside the challenge folder, for example `account-locked.json`. Here is a minimal customer–agent–customer conversation; add sibling agent nodes under a customer's `children` array to offer branching choices:
 
    ```json
