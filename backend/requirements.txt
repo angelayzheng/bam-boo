@@ -1,4 +1,3 @@
-# The audio normalizer also requires the FFmpeg system executable; see docs/SETUP.md.
 Django==6.1.1
 django-cors-headers==4.9.0
 black==26.5.1
