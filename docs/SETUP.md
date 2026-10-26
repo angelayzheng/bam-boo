@@ -40,7 +40,14 @@ Load the ConceptNet Numberbatch word vectors (a large download, so this takes a 
 backend/.venv/bin/python backend/manage.py load_vectors
 ```
 
-The command downloads the vector file if needed. If vectors are already present, it skips loading by default. 
+The command downloads the vector file to `data/numberbatch-en-19.08.txt.gz` if needed. If the database contains any vectors, it skips both downloading and loading by default. Use `--clear` to replace existing vectors or `--file` to select a local compressed vector file:
+
+```bash
+backend/.venv/bin/python backend/manage.py load_vectors --clear
+backend/.venv/bin/python backend/manage.py load_vectors --file /path/to/numberbatch-en-19.08.txt.gz
+```
+
+Combine `--file` with `--clear` to load a different file when vectors are already present.
 
 The seed command imports the bundled demo challenge so the frontend has a challenge to load. Run it again with `--force` after editing the demo package.
 
