@@ -125,7 +125,7 @@ The Django project is configured in `backend/config`:
 - `counter/` owns the shared count model and its JSON API.
 - `challenges/` owns dated challenges, their alternating question/response JSON trees, API serialization, `import_challenges`, and the compatibility `seed_kale_demo` command. Each challenge has a unique, stable slug, a unique name, and its existing numeric database ID. Changing the name or schedule date does not change the slug. SQLite stores metadata and per-turn filenames; UTF-8 transcripts and MP3s remain local files. Authored packages live in `backend/challenges/source_data/challenges/<slug>/`, with `<slug>.json`, flat `audio/`, and flat `transcripts/` folders. The folder name must match the challenge slug. The importer validates selected packages and stages each complete package under `backend/media/challenges/<slug>/`. Replacement preserves database IDs and restores old files if saving fails. See [CHALLENGES.md](CHALLENGES.md) for the manifest and authoring workflow.
 - `tone/` owns the word embeddings used by the backend to find similar words. The files are uploaded to the database and can be renamed within the tone folder (using `manage.py`). Its tone-similarity endpoint is scaffolded but not implemented.
-- `users/` owns user profiles and progress endpoints.
+- `users/` owns user profiles, progress endpoints, and session authentication. `forms.py` extends Django's `UserCreationForm` to validate signup credentials and optional email; `views.py` uses Django's `authenticate`, `login`, and `logout` functions with the existing database session backend.
 - `urls.py` currently defines the following routes:
   - `/`: backend service status JSON.
   - `/api/health/`: health status JSON.
@@ -136,12 +136,69 @@ The Django project is configured in `backend/config`:
   - `/api/users/<id>/profile/`: existing user profile endpoint.
   - `/api/users/<username>/`: scaffolded `GET`/`POST` user read and update endpoint; returns `501` until implemented.
   - `/api/users/leaderboard/`: top ten users by total score.
+  - `/api/users/auth/csrf/`: `GET` a CSRF token and set the CSRF cookie.
+  - `/api/users/auth/signup/`: `POST` signup credentials, create an account/profile, and start a session.
+  - `/api/users/auth/login/`: `POST` credentials and start a session.
+  - `/api/users/auth/logout/`: `POST` to flush the session.
+  - `/api/users/auth/me/`: `GET` the current account, or `401` when anonymous.
   - `/api/tone/<tone1>&<tone2>/`: scaffolded tone-similarity endpoint; returns `501` until implemented.
   - `/media/`: local development transcript and MP3 serving when `DEBUG` is enabled.
   - `/admin/`: Django admin.
 - `manage.py` is the entry point for checks, migrations, and the development server.
 
 Backend dependencies are pinned in `backend/requirements.txt`. Run Django commands through the repository virtual environment.
+
+### Session authentication API
+
+Authentication uses Django's built-in `User`, its hashed passwords, and the existing one-to-one `UserProfile`. The existing signal creates the profile on signup. No additional dependencies or schema migrations are required. Profile and leaderboard reads retain their existing public behavior.
+
+Use same-origin `/api/` URLs through the Vite proxy. `CSRF_TRUSTED_ORIGINS` permits `http://localhost:5173` because proxied browser requests retain that Origin header. Direct cross-origin frontend requests to port 8000 are not the supported browser flow.
+
+| Method | Path | Request | Success |
+| --- | --- | --- | --- |
+| GET | `/api/users/auth/csrf/` | None | `200`, `{"csrfToken": "..."}` and a `csrftoken` cookie |
+| POST | `/api/users/auth/signup/` | JSON `username`, `password`, optional `email` | `201`, account and CSRF token; sets session cookie |
+| POST | `/api/users/auth/login/` | JSON `username`, `password` | `200`, account and CSRF token; sets session cookie |
+| POST | `/api/users/auth/logout/` | No body required | `200`, `{"detail": "Logged out."}`; clears session, including for an already anonymous client |
+| GET | `/api/users/auth/me/` | None | `200`, account and CSRF token |
+
+Account responses have the shape `{"user": {"id": 7, "username": "ada", "email": "ada@example.com"}, "csrfToken": "..."}`. Passwords and permissions are never included. All authentication responses disable caching. Signup accepts only username, password, and email; additional properties cannot grant privileges. Email is optional and is not a unique account identifier; login uses username. Signup applies Django's username, email, duplicate-username, and configured password validation. It returns `400` with `{"errors": {"field": ["message"]}}` for form validation failures. Malformed JSON, non-object bodies, missing credentials, non-string credential fields, or a content type other than `application/json` return `400` with `{"detail": "..."}`. Invalid credentials and inactive accounts return the same generic `401` response. Anonymous `/me/` requests return `401`. Unsupported HTTP methods return `405`.
+
+Every authentication POST, including anonymous signup/login/logout, requires the CSRF cookie and an `X-CSRFToken` header. Missing or invalid tokens and untrusted origins return Django's standard `403` response, which may be HTML. Fetch `/csrf/` before the first POST. Successful signup/login rotates the CSRF secret, so replace your saved token with the returned `csrfToken` before the next POST. Cookies identify the session on later requests; `/me/` lets the frontend restore its signed-in state after reload. Authentication does not automatically record dates in `UserProfile.login_days`.
+
+Example browser flow (with Vite and Django running):
+
+```javascript
+let { csrfToken } = await fetch('/api/users/auth/csrf/').then((r) => r.json())
+
+const response = await fetch('/api/users/auth/signup/', {
+  method: 'POST',
+  credentials: 'same-origin',
+  headers: {
+    'Content-Type': 'application/json',
+    'X-CSRFToken': csrfToken,
+  },
+  body: JSON.stringify({
+    username: 'ada',
+    password: 'River!Quartz7Maple',
+    email: 'ada@example.com',
+  }),
+})
+const result = await response.json()
+if (!response.ok) throw new Error(JSON.stringify(result))
+csrfToken = result.csrfToken
+
+// Login uses the same POST shape without email, at /api/users/auth/login/.
+const currentAccount = await fetch('/api/users/auth/me/').then((r) => r.json())
+
+await fetch('/api/users/auth/logout/', {
+  method: 'POST',
+  credentials: 'same-origin',
+  headers: { 'X-CSRFToken': csrfToken },
+})
+```
+
+See Django's [authentication documentation](https://docs.djangoproject.com/en/6.1/topics/auth/default/) and [AJAX CSRF guidance](https://docs.djangoproject.com/en/6.1/howto/csrf/) for the underlying session and token behavior.
 
 ## Data and persistence
 
