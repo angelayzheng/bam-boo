@@ -2,6 +2,10 @@ import { useEffect, useState } from 'react'
 import HomePage from './pages/HomePage'
 import ChallengePage from './pages/ChallengePage'
 import ResultsPage from './pages/ResultsPage'
+import AuthPage from './pages/AuthPage'
+import ProfilePage from './pages/ProfilePage'
+import { getCurrentUser, signOut } from './auth'
+import type { AuthUser } from './auth'
 import { loadChallenge } from './challenges'
 import { challengePath, getRoute, resultsPath } from './routes'
 import type { Challenge, ResultData } from './types'
@@ -23,6 +27,30 @@ function App() {
   const [challenge, setChallenge] = useState<Challenge | null>(null)
   const [error, setError] = useState('')
   const [attempt, setAttempt] = useState(0)
+  const [user, setUser] = useState<AuthUser | null>(null)
+  const [authLoading, setAuthLoading] = useState(true)
+  const [authError, setAuthError] = useState('')
+  const [authAttempt, setAuthAttempt] = useState(0)
+
+  useEffect(() => {
+    const controller = new AbortController()
+    getCurrentUser(controller.signal)
+      .then((account) => {
+        if (!controller.signal.aborted) setUser(account)
+      })
+      .catch((cause: unknown) => {
+        if (!controller.signal.aborted)
+          setAuthError(
+            cause instanceof Error
+              ? cause.message
+              : 'Could not check your account.',
+          )
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setAuthLoading(false)
+      })
+    return () => controller.abort()
+  }, [authAttempt])
 
   useEffect(() => {
     const controller = new AbortController()
@@ -71,32 +99,81 @@ function App() {
     navigate(resultsPath(challenge.challenge_date))
   }
 
-  if (!challenge) {
-    return (
-      <main className="grid min-h-screen place-content-center gap-4 bg-[#f7f8f5] px-6 text-center text-[#17243d]">
-        <h1 className="text-2xl font-bold">
-          {error ? 'Recording unavailable' : 'Loading your recording…'}
-        </h1>
-        <p role={error ? 'alert' : 'status'}>
-          {error || 'Getting the conversation from the backend.'}
+  const route = getRoute(pathname, challenge?.challenge_date)
+  const openAccount = () => navigate(user ? '/profile' : '/login')
+
+  const connecting = authLoading || (!challenge && !error)
+  const notice =
+    error || authError || connecting ? (
+      <div
+        role="status"
+        className="mb-6 flex flex-wrap items-center justify-between gap-2 rounded-xl bg-slate-100 px-4 py-3 text-xs leading-relaxed text-slate-600"
+      >
+        <p>
+          {error && authError
+            ? 'Make sure the Django backend is running to load recordings and account details.'
+            : error ||
+              (authError
+                ? 'Account services are unavailable. Make sure the Django backend is running.'
+                : 'Connecting to recordings and account services…')}
         </p>
-        {error && (
+        {(error || authError) && (
           <button
             type="button"
+            disabled={connecting}
             onClick={() => {
-              setError('')
-              setAttempt((value) => value + 1)
+              if (error) {
+                setError('')
+                setAttempt((value) => value + 1)
+              }
+              if (authError) {
+                setAuthError('')
+                setAuthLoading(true)
+                setAuthAttempt((value) => value + 1)
+              }
             }}
-            className="mx-auto rounded-xl bg-[#17243d] px-5 py-3 font-semibold text-white"
+            className="shrink-0 font-semibold text-[#176d59] underline underline-offset-4 disabled:opacity-50"
           >
-            Try again
+            {connecting ? 'Connecting…' : 'Retry connection'}
           </button>
         )}
-      </main>
+      </div>
+    ) : undefined
+
+  if (route === 'login' || route === 'signup' || route === 'profile') {
+    if (user)
+      return (
+        <ProfilePage
+          key={user.id}
+          notice={notice}
+          user={user}
+          onHome={() => navigate('/')}
+          onLogout={async () => {
+            await signOut()
+            setUser(null)
+            setResult(null)
+            window.sessionStorage.removeItem(RESULT_STORAGE_KEY)
+            navigate('/login')
+          }}
+        />
+      )
+    return (
+      <AuthPage
+        key={route}
+        notice={notice}
+        sessionLoading={authLoading}
+        mode={route === 'signup' ? 'signup' : 'login'}
+        onNavigate={navigate}
+        onAuthenticated={(account) => {
+          setUser(account)
+          setAuthError('')
+          navigate('/profile')
+        }}
+      />
     )
   }
 
-  if (getRoute(pathname, challenge.challenge_date) === 'challenge') {
+  if (challenge && route === 'challenge') {
     return (
       <ChallengePage
         challenge={challenge}
@@ -107,7 +184,8 @@ function App() {
   }
 
   if (
-    getRoute(pathname, challenge.challenge_date) === 'results' &&
+    challenge &&
+    route === 'results' &&
     result?.challengeId === challenge.id
   ) {
     return (
@@ -120,7 +198,16 @@ function App() {
     )
   }
 
-  return <HomePage challenge={challenge} onStart={startChallenge} />
+  return (
+    <HomePage
+      challenge={challenge}
+      notice={notice}
+      onStart={startChallenge}
+      user={user}
+      accountLoading={authLoading}
+      onAccount={openAccount}
+    />
+  )
 }
 
 export default App
