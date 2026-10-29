@@ -51,6 +51,8 @@ export default function ChallengePage({
   const submitAction = () => {
     onComplete({
       challengeId: challenge.id,
+      attemptId: crypto.randomUUID(),
+      completedAt: new Date().toISOString(),
       toneCorrect,
       toneTime,
       actionCorrect: matchesAnswer(nextAction, challenge.required_action),

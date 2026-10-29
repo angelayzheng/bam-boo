@@ -2,6 +2,7 @@ from datetime import date
 
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
+from django.core.validators import MaxValueValidator
 from django.db import models
 from django.db.models.signals import post_save
 from django.dispatch import receiver
@@ -88,6 +89,27 @@ class UserProfile(models.Model):
     def save(self, *args, **kwargs):
         self.full_clean()
         super().save(*args, **kwargs)
+
+
+class ChallengeAttempt(models.Model):
+    submission_id = models.CharField(max_length=36, unique=True, editable=False)
+    profile = models.ForeignKey(
+        UserProfile, on_delete=models.CASCADE, related_name="attempts"
+    )
+    challenge = models.ForeignKey(
+        "challenges.Challenge",
+        on_delete=models.CASCADE,
+        related_name="attempts",
+    )
+    score = models.PositiveSmallIntegerField(validators=[MaxValueValidator(100)])
+    completed_at = models.DateTimeField()
+    received_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-completed_at", "-received_at"]
+
+    def __str__(self):
+        return f"{self.profile.user.username}: {self.challenge.name} ({self.score})"
 
 
 @receiver(post_save, sender=User)

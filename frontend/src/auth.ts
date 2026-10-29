@@ -1,3 +1,5 @@
+import type { ResultData } from './types'
+
 export interface AuthUser {
   id: number
   username: string
@@ -19,7 +21,27 @@ export interface Credentials {
   email?: string
 }
 
+export interface ScoreSaveResponse extends UserProfile {
+  attempt: {
+    id: number
+    attempt_id: string
+    challenge_id: number
+    score: number
+    completed_at: string
+    received_at: string
+  }
+}
+
 const basePath = '/api/users/auth/'
+
+export class ApiError extends Error {
+  status: number
+
+  constructor(message: string, status: number) {
+    super(message)
+    this.status = status
+  }
+}
 
 async function readResponse<T>(response: Response): Promise<T> {
   if (!response.headers.get('content-type')?.includes('application/json')) {
@@ -34,7 +56,10 @@ async function readResponse<T>(response: Response): Promise<T> {
     const messages = data.errors
       ? Object.values(data.errors).flat().join(' ')
       : data.detail
-    throw new Error(messages || 'Your request failed. Please try again.')
+    throw new ApiError(
+      messages || 'Your request failed. Please try again.',
+      response.status,
+    )
   }
   return data as T
 }
@@ -51,9 +76,9 @@ export async function getCurrentUser(
   return (await readResponse<{ user: AuthUser }>(response)).user
 }
 
-async function authPost<T>(
-  action: string,
-  credentials?: Credentials,
+async function postJson<T>(
+  path: string,
+  payload: object = {},
   signal?: AbortSignal,
 ): Promise<T> {
   // Fetch the current token for every mutation, including after login rotation.
@@ -63,7 +88,7 @@ async function authPost<T>(
     signal,
   })
   const { csrfToken } = await readResponse<{ csrfToken: string }>(tokenResponse)
-  const response = await fetch(`${basePath}${action}/`, {
+  const response = await fetch(path, {
     method: 'POST',
     credentials: 'same-origin',
     signal,
@@ -71,7 +96,7 @@ async function authPost<T>(
       'Content-Type': 'application/json',
       'X-CSRFToken': csrfToken,
     },
-    body: JSON.stringify(credentials ?? {}),
+    body: JSON.stringify(payload),
   })
   return readResponse<T>(response)
 }
@@ -81,11 +106,34 @@ export async function signIn(
   credentials: Credentials,
   signal?: AbortSignal,
 ): Promise<AuthUser> {
-  return (await authPost<{ user: AuthUser }>(action, credentials, signal)).user
+  return (
+    await postJson<{ user: AuthUser }>(
+      `${basePath}${action}/`,
+      credentials,
+      signal,
+    )
+  ).user
 }
 
 export async function signOut(): Promise<void> {
-  await authPost('logout')
+  await postJson(`${basePath}logout/`)
+}
+
+export async function saveChallengeResult(
+  result: ResultData,
+  signal: AbortSignal,
+): Promise<ScoreSaveResponse> {
+  return postJson<ScoreSaveResponse>(
+    `/api/users/me/scores/${result.challengeId}/`,
+    {
+      tone_correct: result.toneCorrect,
+      tone_time: result.toneTime,
+      action_correct: result.actionCorrect,
+      attempt_id: result.attemptId,
+      completed_at: result.completedAt,
+    },
+    signal,
+  )
 }
 
 export async function loadProfile(

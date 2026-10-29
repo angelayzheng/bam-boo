@@ -9,6 +9,7 @@ interface ProfilePageProps {
   onLogout: () => Promise<void>
   onHome: () => void
   notice?: ReactNode
+  progressVersion?: number
 }
 
 const avatars: Record<string, string> = {
@@ -25,6 +26,7 @@ export default function ProfilePage({
   onLogout,
   onHome,
   notice,
+  progressVersion = 0,
 }: ProfilePageProps) {
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [error, setError] = useState('')
@@ -36,7 +38,10 @@ export default function ProfilePage({
     const controller = new AbortController()
     loadProfile(user.id, controller.signal)
       .then((loaded) => {
-        if (!controller.signal.aborted) setProfile(loaded)
+        if (!controller.signal.aborted) {
+          setProfile(loaded)
+          setError('')
+        }
       })
       .catch((cause: unknown) => {
         if (!controller.signal.aborted)
@@ -47,7 +52,7 @@ export default function ProfilePage({
           )
       })
     return () => controller.abort()
-  }, [user.id, attempt])
+  }, [user.id, attempt, progressVersion])
 
   async function logout() {
     setLoggingOut(true)
@@ -143,11 +148,11 @@ export default function ProfilePage({
               </div>
             </dl>
             <section className="mt-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-              <h2 className="text-lg font-bold">Challenge scores</h2>
+              <h2 className="text-lg font-bold">Best challenge scores</h2>
               {Object.keys(profile.scores).length === 0 ? (
                 <p className="mt-3 text-sm leading-relaxed text-slate-500">
-                  No saved scores yet. Challenge results currently stay in this
-                  browser session and are not saved to your account.
+                  No saved scores yet. Complete a challenge while logged in to
+                  start tracking your progress.
                 </p>
               ) : (
                 <table className="mt-4 w-full text-left text-sm">
@@ -157,7 +162,7 @@ export default function ProfilePage({
                         Challenge
                       </th>
                       <th scope="col" className="py-3 text-right font-medium">
-                        Score
+                        Best score
                       </th>
                     </tr>
                   </thead>

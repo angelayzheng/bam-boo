@@ -1,10 +1,95 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { getCurrentUser, loadProfile, signIn, signOut } from '../src/auth.ts'
+import {
+  getCurrentUser,
+  loadProfile,
+  saveChallengeResult,
+  signIn,
+  signOut,
+} from '../src/auth.ts'
 
 const user = { id: 7, username: 'ada', email: 'ada@example.com' }
 const credentials = { username: 'ada', password: 'River!Quartz7Maple' }
 const basePath = '/api/users/auth/'
+
+test('completion sends result metrics with session cookies and CSRF to the current-user score endpoint', async (t) => {
+  const signal = new AbortController().signal
+  const result = {
+    challengeId: 42,
+    attemptId: '627e5d91-c343-44ae-b6ab-532b2ed41b8e',
+    completedAt: '2026-10-29T01:23:45.000Z',
+    toneCorrect: true,
+    toneTime: 8,
+    actionCorrect: true,
+    userId: 7,
+  }
+  const profile = {
+    user_id: 7,
+    username: 'ada',
+    avatar: 'fox',
+    scores: { 42: 100 },
+    total_score: 100,
+    completed_challenges: 1,
+  }
+  const requests = []
+  t.mock.method(globalThis, 'fetch', async (url, options) => {
+    requests.push(url)
+    assert.equal(options.credentials, 'same-origin')
+    assert.equal(options.signal, signal)
+    if (url === `${basePath}csrf/`)
+      return Response.json({ csrfToken: 'fresh-token' })
+    assert.equal(url, '/api/users/me/scores/42/')
+    assert.equal(options.method, 'POST')
+    assert.equal(options.headers['X-CSRFToken'], 'fresh-token')
+    assert.deepEqual(JSON.parse(options.body), {
+      tone_correct: true,
+      tone_time: 8,
+      action_correct: true,
+      attempt_id: '627e5d91-c343-44ae-b6ab-532b2ed41b8e',
+      completed_at: '2026-10-29T01:23:45.000Z',
+    })
+    return Response.json(profile)
+  })
+  assert.deepEqual(await saveChallengeResult(result, signal), profile)
+  assert.deepEqual(requests, [`${basePath}csrf/`, '/api/users/me/scores/42/'])
+})
+
+test('saving reports an expired login or backend failure and can be retried', async (t) => {
+  const result = {
+    challengeId: 42,
+    attemptId: '627e5d91-c343-44ae-b6ab-532b2ed41b8e',
+    completedAt: '2026-10-29T01:23:45.000Z',
+    toneCorrect: false,
+    toneTime: 20,
+    actionCorrect: true,
+  }
+  let response = Response.json(
+    { detail: 'Authentication required.' },
+    { status: 401 },
+  )
+  let attempts = 0
+  t.mock.method(globalThis, 'fetch', async (url) => {
+    if (url === `${basePath}csrf/`) return Response.json({ csrfToken: 'token' })
+    attempts += 1
+    return response
+  })
+  await assert.rejects(
+    saveChallengeResult(result, new AbortController().signal),
+    /Authentication required/,
+  )
+  response = new Response('Unavailable', { status: 503 })
+  await assert.rejects(
+    saveChallengeResult(result, new AbortController().signal),
+    /Could not connect/,
+  )
+  response = Response.json({ scores: { 42: 33 }, total_score: 33 })
+  assert.equal(
+    (await saveChallengeResult(result, new AbortController().signal))
+      .total_score,
+    33,
+  )
+  assert.equal(attempts, 3)
+})
 
 test('restores the current account using the session cookie without caching', async (t) => {
   const signal = new AbortController().signal

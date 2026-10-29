@@ -65,6 +65,16 @@ git config --local core.hooksPath .githooks
 
 The hook runs the frontend and backend CI checks before each commit. A failed check blocks the commit. Checks include unstaged changes; the hook does not stage files or fix formatting.
 
+## Updating an existing clone
+
+After pulling model changes, apply migrations before restarting Django:
+
+```bash
+backend/.venv/bin/python backend/manage.py migrate
+```
+
+The challenge-attempt migration keeps existing best scores and adds storage for every future completion, including its original completion time and server receipt time. View full history under **Users → Challenge attempts** in Django admin; the frontend profile shows best scores only.
+
 ## Run the app
 
 Start Django in one terminal:
@@ -121,6 +131,8 @@ backend/.venv/bin/python backend/manage.py dbshell
 ```
 
 ## Troubleshooting
+
+- **Changes are not appearing in the browser:** restart Vite (`cd frontend && npm run dev`) and refresh the page. File watching uses polling so changes in mounted Windows workspaces are detected. Restart Django after backend changes if its running process still serves old code.
 
 - **Python cannot create the environment:** install the venv package for your Python version. If uv is installed, use `uv venv --python python3 --seed backend/.venv`, then install `backend/requirements.txt` as above.
 - **Switching from Windows Python:** recreate `backend/.venv` inside WSL. A Windows environment cannot be reused there.

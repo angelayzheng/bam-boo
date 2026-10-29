@@ -112,17 +112,17 @@ Frontend build tooling uses `@types/node` for the Node.js APIs in Vite configura
 
 Python formatting is enforced with Black using `backend/pyproject.toml`. Frontend formatting is enforced with Prettier and `prettier-plugin-tailwindcss`; Oxlint remains available as `npm run lint:js` for TypeScript and JavaScript quality checks.
 
-The frontend uses browser history for its routes: `/` renders the calendar, `/challenges/:date` renders the assigned challenge, and `/challenges/:date/complete` renders that challenge's results. The challenge date comes from the loaded challenge. Result feedback is retained in session storage with its challenge ID to support a results-page reload during the same browser session.
+The frontend uses browser history for its routes: `/` renders the calendar, `/challenges/:date` renders the assigned challenge, and `/challenges/:date/complete` renders that challenge's results. The challenge date comes from the loaded challenge. Result feedback is retained in session storage with its numeric challenge ID, per-completion submission token, and original completion timestamp to support a results-page reload during the same browser session.
 
 `/login` and `/signup` render `AuthPage.tsx`; `/profile` renders `ProfilePage.tsx` for the signed-in user and the login form while the account is anonymous or unknown. Signed-in visitors to either authentication route see their profile. Account pages resolve independently of challenge loading, including when the database has no challenges or media is unavailable. `App.tsx` restores the account through `/api/users/auth/me/` on mount; session loading and connection failures keep the form visible with a small status notice and retry action. Authentication submission waits for the initial session check to finish, and fields remain editable. A failed session check permits a later login attempt. The home header links to login or the current user's profile instead of displaying a placeholder avatar and streak. Recordings remain available without signing in.
 
-`auth.ts` owns same-origin, cookie-based authentication requests and typed account/profile responses. Before each signup, login, or logout POST it fetches a fresh CSRF token, so token rotation after login or a change in another tab does not leave a cached token. Credentials, session identifiers, and CSRF tokens are not written to browser storage. Authentication errors and Django signup validation messages appear in the form; pending submissions disable inputs and the submit button. Requests made by page effects and sign-in forms are cancelled on unmount. Signup checks password confirmation before submitting and starts a session through the existing API.
+`auth.ts` owns same-origin, cookie-based authentication requests and typed account/profile responses. Before each signup, login, logout, or score POST it fetches a fresh CSRF token, so token rotation after login or a change in another tab does not leave a cached token. Credentials, session identifiers, and CSRF tokens are not written to browser storage. Authentication errors and Django signup validation messages appear in the form; pending submissions disable inputs and the submit button. Requests made by page effects and sign-in forms are cancelled on unmount. Signup checks password confirmation before submitting and starts a session through the existing API.
 
-The profile displays the current account's username and email plus its stored avatar, total score, completed challenge count, and per-challenge scores from `/api/users/<id>/profile/`. Profile loading and logout failures have separate error states; profile reads can be retried and a failed logout retains the signed-in account. Successful logout clears the frontend account and locally retained challenge result, then opens login. Profile data is read-only: no update endpoint or score persistence is added. Training results still remain in browser session storage and do not automatically update the account's stored scores. API-client and route tests cover session restoration, authentication requests, fresh CSRF tokens, validation failures, HTML errors, cancellation, profile reads, and account routing without challenge data. Offline-layout regression tests bundle the app in memory with Vite and render it using React's server renderer to check that the calendar and authentication forms render without waiting for backend requests; these checks add no dependencies and do not start a server.
+The profile displays the current account's username and email plus its stored avatar, total score, completed challenge count, and per-challenge scores from `/api/users/<id>/profile/`. Profile loading and logout failures have separate error states; profile reads can be retried and a failed logout retains the signed-in account. Successful logout clears the frontend account and locally retained challenge result, then opens login. Profile fields are read-only in the interface, while challenge completion automatically saves scores through the authenticated current-user score endpoint. Results retain their completing account's ID (or `null` for a guest), a unique submission token, and the original completion timestamp alongside feedback in browser session storage. The results page shows saving, saved, and retryable failure states; a session expiry prompts login again. A guest can sign in or sign up to claim their pending result, but a result already assigned to one account is not submitted for another. Saving continues when navigating from results to the calendar or profile, and the profile reloads progress when a save finishes. Starting a retry keeps the previous result until another completion or logout, so beginning an attempt does not cancel an in-flight save. Reloading a retained result reuses its submission token and completion time, so retrying a save does not duplicate attempt history. A newly completed replay receives a new token and is always recorded, even when its score is lower. The profile displays only best scores, while Django admin exposes every attempt with its completion and receipt timestamps. Results saved before completion timestamps were introduced are display-only and require replay to create an attempt; the app does not invent historical completion times. API-client and route tests cover session restoration, authentication requests, fresh CSRF tokens, validation failures, HTML errors, cancellation, profile reads, and account routing without challenge data. Offline-layout regression tests bundle the app in memory with Vite and render it using React's server renderer to check that the calendar and authentication forms render without waiting for backend requests; these checks add no dependencies and do not start a server.
 
 The challenge has tone, conversation, and next-action stages. Conversation history starts at the tree root (a customer/question node). Selecting an agent/response child appends that response and its recorded customer follow-up, then exposes only that follow-up’s available replies. The bundled demo has three paths with two agent turns each and one customer continuation per agent node. Reaching a leaf unlocks the next-action stage. Both speakers have native MP3 controls and visible transcripts; selected agent audio plays before the customer follow-up, subject to browser autoplay permissions. Tone and action feedback use whole-word matching against the loaded challenge’s `tone` and `required_action` values.
 
-The Vite development proxy supplies both API and media access. Production hosting must also route `/api/` to Django and `/media/` to the stored recordings; Django’s development media serving is not a production media server.
+Vite enables polling for file watching so source changes in mounted Windows workspaces invalidate its transformed-module cache. Restart Vite once after changing this configuration. The Vite development proxy supplies both API and media access. Production hosting must also route `/api/` to Django and `/media/` to the stored recordings; Django’s development media serving is not a production media server.
 
 ## Backend
 
@@ -143,6 +143,7 @@ The Django project is configured in `backend/config`:
   - `/api/users/<id>/profile/`: existing user profile endpoint.
   - `/api/users/<username>/`: scaffolded `GET`/`POST` user read and update endpoint; returns `501` until implemented.
   - `/api/users/leaderboard/`: top ten users by total score.
+  - `/api/users/me/scores/<challenge_id>/`: authenticated `POST` of completion metrics, a submission token, and a completion timestamp; records an attempt for the numeric challenge ID and updates the current user's best-score summary.
   - `/api/users/auth/csrf/`: `GET` a CSRF token and set the CSRF cookie.
   - `/api/users/auth/signup/`: `POST` signup credentials, create an account/profile, and start a session.
   - `/api/users/auth/login/`: `POST` credentials and start a session.
@@ -208,6 +209,54 @@ await fetch('/api/users/auth/logout/', {
 ```
 
 See Django's [authentication documentation](https://docs.djangoproject.com/en/6.1/topics/auth/default/) and [AJAX CSRF guidance](https://docs.djangoproject.com/en/6.1/howto/csrf/) for the underlying session and token behavior.
+
+
+### Challenge score saving API
+
+`POST /api/users/me/scores/<challenge_id>/` uses the existing **numeric challenge ID**. It requires an authenticated Django session, the CSRF cookie, and an `X-CSRFToken` header. The frontend's `saveChallengeResult` uses the same fresh-token request helper as signup/login/logout. The JSON body contains:
+
+```json
+{
+  "tone_correct": true,
+  "tone_time": 8,
+  "action_correct": true,
+  "attempt_id": "627e5d91-c343-44ae-b6ab-532b2ed41b8e",
+  "completed_at": "2026-10-29T01:23:45.000Z"
+}
+```
+
+`tone_correct` and `action_correct` must be booleans. `tone_time` must be a finite, non-negative number of seconds. `completed_at` is a timezone-aware ISO timestamp captured when the frontend finishes the challenge, before any later guest login or network retry. `attempt_id` is a unique per-completion submission token (UUID-formatted text), generated once and retained with the result. It identifies the submission, not the challenge. Challenges keep their existing numeric primary keys and have no new UUID field.
+
+The server calculates one star for each correct answer and one for identifying the tone within 10 seconds, matching the results screen. It converts 0–3 stars to 0, 33, 67, or 100 points. Completion metrics and completion time are reported by the prototype client; the endpoint validates them and calculates points but does not independently grade the answers or verify elapsed time.
+
+`users.models.ChallengeAttempt` stores every distinct completion with an automatic numeric primary key, a unique text `submission_id`, foreign keys to the user's profile and the existing numeric challenge ID, the computed `score`, the original `completed_at`, and a server-generated `received_at`. Django stores aware timestamps in UTC. A lower or equal score from a new completion still creates a new attempt. Reusing a submission token with the same user, challenge, score, and completion time returns the existing attempt; reusing it for different data returns `409` without changing scores. Django admin's **Users → Challenge attempts** lists all attempts and timestamps as read-only records.
+
+Within a transaction, the endpoint selects the profile using `request.user`, creates or retrieves the attempt, and maintains `UserProfile.scores` as a best-score summary keyed by the numeric challenge ID converted to a string. `total_score` sums those best scores. Profile reads, completed-challenge counts, and the leaderboard use that summary, so the frontend displays only the best score for each challenge. A zero-point completion still counts as a completed challenge. Extra client properties cannot target another profile or override the computed score.
+
+Success returns `201` for a new completion or `200` for a repeated save of the same completion. It includes the best-score profile fields plus the recorded attempt:
+
+```json
+{
+  "user_id": 7,
+  "username": "ada",
+  "avatar": "fox",
+  "total_score": 100.0,
+  "completed_challenges": 1,
+  "scores": {"42": 100.0},
+  "attempt": {
+    "id": 3,
+    "attempt_id": "627e5d91-c343-44ae-b6ab-532b2ed41b8e",
+    "challenge_id": 42,
+    "score": 67,
+    "completed_at": "2026-10-29T01:23:45+00:00",
+    "received_at": "2026-10-29T01:24:00+00:00"
+  }
+}
+```
+
+Malformed JSON, missing/invalid fields, invalid submission tokens, timezone-naive timestamps, and content types other than `application/json` return `400` with a `detail` message. Anonymous requests with valid CSRF return `401`; missing numeric challenge IDs return JSON `404`. CSRF or origin failures return Django's standard `403`, which may be HTML. Unsupported methods return `405`. Responses disable caching. The username read/update placeholder remains unimplemented and is not used for score writes.
+
+Migration `users/0003_challengeattempt.py` creates attempt storage without changing existing challenges or best-score JSON. Apply it with `manage.py migrate`. Older stored best scores remain intact, but earlier attempt histories and completion times cannot be reconstructed. No new dependencies are required. Tests cover all-attempt persistence, numeric challenge linkage, original completion times, retry deduplication, best-score summaries, user isolation, validation, authentication, CSRF, and frontend save states.
 
 ## Data and persistence
 

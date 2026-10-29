@@ -19,6 +19,14 @@ const bundle = await build({
           return { id: import.meta.resolve(id), external: true }
         }
       },
+      transform(code, id) {
+        if (id === fileURLToPath(new URL('../src/App.tsx', import.meta.url))) {
+          return {
+            code: `${code}\nexport { default as ResultsPage } from './pages/ResultsPage';`,
+            map: null,
+          }
+        }
+      },
     },
     react(),
   ],
@@ -34,7 +42,7 @@ const bundle = await build({
 const output = (Array.isArray(bundle) ? bundle : [bundle])
   .flatMap((result) => result.output)
   .find((item) => item.type === 'chunk' && item.isEntry)
-const { default: App } = await import(
+const { default: App, ResultsPage } = await import(
   `data:text/javascript;base64,${Buffer.from(output.code).toString('base64')}`
 )
 
@@ -80,4 +88,52 @@ test('a direct profile visit shows the login form while the account is unknown',
   const html = renderPage(t, '/profile')
   assert.match(html, /name="username"/)
   assert.doesNotMatch(html, /Account unavailable/)
+})
+
+test('results distinguish saving, saved, retryable failure, guests, and another account', () => {
+  const props = {
+    challenge: {
+      id: 42,
+      name: 'Test recording',
+      challenge_date: '2026-10-15',
+      tone: 'calm',
+      required_action: 'reset password',
+    },
+    result: {
+      challengeId: 42,
+      attemptId: '627e5d91-c343-44ae-b6ab-532b2ed41b8e',
+      completedAt: '2026-10-29T01:23:45.000Z',
+      toneCorrect: true,
+      toneTime: 8,
+      actionCorrect: true,
+      userId: 7,
+    },
+    user: { id: 7, username: 'ada', email: '' },
+    sessionLoading: false,
+    onHome() {},
+    onRetry() {},
+    onSaveRetry() {},
+    onLogin() {},
+    onProfile() {},
+  }
+  const render = (extra) =>
+    renderToStaticMarkup(createElement(ResultsPage, { ...props, ...extra }))
+  assert.match(render({ saveState: { status: 'saving' } }), /Saving your score/)
+  assert.match(
+    render({ saveState: { status: 'saved' } }),
+    /Score saved to your profile/,
+  )
+  const failed = render({
+    saveState: { status: 'error', message: 'Backend unavailable.' },
+  })
+  assert.match(failed, /Retry saving/)
+  assert.doesNotMatch(failed, /Score saved to your profile/)
+  assert.match(
+    render({ user: null, saveState: { status: 'saving' } }),
+    /Log in to save your score/,
+  )
+  assert.match(
+    render({ user: { id: 9 }, saveState: { status: 'saved' } }),
+    /another session/,
+  )
 })

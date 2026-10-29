@@ -2,7 +2,7 @@ from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.contrib.auth.models import User
 
-from .models import UserProfile
+from .models import ChallengeAttempt, UserProfile
 
 
 class UserProfileInline(admin.StackedInline):
@@ -21,6 +21,32 @@ class UserProfileAdmin(admin.ModelAdmin):
 
 class UserWithProfileAdmin(BaseUserAdmin):
     inlines = [UserProfileInline]
+
+
+@admin.register(ChallengeAttempt)
+class ChallengeAttemptAdmin(admin.ModelAdmin):
+    list_display = ("profile", "challenge", "score", "completed_at", "received_at")
+    list_filter = ("challenge", "completed_at")
+    search_fields = ("profile__user__username", "challenge__name")
+    readonly_fields = (
+        "id",
+        "submission_id",
+        "profile",
+        "challenge",
+        "score",
+        "completed_at",
+        "received_at",
+    )
+    list_select_related = ("profile__user", "challenge")
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
 
 
 admin.site.unregister(User)
