@@ -1,10 +1,93 @@
 from datetime import date
+from io import StringIO
+
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
+from django.core.management import call_command
+from django.core.management.base import CommandError
 from django.contrib.sessions.models import Session
-from django.test import Client, TestCase
+from django.test import Client, TestCase, override_settings
 
 from .models import UserProfile
+
+
+@override_settings(DEBUG=True)
+class LocalSuperuserCommandTests(TestCase):
+    def seed(self):
+        output = StringIO()
+        call_command("seed_local_superuser", stdout=output)
+        return output.getvalue()
+
+    def test_creates_default_superuser_and_profile_with_hashed_password(self):
+        self.seed()
+        user = User.objects.get(username="admin")
+        self.assertEqual(user.email, "admin@example.test")
+        self.assertTrue(user.is_active)
+        self.assertTrue(user.is_staff)
+        self.assertTrue(user.is_superuser)
+        self.assertTrue(user.check_password("teamkale"))
+        self.assertNotEqual(user.password, "teamkale")
+        self.assertEqual(user.profile.avatar, "fox")
+
+    def test_seeded_account_can_use_auth_api_and_admin(self):
+        self.seed()
+        client = Client(enforce_csrf_checks=True)
+        token = client.get("/api/users/auth/csrf/").json()["csrfToken"]
+        response = client.post(
+            "/api/users/auth/login/",
+            data={"username": "admin", "password": "teamkale"},
+            content_type="application/json",
+            HTTP_X_CSRFTOKEN=token,
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["user"]["username"], "admin")
+        self.assertEqual(client.get("/admin/").status_code, 200)
+
+    def test_rerun_preserves_existing_password_and_profile(self):
+        self.seed()
+        user = User.objects.get(username="admin")
+        user.set_password("ChangedLocalPassword!2026")
+        user.email = "custom@example.test"
+        user.save()
+        profile = user.profile
+        profile.avatar = "owl"
+        profile.add_score("42", 80)
+        profile.save()
+        output = self.seed()
+        user.refresh_from_db()
+        profile.refresh_from_db()
+        self.assertIn("already exists", output)
+        self.assertTrue(user.check_password("ChangedLocalPassword!2026"))
+        self.assertEqual(user.email, "custom@example.test")
+        self.assertEqual(profile.avatar, "owl")
+        self.assertEqual(profile.scores, {"42": 80})
+        self.assertEqual(User.objects.count(), 1)
+        self.assertEqual(UserProfile.objects.count(), 1)
+
+    def test_conflicting_accounts_are_not_promoted_or_reactivated(self):
+        for flags in (
+            {},
+            {"is_staff": True},
+            {"is_staff": True, "is_superuser": True, "is_active": False},
+        ):
+            with self.subTest(flags=flags):
+                user = User.objects.create_user(
+                    username="admin", password="ExistingPassword!2026", **flags
+                )
+                with self.assertRaisesMessage(CommandError, "No account was changed"):
+                    self.seed()
+                user.refresh_from_db()
+                self.assertTrue(user.check_password("ExistingPassword!2026"))
+                self.assertEqual(user.is_superuser, flags.get("is_superuser", False))
+                self.assertEqual(user.is_staff, flags.get("is_staff", False))
+                self.assertEqual(user.is_active, flags.get("is_active", True))
+                user.delete()
+
+    @override_settings(DEBUG=False)
+    def test_shared_account_is_not_created_outside_debug_mode(self):
+        with self.assertRaisesMessage(CommandError, "requires DEBUG=True"):
+            self.seed()
+        self.assertFalse(User.objects.exists())
 
 
 class AuthenticationApiTests(TestCase):

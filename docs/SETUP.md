@@ -31,6 +31,7 @@ Create the backend environment, install dependencies, and prepare the database:
 python3 -m venv backend/.venv
 backend/.venv/bin/python -m pip install -r backend/requirements.txt
 backend/.venv/bin/python backend/manage.py migrate
+backend/.venv/bin/python backend/manage.py seed_local_superuser
 backend/.venv/bin/python backend/manage.py seed_kale_demo
 ```
 
@@ -42,7 +43,15 @@ backend/.venv/bin/python backend/manage.py load_vectors
 
 The command downloads the vector file if needed. If vectors are already present, it skips loading by default. 
 
-The seed command imports the bundled demo challenge so the frontend has a challenge to load. Run it again with `--force` after editing the demo package.
+`seed_local_superuser` creates the same development account in each clone's local database:
+
+- **Username:** `admin`
+- **Password:** `teamkale`
+- **Email:** `admin@example.test`
+
+Use these credentials on the frontend login page or at <http://127.0.0.1:8000/admin/>. The account and its profile are created together. Rerunning the command preserves an existing active superuser's password, email, and progress. If `admin` is already used by a regular or inactive account, the command stops without changing it; rename that account before rerunning. These shared credentials are for local development only, and the command requires `DEBUG=True`.
+
+`seed_kale_demo` imports the bundled demo challenge so the frontend has a challenge to load. Run it again with `--force` after editing the demo package.
 
 Tailwind is included in the frontend dependencies. The virtual environment, SQLite database, and build output stay local and are not committed.
 
@@ -97,13 +106,13 @@ For VS Code on Windows, open the project from WSL with `code .`. Select `backend
 
 The local database is `backend/db.sqlite3`.
 
-To browse it through Django admin, run:
+To browse it through Django admin, sign in at <http://127.0.0.1:8000/admin/> with the default development account created during setup. To create a separate personal superuser, run:
 
 ```bash
 backend/.venv/bin/python backend/manage.py createsuperuser
 ```
 
-Then sign in at <http://127.0.0.1:8000/admin/> while Django is running.
+Keep Django running while using the admin site.
 
 For SQL access, run:
 
