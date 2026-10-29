@@ -8,6 +8,29 @@ Install Git, Node.js 24 with npm, and Python 3.14 or newer.
 
 Run the commands below from the repository root unless noted otherwise.
 
+### Install FFmpeg (audio normalization only)
+
+FFmpeg is only required to run the challenge audio normalizer; it is not needed to run the app. FFmpeg is a system package, so install it separately from the Python packages in `backend/requirements.txt`.
+
+On macOS with Homebrew:
+
+```bash
+brew install ffmpeg
+```
+
+On Debian or Ubuntu, including WSL:
+
+```bash
+sudo apt update
+sudo apt install ffmpeg
+```
+
+Confirm it is available:
+
+```bash
+ffmpeg -version
+```
+
 ## First-time setup
 
 Clone the repository and enter its folder:
@@ -41,7 +64,14 @@ Load the ConceptNet Numberbatch word vectors (a large download, so this takes a 
 backend/.venv/bin/python backend/manage.py load_vectors
 ```
 
-The command downloads the vector file if needed. If vectors are already present, it skips loading by default. 
+The command downloads the vector file to `data/numberbatch-en-19.08.txt.gz` if needed. If the database contains any vectors, it skips both downloading and loading by default. Use `--clear` to replace existing vectors or `--file` to select a local compressed vector file:
+
+```bash
+backend/.venv/bin/python backend/manage.py load_vectors --clear
+backend/.venv/bin/python backend/manage.py load_vectors --file /path/to/numberbatch-en-19.08.txt.gz
+```
+
+Combine `--file` with `--clear` to load a different file when vectors are already present.
 
 `seed_local_superuser` creates the same development account in each clone's local database:
 

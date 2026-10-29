@@ -30,6 +30,14 @@ The importer publishes the same structure beneath `backend/media/challenges/<slu
 
 2. Add one MP3 and one UTF-8 `.txt` transcript for every turn. Keep the same filename stem as the turn's unique `node_key`. Customer turns use `type: "question"`; agent turns use `type: "response"`.
 
+   Install FFmpeg and normalize all challenge recordings from the repository root:
+
+   ```bash
+   python3 scripts/normalize_audio.py
+   ```
+
+   The script scans challenge source packages recursively, normalizes MP3 files in place to approximately `-23 LUFS` integrated loudness and no higher than `-1.5 dBTP`, and skips files already within the target. It verifies each normalized file before replacing the original. Pass `--root <directory>` to scan a different folder. The bundled demo recordings use this target.
+
 3. Create `<slug>.json` inside the challenge folder, for example `account-locked.json`. Here is a minimal customer–agent–customer conversation; add sibling agent nodes under a customer's `children` array to offer branching choices:
 
    ```json
@@ -75,9 +83,9 @@ The importer publishes the same structure beneath `backend/media/challenges/<slu
    backend/.venv/bin/python backend/manage.py import_challenges
    ```
 
-   On Windows, use `backend/.venv/Scripts/python.exe` in place of `backend/.venv/bin/python`.
+   On Windows, run these commands in WSL with the Linux environment at `backend/.venv`, as described in [SETUP.md](SETUP.md).
 
-The importer checks that the slug matches its folder name, validates IDs, metadata, alternating turn types, unique turn keys, expected paths, nonempty files, and UTF-8 transcripts before installing selected packages. Transcript paths and audio paths in the manifest are relative to that challenge's folder; the database stores them with the `challenges/<slug>/` prefix.
+The importer checks that the slug matches its folder name and validates metadata, alternating turn types, unique turn keys, expected paths, nonempty files, and UTF-8 transcripts before installing selected packages. Transcript paths and audio paths in the manifest are relative to that challenge's folder; the database stores them with the `challenges/<slug>/` prefix.
 
 ## Update an existing challenge
 
@@ -89,6 +97,6 @@ backend/.venv/bin/python backend/manage.py import_challenges forgot-password-x3 
 
 Without `--replace`, existing challenges are skipped. Replacement preserves the numeric database ID and slug, stages a complete media folder, and restores the previous published folder if saving fails. For a different challenge, create a new slug and folder instead of reusing an existing one.
 
-`seed_kale_demo` remains a shortcut for importing `forgot-password-x3`; its `--force` flag delegates to `--replace`. The bundled demo uses a fixed date and ID, so its identity is consistent across machines and repeated imports.
+`seed_kale_demo` remains a shortcut for importing `forgot-password-x3`; its `--force` flag delegates to `--replace`. The bundled demo uses a fixed date and slug. Django assigns its numeric ID on first import, so IDs can differ across databases; replacement preserves the existing ID within a database. Use the slug to identify the same challenge across machines.
 
 The challenge list and detail APIs expose both `id` (the existing numeric database key) and `slug` (the stable package identifier). The current frontend still selects the working demo by slug; this storage layout and import command support adding further challenges independently of a future challenge-selection UI.
