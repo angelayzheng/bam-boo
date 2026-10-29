@@ -231,6 +231,20 @@ function App() {
   }
 
   if (challenge && route === 'challenge') {
+    if (authLoading) {
+      return (
+        <div className="min-h-screen bg-[#f7f8f5] text-slate-900">
+          <main className="mx-auto max-w-3xl px-5 py-6 sm:px-8 sm:py-10">
+            <div
+              role="status"
+              className="rounded-xl bg-slate-100 px-4 py-3 text-sm text-slate-600"
+            >
+              Checking your account before starting the challenge…
+            </div>
+          </main>
+        </div>
+      )
+    }
     return (
       <ChallengePage
         challenge={challenge}
