@@ -8,14 +8,15 @@ from .models import ChallengeAttempt, UserProfile
 class UserProfileInline(admin.StackedInline):
     model = UserProfile
     can_delete = False
-    fields = ("avatar", "scores", "total_score", "login_days")
+    fields = ("group", "avatar", "scores", "total_score", "login_days")
     readonly_fields = ("total_score",)
 
 
 @admin.register(UserProfile)
 class UserProfileAdmin(admin.ModelAdmin):
-    list_display = ("user", "avatar", "total_score", "updated_at")
-    list_filter = ("avatar",)
+    list_display = ("user", "group", "avatar", "total_score", "updated_at")
+    list_filter = ("group", "avatar")
+    list_select_related = ("user", "group")
     search_fields = ("user__username", "user__email")
 
 

@@ -3,6 +3,7 @@ import test from 'node:test'
 import {
   getCurrentUser,
   loadProfile,
+  loadSignupGroups,
   saveChallengeResult,
   signIn,
   signOut,
@@ -11,6 +12,22 @@ import {
 const user = { id: 7, username: 'ada', email: 'ada@example.com' }
 const credentials = { username: 'ada', password: 'River!Quartz7Maple' }
 const basePath = '/api/users/auth/'
+
+test('signup loads existing group choices with cancellation and no caching', async (t) => {
+  const signal = new AbortController().signal
+  const groups = [
+    { id: 3, name: 'Alpha team' },
+    { id: 8, name: 'Zeta team' },
+  ]
+  t.mock.method(globalThis, 'fetch', async (url, options) => {
+    assert.equal(url, '/api/users/groups/')
+    assert.equal(options.credentials, 'same-origin')
+    assert.equal(options.cache, 'no-store')
+    assert.equal(options.signal, signal)
+    return Response.json({ groups })
+  })
+  assert.deepEqual(await loadSignupGroups(signal), groups)
+})
 
 test('completion sends result metrics with session cookies and CSRF to the current-user score endpoint', async (t) => {
   const signal = new AbortController().signal
@@ -123,7 +140,7 @@ test('signup and login acquire CSRF tokens before sending credentials', async (t
     const signal = new AbortController().signal
     const payload = {
       ...credentials,
-      ...(action === 'signup' ? { email: user.email } : {}),
+      ...(action === 'signup' ? { email: user.email, group_id: 3 } : {}),
     }
     const mock = t.mock.method(globalThis, 'fetch', async (url, options) => {
       requests.push(url)

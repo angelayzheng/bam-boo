@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import type { FormEvent, ReactNode } from 'react'
 import Header from '../components/Header'
-import { signIn } from '../auth'
-import type { AuthUser } from '../auth'
+import { loadSignupGroups, signIn } from '../auth'
+import type { AuthUser, SignupGroup } from '../auth'
 
 interface AuthPageProps {
   mode: 'login' | 'signup'
@@ -21,12 +21,36 @@ export default function AuthPage({
 }: AuthPageProps) {
   const [username, setUsername] = useState('')
   const [email, setEmail] = useState('')
+  const [groupId, setGroupId] = useState('')
   const [password, setPassword] = useState('')
   const [confirmation, setConfirmation] = useState('')
   const [error, setError] = useState('')
   const [pending, setPending] = useState(false)
   const controller = useRef<AbortController | null>(null)
   const isSignup = mode === 'signup'
+  const [groups, setGroups] = useState<SignupGroup[]>([])
+  const [groupsLoading, setGroupsLoading] = useState(isSignup)
+  const [groupsError, setGroupsError] = useState('')
+  const [groupsAttempt, setGroupsAttempt] = useState(0)
+
+  useEffect(() => {
+    if (!isSignup) return
+    const request = new AbortController()
+    loadSignupGroups(request.signal)
+      .then((choices) => {
+        if (!request.signal.aborted) setGroups(choices)
+      })
+      .catch(() => {
+        if (!request.signal.aborted)
+          setGroupsError(
+            'Could not load groups. Make sure the backend is running, then try again.',
+          )
+      })
+      .finally(() => {
+        if (!request.signal.aborted) setGroupsLoading(false)
+      })
+    return () => request.abort()
+  }, [isSignup, groupsAttempt])
 
   useEffect(() => () => controller.current?.abort(), [])
 
@@ -47,7 +71,12 @@ export default function AuthPage({
         {
           username: username.trim(),
           password,
-          ...(isSignup ? { email: email.trim() } : {}),
+          ...(isSignup
+            ? {
+                email: email.trim(),
+                ...(groupId ? { group_id: Number(groupId) } : {}),
+              }
+            : {}),
         },
         request.signal,
       )
@@ -119,6 +148,53 @@ export default function AuthPage({
                   disabled={pending}
                 />
               </label>
+            )}
+            {isSignup && (
+              <div>
+                <label className="block text-sm font-semibold" htmlFor="group">
+                  Group{' '}
+                  <span className="font-normal text-slate-500">(optional)</span>
+                  <select
+                    id="group"
+                    name="group_id"
+                    className={inputClass}
+                    value={groupId}
+                    onChange={(event) => setGroupId(event.target.value)}
+                    disabled={pending || groupsLoading}
+                    aria-describedby="group-status"
+                  >
+                    <option value="">No group</option>
+                    {groups.map((choice) => (
+                      <option key={choice.id} value={choice.id}>
+                        {choice.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <div id="group-status" className="mt-2 text-xs text-slate-500">
+                  {groupsLoading ? (
+                    <p role="status">Loading groups…</p>
+                  ) : groupsError ? (
+                    <p role="alert">
+                      {groupsError}{' '}
+                      <button
+                        type="button"
+                        disabled={pending}
+                        onClick={() => {
+                          setGroupsError('')
+                          setGroupsLoading(true)
+                          setGroupsAttempt((value) => value + 1)
+                        }}
+                        className="font-semibold text-[#176d59] underline underline-offset-4"
+                      >
+                        Retry
+                      </button>
+                    </p>
+                  ) : groups.length === 0 ? (
+                    <p>No groups are available yet.</p>
+                  ) : null}
+                </div>
+              </div>
             )}
             <label className="block text-sm font-semibold" htmlFor="password">
               Password

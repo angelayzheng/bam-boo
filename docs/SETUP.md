@@ -75,6 +75,8 @@ backend/.venv/bin/python backend/manage.py migrate
 
 The challenge-attempt migration keeps existing best scores and adds storage for every future completion, including its original completion time and server receipt time. View full history under **Users → Challenge attempts** in Django admin; the frontend profile shows best scores only.
 
+The optional signup group is selected from Django's existing groups. Create groups under **Authentication and Authorization → Groups** in Django admin; signup will list them automatically. Users without a group remain supported. Run migrations after pulling this change: existing text group labels are converted to group records and linked to their profiles without changing scores or permission memberships. You can inspect or edit the profile group in Django admin. The selection is not displayed elsewhere in the frontend.
+
 ## Run the app
 
 Start Django in one terminal:

@@ -3,6 +3,7 @@ from math import isfinite
 from uuid import UUID
 
 from django.contrib.auth import authenticate, login, logout
+from django.contrib.auth.models import Group
 from django.db import IntegrityError, transaction
 from django.http import JsonResponse
 from django.middleware.csrf import get_token
@@ -55,16 +56,33 @@ def csrf_token(request):
 
 
 @never_cache
+@require_GET
+def signup_groups(request):
+    return JsonResponse(
+        {"groups": list(Group.objects.order_by("name", "pk").values("id", "name"))}
+    )
+
+
+@never_cache
 @require_POST
 def signup(request):
     try:
         payload = _auth_payload(request)
     except ValueError as exc:
         return JsonResponse({"detail": str(exc)}, status=400)
+    group_id = payload.get("group_id")
+    if group_id is not None and (
+        isinstance(group_id, bool) or not isinstance(group_id, int) or group_id <= 0
+    ):
+        return JsonResponse(
+            {"errors": {"group_id": ["Group must be a positive integer ID or null."]}},
+            status=400,
+        )
     form = SignupForm(
         data={
             "username": payload["username"],
             "email": payload.get("email", ""),
+            "group_id": group_id,
             "password1": payload["password"],
             "password2": payload["password"],
         }
@@ -78,6 +96,10 @@ def signup(request):
     try:
         with transaction.atomic():
             user = form.save()
+            if form.cleaned_data["group_id"] is not None:
+                profile = user.profile
+                profile.group = form.cleaned_data["group_id"]
+                profile.save(update_fields=["group", "updated_at"])
     except IntegrityError:
         return JsonResponse(
             {"errors": {"username": ["A user with that username already exists."]}},

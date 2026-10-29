@@ -132,7 +132,7 @@ The Django project is configured in `backend/config`:
 - `counter/` owns the shared count model and its JSON API.
 - `challenges/` owns dated challenges, their alternating question/response JSON trees, API serialization, `import_challenges`, and the compatibility `seed_kale_demo` command. Each challenge has a unique, stable slug, a unique name, and its existing numeric database ID. Changing the name or schedule date does not change the slug. SQLite stores metadata and per-turn filenames; UTF-8 transcripts and MP3s remain local files. Authored packages live in `backend/challenges/source_data/challenges/<slug>/`, with `<slug>.json`, flat `audio/`, and flat `transcripts/` folders. The folder name must match the challenge slug. The importer validates selected packages and stages each complete package under `backend/media/challenges/<slug>/`. Replacement preserves database IDs and restores old files if saving fails. See [CHALLENGES.md](CHALLENGES.md) for the manifest and authoring workflow.
 - `tone/` owns the word embeddings used by the backend to find similar words. The files are uploaded to the database and can be renamed within the tone folder (using `manage.py`). Its tone-similarity endpoint is scaffolded but not implemented.
-- `users/` owns user profiles, progress endpoints, and session authentication. `forms.py` extends Django's `UserCreationForm` to validate signup credentials and optional email; `views.py` uses Django's `authenticate`, `login`, and `logout` functions with the existing database session backend.
+- `users/` owns user profiles, progress endpoints, and session authentication. `forms.py` extends Django's `UserCreationForm` to validate signup credentials, optional email, and an optional existing group; `views.py` uses Django's `authenticate`, `login`, and `logout` functions with the existing database session backend.
 - `urls.py` currently defines the following routes:
   - `/`: backend service status JSON.
   - `/api/health/`: health status JSON.
@@ -143,6 +143,7 @@ The Django project is configured in `backend/config`:
   - `/api/users/<id>/profile/`: existing user profile endpoint.
   - `/api/users/<username>/`: scaffolded `GET`/`POST` user read and update endpoint; returns `501` until implemented.
   - `/api/users/leaderboard/`: top ten users by total score.
+  - `/api/users/groups/`: public `GET` of existing group IDs and names for signup, ordered by name.
   - `/api/users/me/scores/<challenge_id>/`: authenticated `POST` of completion metrics, a submission token, and a completion timestamp; records an attempt for the numeric challenge ID and updates the current user's best-score summary.
   - `/api/users/auth/csrf/`: `GET` a CSRF token and set the CSRF cookie.
   - `/api/users/auth/signup/`: `POST` signup credentials, create an account/profile, and start a session.
@@ -158,7 +159,7 @@ Backend dependencies are pinned in `backend/requirements.txt`. Run Django comman
 
 ### Session authentication API
 
-Authentication uses Django's built-in `User`, its hashed passwords, and the existing one-to-one `UserProfile`. The existing signal creates the profile on signup. No additional dependencies or schema migrations are required. Profile and leaderboard reads retain their existing public behavior.
+Authentication uses Django's built-in `User`, its hashed passwords, and the existing one-to-one `UserProfile`. The existing signal creates the profile on signup. Session authentication adds no dependencies. The optional profile group uses the migration described below. Profile and leaderboard reads retain their existing public behavior.
 
 `users/management/commands/seed_local_superuser.py` creates a shared local-development superuser through Django's `create_superuser` after migrations during the documented setup. Every fresh clone uses username `admin`, password `teamkale`, and email `admin@example.test`; Django hashes the password and the existing user signal creates its profile. The command requires `DEBUG=True`, preserves existing active superusers without resetting credentials or progress, and rejects a conflicting regular or inactive account. Account creation and profile creation share a transaction. The account is seeded explicitly during setup; application startup and migrations do not create it. See [SETUP.md](SETUP.md) for usage and credentials.
 
@@ -166,15 +167,22 @@ Use same-origin `/api/` URLs through the Vite proxy. `CSRF_TRUSTED_ORIGINS` perm
 
 | Method | Path | Request | Success |
 | --- | --- | --- | --- |
+| GET | `/api/users/groups/` | None | `200`, `{"groups": [{"id": 3, "name": "Team Kale"}]}`; an empty list when no groups exist |
 | GET | `/api/users/auth/csrf/` | None | `200`, `{"csrfToken": "..."}` and a `csrftoken` cookie |
-| POST | `/api/users/auth/signup/` | JSON `username`, `password`, optional `email` | `201`, account and CSRF token; sets session cookie |
+| POST | `/api/users/auth/signup/` | JSON `username`, `password`, optional `email` and `group_id` | `201`, account and CSRF token; sets session cookie |
 | POST | `/api/users/auth/login/` | JSON `username`, `password` | `200`, account and CSRF token; sets session cookie |
 | POST | `/api/users/auth/logout/` | No body required | `200`, `{"detail": "Logged out."}`; clears session, including for an already anonymous client |
 | GET | `/api/users/auth/me/` | None | `200`, account and CSRF token |
 
-Account responses have the shape `{"user": {"id": 7, "username": "ada", "email": "ada@example.com"}, "csrfToken": "..."}`. Passwords and permissions are never included. All authentication responses disable caching. Signup accepts only username, password, and email; additional properties cannot grant privileges. Email is optional and is not a unique account identifier; login uses username. Signup applies Django's username, email, duplicate-username, and configured password validation. It returns `400` with `{"errors": {"field": ["message"]}}` for form validation failures. Malformed JSON, non-object bodies, missing credentials, non-string credential fields, or a content type other than `application/json` return `400` with `{"detail": "..."}`. Invalid credentials and inactive accounts return the same generic `401` response. Anonymous `/me/` requests return `401`. Unsupported HTTP methods return `405`.
+Account responses have the shape `{"user": {"id": 7, "username": "ada", "email": "ada@example.com"}, "csrfToken": "..."}`. Passwords and permissions are never included. All authentication responses disable caching. Signup accepts username, password, optional email, and an optional existing group; additional properties cannot grant privileges. Email is optional and is not a unique account identifier; login uses username. Signup applies Django's username, email, duplicate-username, configured password validation, and group existence validation. It returns `400` with `{"errors": {"field": ["message"]}}` for form validation failures. Malformed JSON, non-object bodies, missing credentials, non-string credential fields, or a content type other than `application/json` return `400` with `{"detail": "..."}`. Invalid credentials and inactive accounts return the same generic `401` response. Anonymous `/me/` requests return `401`. Unsupported HTTP methods return `405`.
 
 Every authentication POST, including anonymous signup/login/logout, requires the CSRF cookie and an `X-CSRFToken` header. Missing or invalid tokens and untrusted origins return Django's standard `403` response, which may be HTML. Fetch `/csrf/` before the first POST. Successful signup/login rotates the CSRF secret, so replace your saved token with the returned `csrfToken` before the next POST. Cookies identify the session on later requests; `/me/` lets the frontend restore its signed-in state after reload. Authentication does not automatically record dates in `UserProfile.login_days`.
+
+`UserProfile.group` is an optional foreign key to Django's existing `auth.Group` table, stored as `group_id`. One group can have many profiles through `Group.profiles`; deleting a group sets the profile association to null without deleting the user. Signup accepts a positive integer `group_id` (or null/omission for no group), verifies that it exists, and saves the profile association in the account-creation transaction. Invalid types, non-positive IDs, and nonexistent groups return `400`. The signup page loads `/api/users/groups/` and renders an optional selector, with loading, empty, and retryable failure states. The list endpoint returns only IDs and names, never permissions.
+
+The profile association groups user records but does not add a user to the separate `User.groups` permission-membership relation or grant privileges. Django's permission memberships remain administrator-controlled. Account, profile, and leaderboard response schemas remain unchanged, and group values are not displayed anywhere else in the frontend. Django admin exposes the profile association in user/profile forms and provides filtering by group. Create selectable groups under **Authentication and Authorization → Groups**.
+
+Migration `users/0004_userprofile_group.py` introduced the earlier text label. `users/0005_alter_userprofile_group.py` safely converts saved labels into group records, reuses groups with matching names, links profiles to them, and converts empty labels to null. It preserves scores, account records, and existing permission memberships. Reversing this migration restores group names as text without deleting group records.
 
 Example browser flow (with Vite and Django running):
 

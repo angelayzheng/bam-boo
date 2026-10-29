@@ -19,6 +19,23 @@ export interface Credentials {
   username: string
   password: string
   email?: string
+  group_id?: number | null
+}
+
+export interface SignupGroup {
+  id: number
+  name: string
+}
+
+export async function loadSignupGroups(
+  signal: AbortSignal,
+): Promise<SignupGroup[]> {
+  const response = await fetch('/api/users/groups/', {
+    credentials: 'same-origin',
+    cache: 'no-store',
+    signal,
+  })
+  return (await readResponse<{ groups: SignupGroup[] }>(response)).groups
 }
 
 export interface ScoreSaveResponse extends UserProfile {

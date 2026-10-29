@@ -1,6 +1,6 @@
 from datetime import date
 
-from django.contrib.auth.models import User
+from django.contrib.auth.models import Group, User
 from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator
 from django.db import models
@@ -49,6 +49,9 @@ def validate_login_days(value):
 
 class UserProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="profile")
+    group = models.ForeignKey(
+        Group, on_delete=models.SET_NULL, null=True, blank=True, related_name="profiles"
+    )
     avatar = models.CharField(
         max_length=16, choices=AvatarChoices.choices, default=AvatarChoices.FOX
     )

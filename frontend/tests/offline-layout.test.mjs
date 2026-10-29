@@ -77,11 +77,13 @@ test('login and signup forms remain visible while the session request is pending
   assert.match(login, /Welcome back/)
   assert.match(login, /name="username"/)
   assert.match(login, /name="password"/)
+  assert.doesNotMatch(login, /name="group_id"/)
   assert.match(login, /Checking account…/)
   const signup = renderPage(t, '/signup')
   assert.match(signup, /Create an account/)
   assert.match(signup, /name="email"/)
   assert.match(signup, /name="confirmation"/)
+  assert.match(signup, /<select[^>]*name="group_id"/)
 })
 
 test('a direct profile visit shows the login form while the account is unknown', (t) => {
