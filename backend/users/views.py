@@ -215,7 +215,7 @@ def save_challenge_score(request, challenge_id):
         + int(tone_time <= 10)
         + int(payload["action_correct"])
     )
-    score = round(stars * 100 / 3)
+    score = stars
     with transaction.atomic():
         profile = (
             UserProfile.objects.select_for_update()

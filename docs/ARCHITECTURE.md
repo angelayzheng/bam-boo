@@ -236,7 +236,7 @@ See Django's [authentication documentation](https://docs.djangoproject.com/en/6.
 
 `tone_correct` and `action_correct` must be booleans. `tone_time` must be a finite, non-negative number of seconds. `completed_at` is a timezone-aware ISO timestamp captured when the frontend finishes the challenge, before any later guest login or network retry. `attempt_id` is a unique per-completion submission token (UUID-formatted text), generated once and retained with the result. It identifies the submission, not the challenge. Challenges keep their existing numeric primary keys and have no new UUID field.
 
-The server calculates one star for each correct answer and one for identifying the tone within 10 seconds, matching the results screen. It converts 0–3 stars to 0, 33, 67, or 100 points. Completion metrics and completion time are reported by the prototype client; the endpoint validates them and calculates points but does not independently grade the answers or verify elapsed time.
+The server calculates one star for each correct answer and one for identifying the tone within 10 seconds, matching the results screen. Each attempt is scored as an integer from 0 to 3, and the profile total is the sum of each challenge's best star score. Completion metrics and completion time are reported by the prototype client; the endpoint validates them and calculates points but does not independently grade the answers or verify elapsed time.
 
 `users.models.ChallengeAttempt` stores every distinct completion with an automatic numeric primary key, a unique text `submission_id`, foreign keys to the user's profile and the existing numeric challenge ID, the computed `score`, the original `completed_at`, and a server-generated `received_at`. Django stores aware timestamps in UTC. A lower or equal score from a new completion still creates a new attempt. Reusing a submission token with the same user, challenge, score, and completion time returns the existing attempt; reusing it for different data returns `409` without changing scores. Django admin's **Users → Challenge attempts** lists all attempts and timestamps as read-only records.
 
@@ -249,14 +249,14 @@ Success returns `201` for a new completion or `200` for a repeated save of the s
   "user_id": 7,
   "username": "ada",
   "avatar": "fox",
-  "total_score": 100.0,
+  "total_score": 3,
   "completed_challenges": 1,
-  "scores": {"42": 100.0},
+  "scores": {"42": 3},
   "attempt": {
     "id": 3,
     "attempt_id": "627e5d91-c343-44ae-b6ab-532b2ed41b8e",
     "challenge_id": 42,
-    "score": 67,
+    "score": 2,
     "completed_at": "2026-10-29T01:23:45+00:00",
     "received_at": "2026-10-29T01:24:00+00:00"
   }
@@ -265,7 +265,7 @@ Success returns `201` for a new completion or `200` for a repeated save of the s
 
 Malformed JSON, missing/invalid fields, invalid submission tokens, timezone-naive timestamps, and content types other than `application/json` return `400` with a `detail` message. Anonymous requests with valid CSRF return `401`; missing numeric challenge IDs return JSON `404`. CSRF or origin failures return Django's standard `403`, which may be HTML. Unsupported methods return `405`. Responses disable caching. The username read/update placeholder remains unimplemented and is not used for score writes.
 
-Migration `users/0003_challengeattempt.py` creates attempt storage without changing existing challenges or best-score JSON. Apply it with `manage.py migrate`. Older stored best scores remain intact, but earlier attempt histories and completion times cannot be reconstructed. No new dependencies are required. Tests cover all-attempt persistence, numeric challenge linkage, original completion times, retry deduplication, best-score summaries, user isolation, validation, authentication, CSRF, and frontend save states.
+Migration `users/0003_challengeattempt.py` creates attempt storage. Migration `users/0006_score_points.py` converts existing percentage-based best scores and attempts to the corresponding whole-star score from 0 to 3 and changes stored totals to integer points. Apply migrations with `manage.py migrate`. Earlier attempt histories and completion times cannot be reconstructed. No new dependencies are required. Tests cover all-attempt persistence, numeric challenge linkage, original completion times, retry deduplication, best-score summaries, user isolation, validation, authentication, CSRF, and frontend save states.
 
 ## Data and persistence
 

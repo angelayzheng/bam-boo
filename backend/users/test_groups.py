@@ -2,6 +2,7 @@ from django.contrib.auth.models import Group, Permission, User
 from django.db import connection
 from django.db.migrations.executor import MigrationExecutor
 from django.test import Client, TestCase, TransactionTestCase
+from django.utils import timezone
 
 from .models import UserProfile
 
@@ -105,7 +106,18 @@ class ProfileGroupMigrationTests(TransactionTestCase):
             OldUser = old.get_model("auth", "User")
             OldGroup = old.get_model("auth", "Group")
             OldProfile = old.get_model("users", "UserProfile")
+            OldChallenge = old.get_model("challenges", "Challenge")
+            OldAttempt = old.get_model("users", "ChallengeAttempt")
             group = OldGroup.objects.create(name="Existing team")
+            challenge = OldChallenge.objects.create(
+                name="Migration challenge",
+                slug="migration-challenge",
+                challenge_date="2026-10-15",
+                difficulty=2,
+                category="social",
+                tone="calm",
+                required_action="reset password",
+            )
             profile_ids = []
             for index, name in enumerate(("Existing team", "New team", "New team", "")):
                 user = OldUser.objects.create(username=f"migration-{index}")
@@ -113,10 +125,19 @@ class ProfileGroupMigrationTests(TransactionTestCase):
                     user_id=user.pk, group=name, scores={"42": 67}, total_score=67
                 )
                 profile_ids.append(profile.pk)
+                if index == 0:
+                    OldAttempt.objects.create(
+                        submission_id="627e5d91-c343-44ae-b6ab-532b2ed41b8e",
+                        profile_id=profile.pk,
+                        challenge_id=challenge.pk,
+                        score=67,
+                        completed_at=timezone.now(),
+                    )
             executor = MigrationExecutor(connection)
             executor.migrate(latest)
             current = executor.loader.project_state(latest).apps
             Profile = current.get_model("users", "UserProfile")
+            Attempt = current.get_model("users", "ChallengeAttempt")
             CurrentGroup = current.get_model("auth", "Group")
             profiles = [Profile.objects.get(pk=pk) for pk in profile_ids]
             self.assertEqual(profiles[0].group_id, group.pk)
@@ -124,8 +145,9 @@ class ProfileGroupMigrationTests(TransactionTestCase):
             self.assertEqual(profiles[1].group.name, "New team")
             self.assertIsNone(profiles[3].group_id)
             self.assertEqual(CurrentGroup.objects.count(), 2)
-            self.assertEqual(profiles[0].scores, {"42": 67})
-            self.assertEqual(profiles[0].total_score, 67)
+            self.assertEqual(profiles[0].scores, {"42": 2})
+            self.assertEqual(profiles[0].total_score, 2)
+            self.assertEqual(Attempt.objects.get().score, 2)
             self.assertEqual(
                 current.get_model("auth", "User").groups.through.objects.count(), 0
             )
@@ -138,5 +160,8 @@ class ProfileGroupMigrationTests(TransactionTestCase):
                 [restored.objects.get(pk=pk).group for pk in profile_ids],
                 ["Existing team", "New team", "New team", ""],
             )
+            restored_profile = restored.objects.get(pk=profile_ids[0])
+            self.assertEqual(restored_profile.scores, {"42": 67})
+            self.assertEqual(restored_profile.total_score, 67)
         finally:
             MigrationExecutor(connection).migrate(latest)

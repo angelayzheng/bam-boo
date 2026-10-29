@@ -44,8 +44,8 @@ test('completion sends result metrics with session cookies and CSRF to the curre
     user_id: 7,
     username: 'ada',
     avatar: 'fox',
-    scores: { 42: 100 },
-    total_score: 100,
+    scores: { 42: 3 },
+    total_score: 3,
     completed_challenges: 1,
   }
   const requests = []
@@ -99,11 +99,11 @@ test('saving reports an expired login or backend failure and can be retried', as
     saveChallengeResult(result, new AbortController().signal),
     /Could not connect/,
   )
-  response = Response.json({ scores: { 42: 33 }, total_score: 33 })
+  response = Response.json({ scores: { 42: 1 }, total_score: 1 })
   assert.equal(
     (await saveChallengeResult(result, new AbortController().signal))
       .total_score,
-    33,
+    1,
   )
   assert.equal(attempts, 3)
 })
@@ -237,9 +237,9 @@ test('profile loads stored progress for the signed-in account with cancellation'
   const profile = {
     user_id: 7,
     avatar: 'fox',
-    total_score: 80,
+    total_score: 2,
     completed_challenges: 1,
-    scores: { 42: 80 },
+    scores: { 42: 2 },
   }
   t.mock.method(globalThis, 'fetch', async (url, options) => {
     assert.equal(url, '/api/users/7/profile/')

@@ -51,7 +51,7 @@ class LocalSuperuserCommandTests(TestCase):
         user.save()
         profile = user.profile
         profile.avatar = "owl"
-        profile.add_score("42", 80)
+        profile.add_score("42", 2)
         profile.save()
         output = self.seed()
         user.refresh_from_db()
@@ -60,7 +60,7 @@ class LocalSuperuserCommandTests(TestCase):
         self.assertTrue(user.check_password("ChangedLocalPassword!2026"))
         self.assertEqual(user.email, "custom@example.test")
         self.assertEqual(profile.avatar, "owl")
-        self.assertEqual(profile.scores, {"42": 80})
+        self.assertEqual(profile.scores, {"42": 2})
         self.assertEqual(User.objects.count(), 1)
         self.assertEqual(UserProfile.objects.count(), 1)
 
@@ -290,17 +290,17 @@ class UserProfileModelTests(TestCase):
     def test_add_score_updates_total(self):
         user = User.objects.create_user(username="ada", password="s3cure-pass")
         profile = user.profile
-        profile.add_score(1, 80)
-        profile.add_score(2, 70)
+        profile.add_score(1, 2)
+        profile.add_score(2, 1)
         profile.save()
         profile.refresh_from_db()
-        self.assertEqual(profile.scores, {"1": 80.0, "2": 70.0})
-        self.assertEqual(profile.total_score, 150.0)
+        self.assertEqual(profile.scores, {"1": 2, "2": 1})
+        self.assertEqual(profile.total_score, 3)
 
     def test_add_score_rejects_out_of_range(self):
         user = User.objects.create_user(username="ada", password="s3cure-pass")
         with self.assertRaises(ValidationError):
-            user.profile.add_score(1, 101)
+            user.profile.add_score(1, 4)
 
     def test_scores_validator_rejects_non_numeric(self):
         user = User.objects.create_user(username="ada", password="s3cure-pass")
@@ -331,14 +331,14 @@ class UserProfileApiTests(TestCase):
     def test_profile_endpoint(self):
         user = User.objects.create_user(username="ada", password="s3cure-pass")
         profile = user.profile
-        profile.add_score(1, 90)
+        profile.add_score(1, 3)
         profile.save()
 
         response = self.client.get(f"/api/users/{user.id}/profile/")
         self.assertEqual(response.status_code, 200)
         payload = response.json()
         self.assertEqual(payload["username"], "ada")
-        self.assertEqual(payload["total_score"], 90.0)
+        self.assertEqual(payload["total_score"], 3)
         self.assertEqual(payload["completed_challenges"], 1)
 
     def test_profile_endpoint_404(self):
@@ -357,9 +357,9 @@ class UserProfileApiTests(TestCase):
     def test_leaderboard_orders_by_total_score(self):
         low = User.objects.create_user(username="low", password="s3cure-pass")
         high = User.objects.create_user(username="high", password="s3cure-pass")
-        low.profile.add_score(1, 10)
+        low.profile.add_score(1, 1)
         low.profile.save()
-        high.profile.add_score(1, 95)
+        high.profile.add_score(1, 3)
         high.profile.save()
 
         payload = self.client.get("/api/users/leaderboard/").json()

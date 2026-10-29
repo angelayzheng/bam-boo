@@ -175,7 +175,7 @@ export default function ProfilePage({
                         <th scope="row" className="py-3 font-medium break-all">
                           {id}
                         </th>
-                        <td className="py-3 text-right">{score} / 100</td>
+                        <td className="py-3 text-right">{score} / 3</td>
                       </tr>
                     ))}
                   </tbody>

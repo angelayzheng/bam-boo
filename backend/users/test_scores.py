@@ -59,10 +59,10 @@ class ChallengeScoreApiTests(TestCase):
     def test_score_matches_the_three_result_stars(self):
         for tone, seconds, action, expected in (
             (False, 11, False, 0),
-            (True, 11, False, 33),
-            (False, 10, False, 33),
-            (True, 10, False, 67),
-            (True, 10, True, 100),
+            (True, 11, False, 1),
+            (False, 10, False, 1),
+            (True, 10, False, 2),
+            (True, 10, True, 3),
         ):
             with self.subTest(tone=tone, seconds=seconds, action=action):
                 UserProfile.objects.filter(user=self.user).update(
@@ -91,16 +91,16 @@ class ChallengeScoreApiTests(TestCase):
         two_stars = {**one_star, "tone_time": 10}
         three_stars = {**two_stars, "action_correct": True}
         for _ in range(2):
-            self.assertEqual(self.post(one_star).json()["total_score"], 33)
+            self.assertEqual(self.post(one_star).json()["total_score"], 1)
         second_url = f"/api/users/me/scores/{self.second.pk}/"
-        self.assertEqual(self.post(two_stars, second_url).json()["total_score"], 100)
-        self.assertEqual(self.post(three_stars).json()["total_score"], 167)
+        self.assertEqual(self.post(two_stars, second_url).json()["total_score"], 3)
+        self.assertEqual(self.post(three_stars).json()["total_score"], 5)
         repeated = self.post(one_star).json()
-        self.assertEqual(repeated["total_score"], 167)
+        self.assertEqual(repeated["total_score"], 5)
         self.assertEqual(repeated["completed_challenges"], 2)
         self.assertEqual(
             repeated["scores"],
-            {str(self.challenge.pk): 100, str(self.second.pk): 67},
+            {str(self.challenge.pk): 3, str(self.second.pk): 2},
         )
         profile = self.client.get(f"/api/users/{self.user.pk}/profile/").json()
         self.assertEqual(
@@ -115,11 +115,11 @@ class ChallengeScoreApiTests(TestCase):
                 .order_by("received_at")
                 .values_list("score", flat=True)
             ),
-            [33, 33, 67, 100, 33],
+            [1, 1, 2, 3, 1],
         )
         leaderboard = self.client.get("/api/users/leaderboard/").json()["leaderboard"]
         self.assertEqual(leaderboard[0]["user_id"], self.user.pk)
-        self.assertEqual(leaderboard[0]["total_score"], 167)
+        self.assertEqual(leaderboard[0]["total_score"], 5)
 
     def test_session_identity_and_server_calculation_ignore_forged_fields(self):
         response = self.post(
@@ -197,7 +197,7 @@ class ChallengeScoreApiTests(TestCase):
         self.assertEqual(ChallengeAttempt.objects.count(), 2)
         self.assertEqual(
             UserProfile.objects.get(user=self.user).scores[str(self.challenge.pk)],
-            100,
+            3,
         )
 
     def test_attempt_id_cannot_be_reused_for_another_user_or_challenge(self):
