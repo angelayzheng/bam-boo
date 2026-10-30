@@ -41,16 +41,16 @@ export default function ResultsPage({
   const stars = achievements.filter(({ earned }) => earned).length
 
   return (
-    <div className="min-h-screen bg-beige text-black">
+    <div className="bg-beige min-h-screen text-black">
       <Header compact />
       <main className="mx-auto flex max-w-3xl flex-col items-center px-5 py-12 text-center sm:px-8 sm:py-16">
-        <div className="grid size-16 place-items-center rounded-3xl bg-green-dark text-white shadow-card">
+        <div className="bg-green-dark shadow-card grid size-16 place-items-center rounded-3xl text-white">
           <CheckIcon className="size-8" />
         </div>
-        <p className="mt-7 text-sm font-bold tracking-[0.18em] text-green-dark uppercase">
+        <p className="text-green-dark mt-7 text-sm font-bold tracking-[0.18em] uppercase">
           Challenge complete
         </p>
-        <h1 className="mt-3 text-4xl font-extrabold text-orange sm:text-5xl">
+        <h1 className="text-orange mt-3 text-4xl font-extrabold sm:text-5xl">
           {stars === 3 ? 'Beautifully handled.' : 'Good work. Keep listening.'}
         </h1>
         <p className="mt-4 max-w-lg text-lg leading-7 text-black/70">
@@ -73,7 +73,7 @@ export default function ResultsPage({
           {achievements.map((achievement) => (
             <div
               key={achievement.title}
-              className={`rounded-2xl border p-5 shadow-card ${achievement.earned ? 'border-green-light bg-green-pale/50' : 'border-black/10 bg-white/40'}`}
+              className={`shadow-card rounded-2xl border p-5 ${achievement.earned ? 'border-green-light bg-green-pale/50' : 'border-black/10 bg-white/40'}`}
             >
               <div
                 className={`mb-4 grid size-8 place-items-center rounded-full ${achievement.earned ? 'bg-green-dark text-white' : 'bg-black/10 text-black/40'}`}
@@ -96,14 +96,14 @@ export default function ResultsPage({
           <button
             type="button"
             onClick={onHome}
-            className="rounded-xl bg-linear-to-b from-orange to-olive px-6 py-3.5 text-base font-bold text-white transition hover:brightness-105 focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-green-dark"
+            className="from-orange to-olive focus-visible:outline-green-dark rounded-xl bg-linear-to-b px-6 py-3.5 text-base font-bold text-white transition hover:brightness-105 focus-visible:outline-3 focus-visible:outline-offset-2"
           >
             Back to calendar
           </button>
           <button
             type="button"
             onClick={onRetry}
-            className="rounded-xl border-2 border-green-dark px-6 py-3.5 text-base font-bold text-green-dark transition hover:bg-green-pale/50 focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-green-dark"
+            className="border-green-dark text-green-dark hover:bg-green-pale/50 focus-visible:outline-green-dark rounded-xl border-2 px-6 py-3.5 text-base font-bold transition focus-visible:outline-3 focus-visible:outline-offset-2"
           >
             Retry challenge
           </button>

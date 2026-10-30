@@ -33,7 +33,7 @@ const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri']
 function Stars({ value }: { value: number }) {
   return (
     <span
-      className="flex text-lg leading-none text-green-light"
+      className="text-green-light flex text-lg leading-none"
       role="img"
       aria-label={`${value} out of 3 stars`}
     >
@@ -115,12 +115,12 @@ export default function HomePage({ challenge, onStart }: HomePageProps) {
   )
 
   return (
-    <div className="min-h-screen bg-beige text-black">
+    <div className="bg-beige min-h-screen text-black">
       <Header />
       <main className="mx-auto grid max-w-7xl min-w-0 gap-10 px-5 py-8 sm:px-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.6fr)]">
         {/* Left column */}
         <div className="flex min-w-0 flex-col gap-10">
-          <section className="overflow-hidden rounded-2xl border border-orange">
+          <section className="border-orange overflow-hidden rounded-2xl border">
             <div className="p-6">
               <p className="text-lg font-semibold uppercase">
                 {new Intl.DateTimeFormat('en-CA', {
@@ -129,14 +129,14 @@ export default function HomePage({ challenge, onStart }: HomePageProps) {
                   year: 'numeric',
                 }).format(challengeDay)}
               </p>
-              <h1 className="mt-2 text-4xl leading-tight font-extrabold text-orange">
+              <h1 className="text-orange mt-2 text-4xl leading-tight font-extrabold">
                 {challenge.name}
               </h1>
             </div>
             <button
               type="button"
               onClick={onStart}
-              className="w-full bg-linear-to-b from-orange to-olive px-6 py-4 text-2xl font-bold text-white transition hover:brightness-105 focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-green-dark"
+              className="from-orange to-olive focus-visible:outline-green-dark w-full bg-linear-to-b px-6 py-4 text-2xl font-bold text-white transition hover:brightness-105 focus-visible:outline-3 focus-visible:outline-offset-2"
             >
               Start Today’s Challenge
             </button>
@@ -151,7 +151,7 @@ export default function HomePage({ challenge, onStart }: HomePageProps) {
             </ul>
             <a
               href="/leaderboard"
-              className="mt-4 inline-block text-xl font-bold text-green-dark"
+              className="text-green-dark mt-4 inline-block text-xl font-bold"
             >
               View Full Leaderboard
             </a>
@@ -166,7 +166,7 @@ export default function HomePage({ challenge, onStart }: HomePageProps) {
                 <span className="text-xl font-extrabold uppercase sm:text-3xl">
                   {day}
                 </span>
-                <div className="aspect-square w-full rounded-full bg-green-pale shadow-card" />
+                <div className="bg-green-pale shadow-card aspect-square w-full rounded-full" />
               </div>
             ))}
           </section>
@@ -180,21 +180,21 @@ export default function HomePage({ challenge, onStart }: HomePageProps) {
                   year: 'numeric',
                 }).format(challengeDay)}
               </h2>
-              <p className="flex items-center gap-1 text-lg font-bold text-orange">
+              <p className="text-orange flex items-center gap-1 text-lg font-bold">
                 3-day streak
                 <FlameIcon className="size-5" />
               </p>
             </div>
 
-            <div className="overflow-hidden rounded-2xl shadow-card">
-              <div className="grid grid-cols-7 bg-green-dark py-4 text-center text-sm font-semibold text-white uppercase sm:text-lg">
+            <div className="shadow-card overflow-hidden rounded-2xl">
+              <div className="bg-green-dark grid grid-cols-7 py-4 text-center text-sm font-semibold text-white uppercase sm:text-lg">
                 {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(
                   (day) => (
                     <div key={day}>{day}</div>
                   ),
                 )}
               </div>
-              <div className="grid grid-cols-7 gap-px bg-green-light/60">
+              <div className="bg-green-light/60 grid grid-cols-7 gap-px">
                 {calendarDays.map((day, index) => {
                   const isInMonth = day > 0 && day <= daysInMonth
                   const isToday = day === challengeDay.getDate()
@@ -207,7 +207,7 @@ export default function HomePage({ challenge, onStart }: HomePageProps) {
                       type="button"
                       disabled={!isToday}
                       onClick={isToday ? onStart : undefined}
-                      className={`flex min-h-16 min-w-0 flex-col items-start gap-1 bg-beige p-2 text-left sm:min-h-24 sm:p-3 ${isToday ? 'cursor-pointer bg-orange-light/30 hover:bg-orange-light/50' : 'cursor-default'}`}
+                      className={`bg-beige flex min-h-16 min-w-0 flex-col items-start gap-1 p-2 text-left sm:min-h-24 sm:p-3 ${isToday ? 'bg-orange-light/30 hover:bg-orange-light/50 cursor-pointer' : 'cursor-default'}`}
                       aria-label={
                         isToday
                           ? `Start ${challenge.name}`
@@ -225,7 +225,7 @@ export default function HomePage({ challenge, onStart }: HomePageProps) {
                           </span>
                           {score === 'missed' ? (
                             <span
-                              className="text-lg text-orange"
+                              className="text-orange text-lg"
                               role="img"
                               aria-label="Missed"
                             >

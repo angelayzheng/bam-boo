@@ -20,15 +20,17 @@ export default function Header({ compact = false }: HeaderProps) {
         </div>
         {!compact && (
           <div className="flex items-center gap-4 sm:gap-5">
-            <div className="flex items-center gap-1 text-lg font-bold text-orange">
+            <div className="text-orange flex items-center gap-1 text-lg font-bold">
               <FlameIcon className="size-5" />
               <span>3</span>
             </div>
             <div className="flex items-center gap-2">
-              <div className="grid size-8 place-items-center rounded-full bg-green-light text-xs font-bold text-black">
+              <div className="bg-green-light grid size-8 place-items-center rounded-full text-xs font-bold text-black">
                 AZ
               </div>
-              <span className="hidden text-lg font-bold text-black sm:inline">Angela Zheng</span>
+              <span className="hidden text-lg font-bold text-black sm:inline">
+                Angela Zheng
+              </span>
             </div>
           </div>
         )}

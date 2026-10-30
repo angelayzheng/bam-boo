@@ -75,7 +75,7 @@ export default function ChallengePage({
   const stepNumber = stage === 'tone' ? 1 : stage === 'response' ? 2 : 3
 
   return (
-    <div className="min-h-screen bg-beige text-black">
+    <div className="bg-beige min-h-screen text-black">
       <Header compact />
       <main className="mx-auto max-w-3xl px-5 py-6 sm:px-8 sm:py-10">
         <div className="mb-7 flex items-center justify-between">
@@ -86,7 +86,7 @@ export default function ChallengePage({
           >
             <ArrowLeftIcon /> Exit challenge
           </button>
-          <span className="text-right text-sm font-bold tracking-[0.12em] text-green-dark uppercase">
+          <span className="text-green-dark text-right text-sm font-bold tracking-[0.12em] uppercase">
             {challengeDateLabel(challenge)}
           </span>
         </div>
@@ -96,19 +96,19 @@ export default function ChallengePage({
             <span>Step {stepNumber} of 3</span>
             <span>{Math.round((stepNumber / 3) * 100)}%</span>
           </div>
-          <div className="h-2 overflow-hidden rounded-full bg-green-pale">
+          <div className="bg-green-pale h-2 overflow-hidden rounded-full">
             <div
-              className="h-full rounded-full bg-green-dark transition-all duration-500"
+              className="bg-green-dark h-full rounded-full transition-all duration-500"
               style={{ width: `${(stepNumber / 3) * 100}%` }}
             />
           </div>
         </div>
 
         <div className="mb-6">
-          <p className="text-sm font-bold tracking-[0.14em] text-orange uppercase">
+          <p className="text-orange text-sm font-bold tracking-[0.14em] uppercase">
             {challenge.category}
           </p>
-          <h1 className="mt-2 text-3xl font-extrabold text-orange sm:text-4xl">
+          <h1 className="text-orange mt-2 text-3xl font-extrabold sm:text-4xl">
             {challenge.name}
           </h1>
         </div>
@@ -121,7 +121,7 @@ export default function ChallengePage({
               autoPlay
             />
             <section className={`mt-6 ${card}`}>
-              <p className="text-sm font-bold tracking-[0.15em] text-green-dark uppercase">
+              <p className="text-green-dark text-sm font-bold tracking-[0.15em] uppercase">
                 Listen for what is underneath
               </p>
               <h2 className="mt-2 text-2xl font-bold">
@@ -203,12 +203,12 @@ export default function ChallengePage({
 
         {stage === 'response' && (
           <div className="animate-fade-in">
-            <div className="mb-5 rounded-2xl bg-green-pale/50 px-4 py-3 text-base">
+            <div className="bg-green-pale/50 mb-5 rounded-2xl px-4 py-3 text-base">
               <span className="font-bold">Tone captured:</span> {tone} ·{' '}
               {toneTime} seconds
             </div>
             <section className={card}>
-              <p className="text-sm font-bold tracking-[0.15em] text-green-dark uppercase">
+              <p className="text-green-dark text-sm font-bold tracking-[0.15em] uppercase">
                 Listen and respond
               </p>
               <h2 className="mt-2 text-2xl font-bold">
@@ -227,7 +227,7 @@ export default function ChallengePage({
                   {options.map((response) => (
                     <label
                       key={response.text_file}
-                      className={`flex cursor-pointer items-start gap-4 rounded-2xl border-2 p-4 transition ${selectedResponse === response ? 'border-green-dark bg-green-pale/50' : 'border-green-light bg-white hover:bg-green-pale/30'}`}
+                      className={`flex cursor-pointer items-start gap-4 rounded-2xl border-2 p-4 transition ${selectedResponse === response ? 'border-green-dark bg-green-pale/50' : 'border-green-light hover:bg-green-pale/30 bg-white'}`}
                     >
                       <input
                         type="radio"
@@ -235,7 +235,7 @@ export default function ChallengePage({
                         value={response.text_file}
                         checked={selectedResponse === response}
                         onChange={() => setSelectedResponse(response)}
-                        className="mt-1 size-5 shrink-0 accent-green-dark"
+                        className="accent-green-dark mt-1 size-5 shrink-0"
                       />
                       <span className="text-base leading-6 font-medium">
                         {response.text}
@@ -269,10 +269,10 @@ export default function ChallengePage({
 
         {stage === 'action' && (
           <section className={`animate-fade-in ${card}`}>
-            <div className="grid size-12 place-items-center rounded-2xl bg-orange-light/40 text-orange">
+            <div className="bg-orange-light/40 text-orange grid size-12 place-items-center rounded-2xl">
               <CheckIcon className="size-6" />
             </div>
-            <p className="mt-6 text-sm font-bold tracking-[0.15em] text-green-dark uppercase">
+            <p className="text-green-dark mt-6 text-sm font-bold tracking-[0.15em] uppercase">
               Close the loop
             </p>
             <h2 className="mt-2 text-2xl font-bold">

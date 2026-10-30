@@ -31,7 +31,7 @@ export default function AudioPlayer({
 
   return (
     <section
-    className={`rounded-2xl p-5 shadow-card sm:p-6 ${node.type === 'response' ? 'bg-orange-light/40' : 'bg-green-pale/40'}`}
+      className={`shadow-card rounded-2xl p-5 sm:p-6 ${node.type === 'response' ? 'bg-orange-light/40' : 'bg-green-pale/40'}`}
     >
       <p className="mb-3 text-lg font-bold text-black">{label}</p>
       <p className="mb-4 text-base leading-6 text-black/80">{node.text}</p>
