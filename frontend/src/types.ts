@@ -28,7 +28,15 @@ export interface Challenge extends ChallengeSummary {
 
 export interface ResultData {
   challengeId: number
+  attemptId: string
+  completedAt: string
   toneCorrect: boolean
   toneTime: number
   actionCorrect: boolean
+  userId?: number | null
 }
+
+export type ScoreSaveState =
+  | { status: 'saving' }
+  | { status: 'saved' }
+  | { status: 'error'; message: string }

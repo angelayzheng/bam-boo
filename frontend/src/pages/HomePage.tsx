@@ -1,14 +1,27 @@
 import Header from '../components/Header'
+import type { ReactNode } from 'react'
 import { challengeDate } from '../challenges'
 import type { Challenge } from '../types'
+import type { AuthUser } from '../auth'
 
 interface HomePageProps {
-  challenge: Challenge
+  challenge: Challenge | null
   onStart: () => void
+  user: AuthUser | null
+  accountLoading: boolean
+  onAccount: () => void
+  notice?: ReactNode
 }
 
-export default function HomePage({ challenge, onStart }: HomePageProps) {
-  const challengeDay = challengeDate(challenge)
+export default function HomePage({
+  challenge,
+  onStart,
+  user,
+  accountLoading,
+  onAccount,
+  notice,
+}: HomePageProps) {
+  const challengeDay = challenge ? challengeDate(challenge) : new Date()
   const startOfMonth = new Date(
     challengeDay.getFullYear(),
     challengeDay.getMonth(),
@@ -26,8 +39,13 @@ export default function HomePage({ challenge, onStart }: HomePageProps) {
 
   return (
     <div className="min-h-screen bg-[#f7f8f5] text-slate-900">
-      <Header />
+      <Header
+        user={user}
+        accountLoading={accountLoading}
+        onAccount={onAccount}
+      />
       <main className="mx-auto max-w-6xl min-w-0 px-5 py-8 sm:px-8 sm:py-12">
+        {notice}
         <div className="mb-10 flex flex-col justify-between gap-6 md:flex-row md:items-end">
           <div>
             <h1 className="max-w-2xl text-4xl leading-[1.08] font-bold tracking-[-0.035em] text-[#17243d] sm:text-5xl">
@@ -36,14 +54,16 @@ export default function HomePage({ challenge, onStart }: HomePageProps) {
           </div>
           <div className="flex gap-3">
             <div className="min-w-28 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
-              <p className="text-2xl font-bold text-[#17243d]">1</p>
+              <p className="text-2xl font-bold text-[#17243d]">
+                {challenge ? '1' : '—'}
+              </p>
               <p className="text-xs font-medium text-slate-500">
                 Recording ready
               </p>
             </div>
             <div className="min-w-28 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
               <p className="text-2xl font-bold text-[#17243d]">
-                {challenge.difficulty}/5
+                {challenge ? `${challenge.difficulty}/5` : '—'}
               </p>
               <p className="text-xs font-medium text-slate-500">Difficulty</p>
             </div>
@@ -61,10 +81,12 @@ export default function HomePage({ challenge, onStart }: HomePageProps) {
               </h2>
             </div>
             <div className="flex items-center gap-4 text-xs font-medium text-slate-500">
-              <span className="flex items-center gap-1.5">
-                <span className="size-2 rounded-full bg-[#ff9b66]" /> Available
-                recording
-              </span>
+              {challenge && (
+                <span className="flex items-center gap-1.5">
+                  <span className="size-2 rounded-full bg-[#ff9b66]" />{' '}
+                  Available recording
+                </span>
+              )}
             </div>
           </div>
 
@@ -79,7 +101,7 @@ export default function HomePage({ challenge, onStart }: HomePageProps) {
             <div className="grid min-w-0 grid-cols-7 overflow-hidden rounded-2xl border border-slate-200 bg-slate-200">
               {calendarDays.map((day, index) => {
                 const isInMonth = day > 0 && day <= daysInMonth
-                const isToday = day === challengeDay.getDate()
+                const isToday = !!challenge && day === challengeDay.getDate()
                 const isWeekend = index % 7 === 0 || index % 7 === 6
 
                 return (
@@ -91,7 +113,7 @@ export default function HomePage({ challenge, onStart }: HomePageProps) {
                     className={`relative min-h-17 min-w-0 bg-white p-1.5 text-left transition sm:min-h-24 sm:p-3 ${isToday ? 'group cursor-pointer hover:bg-[#fff7f1]' : 'cursor-default'} ${isWeekend ? 'bg-slate-50/90' : ''}`}
                     aria-label={
                       isToday
-                        ? `Start ${challenge.name}`
+                        ? `Start ${challenge?.name}`
                         : isInMonth
                           ? `${challengeDay.toLocaleString('en-CA', { month: 'long' })} ${day}`
                           : undefined
@@ -121,23 +143,30 @@ export default function HomePage({ challenge, onStart }: HomePageProps) {
           </div>
         </section>
 
-        <button
-          type="button"
-          onClick={onStart}
-          className="mt-6 flex w-full items-center justify-between rounded-2xl bg-[#17243d] p-5 text-left text-white shadow-lg shadow-slate-900/10 transition hover:-translate-y-0.5 hover:bg-[#223253] focus-visible:outline-3 focus-visible:outline-offset-3 focus-visible:outline-[#66d9b7] sm:p-6"
-        >
-          <span>
-            <span className="text-xs font-bold tracking-[0.14em] text-[#75e2c1] uppercase">
-              {challenge.challenge_date} · {challenge.category}
+        {challenge ? (
+          <button
+            type="button"
+            onClick={onStart}
+            className="mt-6 flex w-full items-center justify-between rounded-2xl bg-[#17243d] p-5 text-left text-white shadow-lg shadow-slate-900/10 transition hover:-translate-y-0.5 hover:bg-[#223253] focus-visible:outline-3 focus-visible:outline-offset-3 focus-visible:outline-[#66d9b7] sm:p-6"
+          >
+            <span>
+              <span className="text-xs font-bold tracking-[0.14em] text-[#75e2c1] uppercase">
+                {challenge.challenge_date} · {challenge.category}
+              </span>
+              <span className="mt-1 block text-lg font-bold">
+                {challenge.name}
+              </span>
             </span>
-            <span className="mt-1 block text-lg font-bold">
-              {challenge.name}
+            <span className="rounded-full bg-white/10 px-4 py-2 text-sm font-semibold">
+              Begin →
             </span>
-          </span>
-          <span className="rounded-full bg-white/10 px-4 py-2 text-sm font-semibold">
-            Begin →
-          </span>
-        </button>
+          </button>
+        ) : (
+          <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 text-sm text-slate-500 sm:p-6">
+            <h2 className="font-semibold text-[#17243d]">Daily recording</h2>
+            <p className="mt-1">Recordings will appear here when available.</p>
+          </section>
+        )}
       </main>
     </div>
   )

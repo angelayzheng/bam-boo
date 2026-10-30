@@ -1,13 +1,20 @@
 import Header from '../components/Header'
 import { CheckIcon, StarIcon } from '../components/icons'
 import { challengeDateLabel } from '../challenges'
-import type { Challenge, ResultData } from '../types'
+import type { Challenge, ResultData, ScoreSaveState } from '../types'
+import type { AuthUser } from '../auth'
 
 interface ResultsPageProps {
   challenge: Challenge
   result: ResultData
   onHome: () => void
   onRetry: () => void
+  user: AuthUser | null
+  sessionLoading: boolean
+  saveState: ScoreSaveState
+  onSaveRetry: () => void
+  onLogin: () => void
+  onProfile: () => void
 }
 
 export default function ResultsPage({
@@ -15,6 +22,12 @@ export default function ResultsPage({
   result,
   onHome,
   onRetry,
+  user,
+  sessionLoading,
+  saveState,
+  onSaveRetry,
+  onLogin,
+  onProfile,
 }: ResultsPageProps) {
   const achievements = [
     {
@@ -92,6 +105,54 @@ export default function ResultsPage({
               </p>
             </div>
           ))}
+        </div>
+
+        <div
+          role="status"
+          className="mt-6 w-full rounded-xl bg-white/10 px-4 py-3 text-sm text-slate-200"
+        >
+          {sessionLoading ? (
+            'Checking your account before saving…'
+          ) : !user ? (
+            <>
+              Your result is kept in this browser session.{' '}
+              <button
+                type="button"
+                onClick={onLogin}
+                className="font-semibold text-[#75e2c1] underline underline-offset-4"
+              >
+                Log in to save your score
+              </button>
+            </>
+          ) : result.userId !== user.id ? (
+            'This result belongs to another session. Retry the challenge to save a score to this account.'
+          ) : !result.attemptId || !result.completedAt ? (
+            'This older result has no completion timestamp. Retry the challenge to record a new completion.'
+          ) : saveState.status === 'saving' ? (
+            'Saving your score…'
+          ) : saveState.status === 'saved' ? (
+            <>
+              Score saved to your profile. Your best score counts.{' '}
+              <button
+                type="button"
+                onClick={onProfile}
+                className="font-semibold text-[#75e2c1] underline underline-offset-4"
+              >
+                View profile
+              </button>
+            </>
+          ) : (
+            <>
+              Could not save your score. {saveState.message}{' '}
+              <button
+                type="button"
+                onClick={onSaveRetry}
+                className="font-semibold text-[#75e2c1] underline underline-offset-4"
+              >
+                Retry saving
+              </button>
+            </>
+          )}
         </div>
 
         <div className="mt-8 flex w-full flex-col gap-3 sm:flex-row sm:justify-center">
