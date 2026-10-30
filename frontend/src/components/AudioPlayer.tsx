@@ -31,10 +31,10 @@ export default function AudioPlayer({
 
   return (
     <section
-      className={`rounded-3xl border p-5 shadow-sm sm:p-6 ${node.type === 'response' ? 'border-[#bdebdc] bg-[#eefbf6]' : 'border-slate-200 bg-white'}`}
+      className={`rounded-2xl border p-5 shadow-card sm:p-6 ${node.type === 'response' ? 'border-orange bg-orange-light/40' : 'border-green-light bg-green-pale/40'}`}
     >
-      <p className="mb-3 text-sm font-bold text-[#17243d]">{label}</p>
-      <p className="mb-4 text-sm leading-6 text-slate-700">{node.text}</p>
+      <p className="mb-3 text-lg font-bold text-black">{label}</p>
+      <p className="mb-4 text-base leading-6 text-black/80">{node.text}</p>
       <audio
         ref={audio}
         controls
