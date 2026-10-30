@@ -15,10 +15,9 @@ interface ChallengePageProps {
 }
 
 const primaryButton =
-  'rounded-xl bg-linear-to-b from-orange to-olive px-5 py-3 text-base font-bold text-white transition hover:brightness-105 focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-green-dark disabled:cursor-not-allowed disabled:opacity-40'
+  'rounded-xl bg-orange px-5 py-3 text-base font-bold text-white transition hover:brightness-95 focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-green-dark disabled:cursor-not-allowed disabled:opacity-40'
 
-const card =
-  'rounded-2xl border border-green-light bg-white/60 p-6 shadow-card sm:p-8'
+const card = 'rounded-2xl bg-white/60 p-6 shadow-card sm:p-8'
 
 const textField =
   'w-full rounded-2xl border-2 border-green-light bg-white px-4 py-4 text-black transition outline-none placeholder:text-black/30 focus:border-green-dark focus:ring-4 focus:ring-green-dark/10'
@@ -204,7 +203,7 @@ export default function ChallengePage({
 
         {stage === 'response' && (
           <div className="animate-fade-in">
-            <div className="mb-5 rounded-2xl border border-green-light bg-green-pale/50 px-4 py-3 text-base">
+            <div className="mb-5 rounded-2xl bg-green-pale/50 px-4 py-3 text-base">
               <span className="font-bold">Tone captured:</span> {tone} ·{' '}
               {toneTime} seconds
             </div>
