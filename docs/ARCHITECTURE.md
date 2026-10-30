@@ -45,7 +45,7 @@ During local development, Vite serves the frontend and Django runs the backend s
 	pull_request_template.md  Default PR description with changes, screenshots, testing, setup notes, and future work
 
 backend/
-	challenges/       SQLite-backed challenges, conversation-tree validation, JSON API, local challenge import
+	challenges/       SQLite-backed challenges, tree validation, JSON API, import service, admin ZIP upload
 	users/            User profiles and progress API
 	media/challenges/ Imported challenge packages grouped by slug (local, not committed)
 	challenges/source_data/challenges/  Authored local challenge packages and manifests
@@ -124,7 +124,7 @@ The Django project is configured in `backend/config`:
 
 - `settings.py` enables Django’s built-in apps, `django-cors-headers`, and SQLite.
 - `counter/` owns the shared count model and its JSON API.
-- `challenges/` owns dated challenges, their alternating question/response JSON trees, API serialization, `import_challenges`, and the compatibility `seed_kale_demo` command. Each challenge has a unique, stable slug, a unique name, and its existing numeric database ID. Changing the name or schedule date does not change the slug. SQLite stores metadata and per-turn filenames; UTF-8 transcripts and MP3s remain local files. Authored packages live in `backend/challenges/source_data/challenges/<slug>/`, with `<slug>.json`, flat `audio/`, and flat `transcripts/` folders. The folder name must match the challenge slug. The importer validates selected packages and stages each complete package under `backend/media/challenges/<slug>/`. Replacement preserves database IDs and restores old files if saving fails. See [CHALLENGES.md](CHALLENGES.md) for the manifest and authoring workflow.
+- `challenges/` owns dated challenges, their alternating question/response JSON trees, API serialization, package validation/installation, the `import_challenges` command, the compatibility `seed_kale_demo` command, and the staff-only admin ZIP import. Shared import logic lives in `challenges/importer.py`; the CLI reads `backend/challenges/source_data/challenges/<slug>/`, while the admin upload extracts and validates a ZIP in a temporary directory before installing. The admin import is disabled as a normal add form because a valid challenge requires a complete media package. Each challenge has a unique, stable slug, a unique name, and its existing numeric database ID. Changing the name or schedule date does not change the slug. SQLite stores metadata and per-turn filenames; UTF-8 transcripts and MP3s remain local files. Authored packages live in `backend/challenges/source_data/challenges/<slug>/`, with `<slug>.json`, flat `audio/`, and flat `transcripts/` folders. The folder name must match the challenge slug. The importer validates selected packages and stages each complete package under `backend/media/challenges/<slug>/`. Replacement preserves database IDs and restores old files if saving fails. Admin imports publish only to media and the database; they do not write to `source_data`. See [CHALLENGES.md](CHALLENGES.md) for the manifest and publishing workflow.
 - `tone/` owns ConceptNet Numberbatch word embeddings stored as word/vector rows in SQLite. The `load_vectors` management command reads a compressed vector file from `data/numberbatch-en-19.08.txt.gz` or a `--file` path, downloading it if missing. It skips downloading and loading when any vectors already exist unless `--clear` is supplied to replace them. Its tone-similarity endpoint is scaffolded but not implemented; frontend tone grading uses whole-word matching.
 - `users/` owns user profiles and progress endpoints.
 - `urls.py` currently defines the following routes:
@@ -140,13 +140,14 @@ The Django project is configured in `backend/config`:
   - `/api/tone/<tone1>&<tone2>/`: scaffolded tone-similarity endpoint; returns `501` until implemented.
   - `/media/`: local development transcript and MP3 serving when `DEBUG` is enabled.
   - `/admin/`: Django admin.
+  - `/admin/challenges/challenge/import-package/`: staff-only ZIP challenge import.
 - `manage.py` is the entry point for checks, migrations, and the development server.
 
 Backend dependencies are pinned in `backend/requirements.txt`. Run Django commands through the repository virtual environment.
 
 ## Data and persistence
 
-Local development uses SQLite at `backend/db.sqlite3`. Django migrations are the source of truth for schema changes. Do not edit the database file directly or commit it to the repository. After migrations, run `backend/.venv/bin/python backend/manage.py import_challenges` to load all authored local packages. Pass challenge slugs to select packages, and `--replace` to update existing ones without deleting their database rows. Imports preserve existing numeric IDs. `seed_kale_demo` remains a shortcut for the bundled demo; `--force` delegates to replacement. Generated media is excluded from Git.
+Local development uses SQLite at `backend/db.sqlite3`. Django migrations are the source of truth for schema changes. Do not edit the database file directly or commit it to the repository. After migrations, run `backend/.venv/bin/python backend/manage.py import_challenges` to load all authored local packages. Pass challenge slugs to select packages, and `--replace` to update existing ones without deleting their database rows. Imports preserve existing numeric IDs. The Django admin import accepts one ZIP package at a time, uses the same validation and installation path, and writes audit entries to Django admin history. Import limits are configured in `backend/config/settings.py`. `seed_kale_demo` remains a shortcut for the bundled demo; `--force` delegates to replacement. Generated media is excluded from Git. Back up `backend/db.sqlite3` and `backend/media/challenges/` before imports because admin uploads are not mirrored into `source_data`.
 
 When models are introduced or changed:
 

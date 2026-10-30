@@ -97,6 +97,36 @@ backend/.venv/bin/python backend/manage.py import_challenges forgot-password-x3 
 
 Without `--replace`, existing challenges are skipped. Replacement preserves the numeric database ID and slug, stages a complete media folder, and restores the previous published folder if saving fails. For a different challenge, create a new slug and folder instead of reusing an existing one.
 
+## Publish through Django admin
+
+Staff can import a challenge without shell, Git, or server access. Create a staff account, then grant only the challenge view, add, and change permissions. Do not use a superuser for routine publishing. An administrator can create the account and a `Challenge publishers` group from `/admin/`.
+
+1. Prepare a complete package folder as described above:
+
+   ```text
+   account-locked/
+     account-locked.json
+     audio/
+       c1.mp3
+       a1.mp3
+       ...
+     transcripts/
+       c1.txt
+       a1.txt
+       ...
+   ```
+
+2. Create one ZIP containing that folder as its only top-level entry. Do not upload loose files or multiple challenge folders.
+3. Open `/admin/`, go to **Challenges**, and select **Import challenge package**.
+4. Choose the ZIP and select **Import challenge package**. Tick **Replace an existing challenge with this slug** only when updating a challenge that already exists.
+5. The package is validated before anything is changed. A successful import reports the challenge name, slug, date, and turn count. A failed import reports the exact problem and leaves the database and published media untouched.
+
+The admin import accepts the same manifest, file layout, and validation rules as `import_challenges`. It additionally rejects path traversal, absolute paths, backslashes, symbolic links, encrypted ZIP entries, duplicate files, unsupported file types, and archives above the configured limits. macOS metadata such as `__MACOSX`, `.DS_Store`, and `._*` files are ignored. The limits are configured in `backend/config/settings.py` as `CHALLENGE_IMPORT_MAX_ARCHIVE_BYTES`, `CHALLENGE_IMPORT_MAX_UNCOMPRESSED_BYTES`, and `CHALLENGE_IMPORT_MAX_FILES`.
+
+Admin imports publish to `backend/media/challenges/<slug>/`; they do not add a copy to `backend/challenges/source_data/challenges/`. Back up `backend/db.sqlite3` and `backend/media/challenges/` before importing. The published folder contains the manifest and all referenced media, so it can be copied back into `source_data/challenges/` for recovery or version control.
+
+The default admin add form is disabled because a valid challenge requires a complete media package. The challenge slug and conversation tree are read-only after import; metadata such as the display name, schedule date, difficulty, category, tone, and required action remains editable for corrections.
+
 `seed_kale_demo` remains a shortcut for importing `forgot-password-x3`; its `--force` flag delegates to `--replace`. The bundled demo uses a fixed date and slug. Django assigns its numeric ID on first import, so IDs can differ across databases; replacement preserves the existing ID within a database. Use the slug to identify the same challenge across machines.
 
 The challenge list and detail APIs expose both `id` (the existing numeric database key) and `slug` (the stable package identifier). The current frontend still selects the working demo by slug; this storage layout and import command support adding further challenges independently of a future challenge-selection UI.

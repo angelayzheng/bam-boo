@@ -1,0 +1,40 @@
+{% extends "admin/base_site.html" %}
+
+{% block title %}Import challenge package | {{ block.super }}{% endblock %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+  <a href="{% url 'admin:index' %}">Home</a>
+  &rsaquo; <a href="{% url 'admin:challenges_challenge_changelist' %}">Challenges</a>
+  &rsaquo; Import challenge package
+</div>
+{% endblock %}
+
+{% block content %}
+<div id="content-main">
+  <p>
+    Upload one ZIP containing a single challenge folder. The folder name, the
+    manifest name, and the slug must all match.
+  </p>
+  <pre>
+&lt;slug&gt;/
+  &lt;slug&gt;.json
+  audio/&lt;node_key&gt;.mp3
+  transcripts/&lt;node_key&gt;.txt
+  </pre>
+  <p>
+    Every turn needs one non-empty MP3 and one non-empty UTF-8 transcript.
+    Use <strong>Replace</strong> only when updating an existing challenge.
+    The import is validated before anything is changed.
+  </p>
+  <form method="post" enctype="multipart/form-data" novalidate>
+    {% csrf_token %}
+    <fieldset class="module aligned">
+      {{ form.as_div }}
+    </fieldset>
+    <div class="submit-row">
+      <input type="submit" value="Import challenge package" class="default">
+    </div>
+  </form>
+</div>
+{% endblock %}
