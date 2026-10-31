@@ -41,10 +41,25 @@ export default function ChallengePage({
   const conversationFinished = options.length === 0
   const [nextAction, setNextAction] = useState('')
   const startedAt = useRef(0)
+  const endRef = useRef<HTMLDivElement>(null)
+  const lastSeen = useRef({ length: path.length, stage })
 
   useEffect(() => {
     startedAt.current = Date.now()
   }, [])
+
+  useEffect(() => {
+  const last = lastSeen.current
+  if (last.length === path.length && last.stage === stage) return
+  lastSeen.current = { length: path.length, stage }
+  const reduceMotion = window.matchMedia(
+    '(prefers-reduced-motion: reduce)',
+  ).matches
+  endRef.current?.scrollIntoView({
+    behavior: reduceMotion ? 'auto' : 'smooth',
+    block: 'end',
+  })
+}, [path.length, stage])
 
   const submitTone = () => {
     const elapsed = Math.max(
@@ -78,7 +93,7 @@ export default function ChallengePage({
 
   return (
     <div className="bg-beige min-h-screen text-black">
-      <Header compact />
+      <Header compact onHome={onExit} />
       <main className="mx-auto max-w-3xl px-5 py-6 sm:px-8 sm:py-10">
         <div className="mb-7 flex items-center justify-between">
           <button
@@ -315,6 +330,9 @@ export default function ChallengePage({
             </form>
           </section>
         )}
+
+      <div ref={endRef} aria-hidden="true" className="scroll-mb-6" />
+      
       </main>
     </div>
   )
