@@ -98,7 +98,6 @@ test('results distinguish saving, saved, retryable failure, guests, and another 
       id: 42,
       name: 'Test recording',
       challenge_date: '2026-10-15',
-      tone: 'calm',
       required_action: 'reset password',
     },
     result: {

@@ -34,8 +34,8 @@ export default function ResultsPage({
       earned: result.toneCorrect,
       title: 'Read the tone',
       detail: result.toneCorrect
-        ? `You recognized the customer was ${challenge.tone}.`
-        : `Expected tone: ${challenge.tone}.`,
+        ? 'You recognized the customer’s emotional tone.'
+        : 'Your answer did not match the customer’s emotional tone.',
     },
     {
       earned: result.toneTime <= 10,
