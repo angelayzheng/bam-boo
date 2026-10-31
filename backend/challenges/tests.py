@@ -1,54 +1,32 @@
+import io
 import json
+import stat
 import tempfile
+import zipfile
 from copy import deepcopy
 from pathlib import Path
 from unittest.mock import patch
 
+from django.contrib.auth.models import Permission, User
 from django.core.exceptions import ValidationError
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.management import call_command
 from django.core.management.base import CommandError
 from django.test import TestCase, override_settings
+from django.urls import reverse
 
+from .importer import import_challenge_archive
 from .models import Challenge, validate_conversation_tree
-
-VALID_TREE = {
-    "type": "question",
-    "node_key": "q1",
-    "text_file": "challenges/greeting/q1.txt",
-    "audio_file": "challenges/greeting/q1.mp3",
-    "children": [
-        {
-            "type": "response",
-            "node_key": "r1",
-            "text_file": "challenges/greeting/r1.txt",
-            "audio_file": "challenges/greeting/r1.mp3",
-            "children": [
-                {
-                    "type": "question",
-                    "node_key": "q2",
-                    "text_file": "challenges/greeting/q2.txt",
-                    "audio_file": "challenges/greeting/q2.mp3",
-                    "children": [],
-                }
-            ],
-        }
-    ],
-}
-
-
-def make_challenge(**kwargs):
-    defaults = {
-        "name": "Morning Greeting",
-        "slug": "morning-greeting",
-        "challenge_date": "2026-10-14",
-        "difficulty": 2,
-        "category": "social",
-        "tone": "friendly",
-        "required_action": "Greet the customer warmly.",
-        "conversation_tree": VALID_TREE,
-    }
-    defaults.update(kwargs)
-    return Challenge.objects.create(**defaults)
+from .package import CHALLENGES_DIR, ChallengePackageError
+from .test_support import (
+    VALID_MP3_BYTES,
+    VALID_TREE,
+    MediaTestCase,
+    challenge_manifest,
+    make_challenge,
+    make_zip,
+    make_zip_from_folder,
+)
 
 
 class ConversationTreeValidatorTests(TestCase):
@@ -154,7 +132,7 @@ class MissingChallengeSourceTests(TestCase):
 
     def test_import_reports_missing_challenge_source_directory(self):
         with patch(
-            "challenges.management.commands.import_challenges.CHALLENGES_DIR",
+            "challenges.package.CHALLENGES_DIR",
             self.missing_source,
         ):
             with self.assertRaisesMessage(
@@ -168,7 +146,7 @@ class MissingChallengeSourceTests(TestCase):
             with self.subTest(force=force):
                 options = {"force": True} if force else {}
                 with patch(
-                    "challenges.management.commands.import_challenges.CHALLENGES_DIR",
+                    "challenges.package.CHALLENGES_DIR",
                     self.missing_source,
                 ):
                     with self.assertRaisesMessage(
@@ -178,24 +156,7 @@ class MissingChallengeSourceTests(TestCase):
                         call_command("seed_kale_demo", **options)
 
 
-class ImportChallengesTests(TestCase):
-    def setUp(self):
-        source = tempfile.TemporaryDirectory()
-        media = tempfile.TemporaryDirectory()
-        self.addCleanup(source.cleanup)
-        self.addCleanup(media.cleanup)
-        self.source = Path(source.name)
-        self.media = Path(media.name)
-        settings_override = override_settings(MEDIA_ROOT=media.name)
-        settings_override.enable()
-        self.addCleanup(settings_override.disable)
-        source_override = patch(
-            "challenges.management.commands.import_challenges.CHALLENGES_DIR",
-            self.source,
-        )
-        source_override.start()
-        self.addCleanup(source_override.stop)
-
+class ImportChallengesTests(MediaTestCase):
     def _package(self, slug="greeting"):
         folder = self.source / slug
         tree = deepcopy(VALID_TREE)
@@ -207,7 +168,12 @@ class ImportChallengesTests(TestCase):
             for field in ("text_file", "audio_file"):
                 target = folder / node[field]
                 target.parent.mkdir(parents=True, exist_ok=True)
-                target.write_bytes("Hello! Let’s begin.\n".encode("utf-8"))
+                content = (
+                    VALID_MP3_BYTES
+                    if field == "audio_file"
+                    else "Hello! Let’s begin.\n".encode("utf-8")
+                )
+                target.write_bytes(content)
             for child in node["children"]:
                 create_files(child)
 
@@ -245,6 +211,10 @@ class ImportChallengesTests(TestCase):
                 (self.media / node["text_file"]).read_text(encoding="utf-8"),
             )
             self.assertTrue((self.media / prefix / f"{challenge.slug}.json").is_file())
+        self.assertEqual(
+            sorted(path.name for path in self.source.iterdir()),
+            ["farewell", "greeting"],
+        )
 
     def test_selects_a_challenge_by_its_slug(self):
         _, first = self._package()
@@ -339,3 +309,256 @@ class ImportChallengesTests(TestCase):
             list((self.media / "challenges").iterdir()),
             [self.media / "challenges" / original.slug],
         )
+
+
+class ChallengeArchiveImportTests(MediaTestCase):
+    def test_imports_a_valid_zip(self):
+        result = import_challenge_archive(make_zip())
+        self.assertFalse(result.replaced)
+        self.assertEqual(result.turn_count, 3)
+        challenge = Challenge.objects.get(slug="greeting")
+        self.assertEqual(challenge.name, "Greeting")
+        self.assertTrue(
+            (self.media / challenge.conversation_tree["audio_file"]).is_file()
+        )
+        self.assertTrue(
+            (self.media / challenge.conversation_tree["text_file"]).is_file()
+        )
+        self.assertTrue(
+            (self.media / "challenges" / "greeting" / "greeting.json").is_file()
+        )
+        self.assertTrue((self.source / "greeting" / "greeting.json").is_file())
+        self.assertTrue((self.source / "greeting" / "audio" / "q1.mp3").is_file())
+
+    def test_rejects_invalid_audio(self):
+        with self.assertRaisesMessage(
+            ChallengePackageError, "Invalid challenge package"
+        ):
+            import_challenge_archive(make_zip(audio_bytes=b"not audio"))
+
+    def test_reports_missing_ffprobe(self):
+        with patch(
+            "challenges.audio.subprocess.run",
+            side_effect=FileNotFoundError,
+        ):
+            with self.assertRaisesMessage(ChallengePackageError, "ffprobe is required"):
+                import_challenge_archive(make_zip())
+
+    def test_failed_replace_restores_source_and_media(self):
+        import_challenge_archive(make_zip())
+        source_manifest = self.source / "greeting" / "greeting.json"
+        media_manifest = self.media / "challenges" / "greeting" / "greeting.json"
+        original_source = source_manifest.read_bytes()
+        original_media = media_manifest.read_bytes()
+        with patch.object(
+            Challenge, "save", side_effect=RuntimeError("Simulated failure")
+        ):
+            with self.assertRaisesMessage(RuntimeError, "Simulated failure"):
+                import_challenge_archive(
+                    make_zip(challenge_manifest(name="Changed Greeting")),
+                    replace=True,
+                )
+        self.assertEqual(source_manifest.read_bytes(), original_source)
+        self.assertEqual(media_manifest.read_bytes(), original_media)
+        self.assertEqual(Challenge.objects.get().name, "Greeting")
+
+    def test_bundled_demo_package_is_importable(self):
+        folder = CHALLENGES_DIR / "forgot-password-x3"
+        result = import_challenge_archive(make_zip_from_folder(folder))
+        self.assertEqual(result.challenge.slug, "forgot-password-x3")
+        self.assertEqual(result.turn_count, 13)
+
+    def test_ignores_common_macos_metadata(self):
+        upload = make_zip(
+            extra_entries={
+                "__MACOSX/._greeting": b"metadata",
+                "._greeting": b"metadata",
+                ".DS_Store": b"metadata",
+            }
+        )
+        result = import_challenge_archive(upload)
+        self.assertEqual(result.challenge.slug, "greeting")
+
+    def test_existing_slug_requires_replace_and_preserves_id(self):
+        first = import_challenge_archive(make_zip())
+        with self.assertRaisesMessage(ChallengePackageError, "already exists"):
+            import_challenge_archive(
+                make_zip(challenge_manifest(name="Updated Greeting"))
+            )
+        second = import_challenge_archive(
+            make_zip(challenge_manifest(name="Updated Greeting")),
+            replace=True,
+        )
+        self.assertTrue(second.replaced)
+        self.assertEqual(second.challenge.pk, first.challenge.pk)
+        self.assertEqual(Challenge.objects.get().name, "Updated Greeting")
+
+    def test_rejects_path_traversal(self):
+        for entry in ("../evil.txt", "/evil.txt", "greeting\\..\\evil.txt"):
+            with self.subTest(entry=entry):
+                with self.assertRaises(ChallengePackageError):
+                    import_challenge_archive(make_zip(extra_entries={entry: b"bad"}))
+
+    def test_rejects_unsupported_file_type(self):
+        with self.assertRaisesMessage(ChallengePackageError, "unsupported file type"):
+            import_challenge_archive(
+                make_zip(extra_entries={"greeting/run.sh": b"bad"})
+            )
+
+    def test_rejects_multiple_top_level_folders(self):
+        with self.assertRaisesMessage(ChallengePackageError, "exactly one top-level"):
+            import_challenge_archive(
+                make_zip(extra_entries={"other/readme.txt": b"other"})
+            )
+
+    def test_rejects_folder_name_that_does_not_match_slug(self):
+        with self.assertRaisesMessage(ChallengePackageError, "slug must match"):
+            import_challenge_archive(make_zip(folder_name="wrong-name"))
+
+    def test_rejects_invalid_zip(self):
+        upload = SimpleUploadedFile(
+            "challenge.zip",
+            b"not a zip",
+            content_type="application/zip",
+        )
+        with self.assertRaisesMessage(ChallengePackageError, "valid .zip"):
+            import_challenge_archive(upload)
+
+    def test_rejects_symbolic_links(self):
+        buffer = io.BytesIO()
+        with zipfile.ZipFile(buffer, "w") as archive:
+            info = zipfile.ZipInfo("greeting/link")
+            info.external_attr = (stat.S_IFLNK | 0o777) << 16
+            archive.writestr(info, "target")
+        upload = SimpleUploadedFile(
+            "challenge.zip",
+            buffer.getvalue(),
+            content_type="application/zip",
+        )
+        with self.assertRaisesMessage(ChallengePackageError, "symbolic link"):
+            import_challenge_archive(upload)
+
+    def test_enforces_file_count_limit(self):
+        with override_settings(CHALLENGE_IMPORT_MAX_FILES=1):
+            with self.assertRaisesMessage(ChallengePackageError, "more than 1 files"):
+                import_challenge_archive(make_zip())
+
+    def test_enforces_archive_size_limit(self):
+        with override_settings(CHALLENGE_IMPORT_MAX_ARCHIVE_BYTES=10):
+            with self.assertRaisesMessage(ChallengePackageError, "MB or smaller"):
+                import_challenge_archive(make_zip())
+
+    def test_enforces_uncompressed_size_limit(self):
+        with override_settings(CHALLENGE_IMPORT_MAX_UNCOMPRESSED_BYTES=10):
+            with self.assertRaisesMessage(ChallengePackageError, "expands beyond"):
+                import_challenge_archive(make_zip())
+
+
+class ChallengeAdminImportTests(MediaTestCase):
+    def setUp(self):
+        super().setUp()
+        self.publisher = User.objects.create_user(
+            "publisher",
+            password="password",
+            is_staff=True,
+        )
+        self.publisher.user_permissions.set(
+            Permission.objects.filter(
+                content_type__app_label="challenges",
+                codename__in=(
+                    "add_challenge",
+                    "change_challenge",
+                    "view_challenge",
+                ),
+            )
+        )
+        self.client.force_login(self.publisher)
+        self.url = reverse("admin:challenges_challenge_import_package")
+
+    def test_import_page_is_available_to_publishers(self):
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Import challenge package")
+
+    def test_challenge_list_links_to_import_for_publishers(self):
+        response = self.client.get(reverse("admin:challenges_challenge_changelist"))
+        self.assertContains(response, self.url)
+
+    def test_import_page_requires_challenge_permissions(self):
+        viewer = User.objects.create_user(
+            "viewer",
+            password="password",
+            is_staff=True,
+        )
+        self.client.force_login(viewer)
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 403)
+
+    def test_valid_upload_imports_challenge(self):
+        response = self.client.post(self.url, {"package": make_zip()})
+        self.assertRedirects(
+            response,
+            reverse("admin:challenges_challenge_changelist"),
+        )
+        challenge = Challenge.objects.get(slug="greeting")
+        self.assertEqual(challenge.name, "Greeting")
+        self.assertTrue(
+            (self.media / "challenges" / "greeting" / "greeting.json").is_file()
+        )
+        self.assertTrue((self.source / "greeting" / "greeting.json").is_file())
+
+    def test_invalid_upload_shows_error_and_changes_nothing(self):
+        upload = SimpleUploadedFile(
+            "challenge.zip",
+            b"not a zip",
+            content_type="application/zip",
+        )
+        response = self.client.post(self.url, {"package": upload})
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "valid .zip")
+        self.assertEqual(Challenge.objects.count(), 0)
+
+    def test_existing_slug_requires_replace(self):
+        self.client.post(self.url, {"package": make_zip()})
+        response = self.client.post(
+            self.url,
+            {"package": make_zip(challenge_manifest(name="Changed Greeting"))},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "already exists")
+        self.assertEqual(Challenge.objects.get().name, "Greeting")
+
+        response = self.client.post(
+            self.url,
+            {
+                "package": make_zip(challenge_manifest(name="Changed Greeting")),
+                "replace": "on",
+            },
+        )
+        self.assertRedirects(
+            response,
+            reverse("admin:challenges_challenge_changelist"),
+        )
+        self.assertEqual(Challenge.objects.get().name, "Changed Greeting")
+        source_manifest = json.loads(
+            (self.source / "greeting" / "greeting.json").read_text(encoding="utf-8")
+        )
+        self.assertEqual(source_manifest["name"], "Changed Greeting")
+
+    def test_change_form_keeps_slug_and_tree_read_only(self):
+        challenge = make_challenge()
+        response = self.client.get(
+            reverse(
+                "admin:challenges_challenge_change",
+                args=[challenge.pk],
+            )
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, 'name="name"')
+        self.assertNotContains(response, 'name="slug"')
+        self.assertNotContains(response, 'name="conversation_tree"')
+        self.assertNotContains(response, 'name="challenge_date"')
+
+    def test_default_add_form_is_disabled(self):
+        response = self.client.get(reverse("admin:challenges_challenge_add"))
+        self.assertEqual(response.status_code, 403)

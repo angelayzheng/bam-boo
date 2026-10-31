@@ -132,6 +132,10 @@ STATIC_URL = "static/"
 MEDIA_URL = "media/"
 MEDIA_ROOT = BASE_DIR / "media"
 
+CHALLENGE_IMPORT_MAX_ARCHIVE_BYTES = 200 * 1024 * 1024
+CHALLENGE_IMPORT_MAX_UNCOMPRESSED_BYTES = 400 * 1024 * 1024
+CHALLENGE_IMPORT_MAX_FILES = 200
+
 
 # Email
 # https://docs.djangoproject.com/en/6.1/topics/email/#topic-email-configuration
