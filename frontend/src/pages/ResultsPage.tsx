@@ -17,6 +17,9 @@ interface ResultsPageProps {
   onProfile: () => void
 }
 
+const statusLink =
+  'text-green-dark font-semibold underline underline-offset-4 transition hover:text-black'
+
 export default function ResultsPage({
   challenge,
   result,
@@ -55,7 +58,7 @@ export default function ResultsPage({
 
   return (
     <div className="bg-beige min-h-screen text-black">
-      <Header compact />
+      <Header compact onHome={onHome} />
       <main className="mx-auto flex max-w-3xl flex-col items-center px-5 py-12 text-center sm:px-8 sm:py-16">
         <div className="bg-green-dark shadow-card grid size-16 place-items-center rounded-3xl text-white">
           <CheckIcon className="size-8" />
@@ -86,7 +89,7 @@ export default function ResultsPage({
           {achievements.map((achievement) => (
             <div
               key={achievement.title}
-              className={`shadow-card rounded-2xl border p-5 ${achievement.earned ? 'border-green-light bg-green-pale/50' : 'border-black/10 bg-white/40'}`}
+              className={`shadow-card rounded-2xl p-5 ${achievement.earned ? 'bg-green-pale/50' : 'bg-white/40'}`}
             >
               <div
                 className={`mb-4 grid size-8 place-items-center rounded-full ${achievement.earned ? 'bg-green-dark text-white' : 'bg-black/10 text-black/40'}`}
@@ -107,18 +110,14 @@ export default function ResultsPage({
 
         <div
           role="status"
-          className="mt-6 w-full rounded-xl bg-white/10 px-4 py-3 text-sm text-slate-200"
+          className="mt-6 w-full text-base text-black/80"
         >
           {sessionLoading ? (
             'Checking your account before saving…'
           ) : !user ? (
             <>
               Your result is kept in this browser session.{' '}
-              <button
-                type="button"
-                onClick={onLogin}
-                className="font-semibold text-[#75e2c1] underline underline-offset-4"
-              >
+              <button type="button" onClick={onLogin} className={statusLink}>
                 Log in to save your score
               </button>
             </>
@@ -131,22 +130,14 @@ export default function ResultsPage({
           ) : saveState.status === 'saved' ? (
             <>
               Score saved to your profile. Your best score counts.{' '}
-              <button
-                type="button"
-                onClick={onProfile}
-                className="font-semibold text-[#75e2c1] underline underline-offset-4"
-              >
+              <button type="button" onClick={onProfile} className={statusLink}>
                 View profile
               </button>
             </>
           ) : (
             <>
               Could not save your score. {saveState.message}{' '}
-              <button
-                type="button"
-                onClick={onSaveRetry}
-                className="font-semibold text-[#75e2c1] underline underline-offset-4"
-              >
+              <button type="button" onClick={onSaveRetry} className={statusLink}>
                 Retry saving
               </button>
             </>
@@ -157,14 +148,14 @@ export default function ResultsPage({
           <button
             type="button"
             onClick={onHome}
-            className="from-orange to-olive focus-visible:outline-green-dark rounded-xl bg-linear-to-b px-6 py-3.5 text-base font-bold text-white transition hover:brightness-105 focus-visible:outline-3 focus-visible:outline-offset-2"
+            className="bg-orange focus-visible:outline-green-dark rounded-xl px-6 py-3.5 text-base font-bold text-white transition hover:brightness-95 focus-visible:outline-3 focus-visible:outline-offset-2 active:scale-[0.98]"
           >
             Back to calendar
           </button>
           <button
             type="button"
             onClick={onRetry}
-            className="border-green-dark text-green-dark hover:bg-green-pale/50 focus-visible:outline-green-dark rounded-xl border-2 px-6 py-3.5 text-base font-bold transition focus-visible:outline-3 focus-visible:outline-offset-2"
+            className="border-green-dark text-green-dark hover:bg-green-pale/50 focus-visible:outline-green-dark rounded-xl border-2 px-6 py-3.5 text-base font-bold transition focus-visible:outline-3 focus-visible:outline-offset-2 active:scale-[0.98]"
           >
             Retry challenge
           </button>
