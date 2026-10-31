@@ -49,17 +49,17 @@ export default function ChallengePage({
   }, [])
 
   useEffect(() => {
-  const last = lastSeen.current
-  if (last.length === path.length && last.stage === stage) return
-  lastSeen.current = { length: path.length, stage }
-  const reduceMotion = window.matchMedia(
-    '(prefers-reduced-motion: reduce)',
-  ).matches
-  endRef.current?.scrollIntoView({
-    behavior: reduceMotion ? 'auto' : 'smooth',
-    block: 'end',
-  })
-}, [path.length, stage])
+    const last = lastSeen.current
+    if (last.length === path.length && last.stage === stage) return
+    lastSeen.current = { length: path.length, stage }
+    const reduceMotion = window.matchMedia(
+      '(prefers-reduced-motion: reduce)',
+    ).matches
+    endRef.current?.scrollIntoView({
+      behavior: reduceMotion ? 'auto' : 'smooth',
+      block: 'end',
+    })
+  }, [path.length, stage])
 
   const submitTone = () => {
     const elapsed = Math.max(
@@ -331,8 +331,7 @@ export default function ChallengePage({
           </section>
         )}
 
-      <div ref={endRef} aria-hidden="true" className="scroll-mb-6" />
-      
+        <div ref={endRef} aria-hidden="true" className="scroll-mb-6" />
       </main>
     </div>
   )

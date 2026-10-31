@@ -10,6 +10,7 @@ interface ProfilePageProps {
   user: AuthUser
   onLogout: () => Promise<void>
   onHome: () => void
+  onChallenge?: () => void
   notice?: ReactNode
   progressVersion?: number
 }
@@ -27,6 +28,7 @@ export default function ProfilePage({
   user,
   onLogout,
   onHome,
+  onChallenge,
   notice,
   progressVersion = 0,
 }: ProfilePageProps) {
@@ -89,7 +91,7 @@ export default function ProfilePage({
 
   return (
     <div className="bg-beige min-h-screen text-black">
-      <Header user={user} onHome={onHome} />
+      <Header user={user} onHome={onHome} onChallenge={onChallenge} />
       <main className="mx-auto max-w-3xl px-5 py-10 sm:py-14">
         {notice}
         <div className="mb-7 flex flex-wrap items-center justify-between gap-4">
