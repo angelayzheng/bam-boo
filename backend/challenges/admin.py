@@ -50,6 +50,7 @@ class ChallengeAdmin(admin.ModelAdmin):
     list_filter = ("category", "difficulty")
     search_fields = ("slug", "name", "tone")
     fields = (
+        "id",
         "name",
         "slug",
         "challenge_date",
@@ -60,6 +61,7 @@ class ChallengeAdmin(admin.ModelAdmin):
         "conversation_tree_display",
     )
     readonly_fields = (
+        "id",
         "name",
         "slug",
         "challenge_date",

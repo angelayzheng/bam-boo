@@ -61,6 +61,9 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
 ]
 
+# Browser requests through Vite retain the frontend Origin header.
+CSRF_TRUSTED_ORIGINS = ["http://localhost:5173"]
+
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
