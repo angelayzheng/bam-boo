@@ -68,23 +68,12 @@ function LeaderboardRow({
   points: number
   isYou?: boolean
 }) {
-  const rowStyle = isYou
-    ? 'bg-orange-light'
-    : rank <= 3
-      ? 'bg-green-pale'
-      : 'bg-green-pale/30'
-  const badgeStyle = isYou
-    ? 'bg-beige'
-    : rank <= 3
-      ? 'bg-orange'
-      : 'bg-green-light'
-
   return (
     <li
       className={`flex items-center gap-4 rounded-xl px-3 py-2.5 shadow-sm ${rowStyle}`}
     >
       <span
-        className={`grid size-10 shrink-0 place-items-center rounded-full text-lg font-bold ${badgeStyle}`}
+        className={`grid size-10 shrink-0 place-items-center rounded-full text-lg font-bold text-white ${isYou ? 'bg-orange' : 'bg-green-dark'}`}
       >
         {rank}
       </span>
