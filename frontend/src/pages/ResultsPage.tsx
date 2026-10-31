@@ -108,10 +108,7 @@ export default function ResultsPage({
           ))}
         </div>
 
-        <div
-          role="status"
-          className="mt-6 w-full text-base text-black/80"
-        >
+        <div role="status" className="mt-6 w-full text-base text-black/80">
           {sessionLoading ? (
             'Checking your account before saving…'
           ) : !user ? (
@@ -137,7 +134,11 @@ export default function ResultsPage({
           ) : (
             <>
               Could not save your score. {saveState.message}{' '}
-              <button type="button" onClick={onSaveRetry} className={statusLink}>
+              <button
+                type="button"
+                onClick={onSaveRetry}
+                className={statusLink}
+              >
                 Retry saving
               </button>
             </>
