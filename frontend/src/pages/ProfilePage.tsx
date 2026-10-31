@@ -3,6 +3,8 @@ import type { ReactNode } from 'react'
 import Header from '../components/Header'
 import { loadProfile } from '../auth'
 import type { AuthUser, UserProfile } from '../auth'
+import { challengeDateLabel, loadChallengeSummaries } from '../challenges'
+import type { ChallengeSummary } from '../types'
 
 interface ProfilePageProps {
   user: AuthUser
@@ -33,6 +35,9 @@ export default function ProfilePage({
   const [attempt, setAttempt] = useState(0)
   const [loggingOut, setLoggingOut] = useState(false)
   const [logoutError, setLogoutError] = useState('')
+  const [summaries, setSummaries] = useState<Record<string, ChallengeSummary>>(
+    {},
+  )
 
   useEffect(() => {
     const controller = new AbortController()
@@ -53,6 +58,19 @@ export default function ProfilePage({
       })
     return () => controller.abort()
   }, [user.id, attempt, progressVersion])
+
+  useEffect(() => {
+    const controller = new AbortController()
+    loadChallengeSummaries(controller.signal)
+      .then((list) => {
+        if (!controller.signal.aborted)
+          setSummaries(Object.fromEntries(list.map((c) => [String(c.id), c])))
+      })
+      .catch(() => {
+        // Fall back to "Challenge <id>" if names fail to load.
+      })
+    return () => controller.abort()
+  }, [])
 
   async function logout() {
     setLoggingOut(true)
@@ -169,19 +187,31 @@ export default function ProfilePage({
                     </tr>
                   </thead>
                   <tbody>
-                    {Object.entries(profile.scores).map(([id, score]) => (
-                      <tr
-                        key={id}
-                        className="border-green-pale border-b last:border-0"
-                      >
-                        <th scope="row" className="py-3 font-medium break-all">
-                          {id}
-                        </th>
-                        <td className="text-green-dark py-3 text-right font-bold">
-                          {score} / 3
-                        </td>
-                      </tr>
-                    ))}
+                    {Object.entries(profile.scores).map(([id, score]) => {
+                      const info = summaries[id]
+                      return (
+                        <tr
+                          key={id}
+                          className="border-green-pale border-b last:border-0"
+                        >
+                          <th scope="row" className="py-3 font-medium">
+                            {info ? (
+                              <>
+                                <span className="block">{info.name}</span>
+                                <span className="block text-sm font-normal text-black/60">
+                                  {challengeDateLabel(info)}
+                                </span>
+                              </>
+                            ) : (
+                              `Challenge ${id}`
+                            )}
+                          </th>
+                          <td className="text-green-dark py-3 text-right font-bold">
+                            {score} / 3
+                          </td>
+                        </tr>
+                      )
+                    })}
                   </tbody>
                 </table>
               )}
