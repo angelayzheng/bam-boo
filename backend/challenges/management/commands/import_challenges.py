@@ -2,12 +2,8 @@
 
 from django.core.management.base import BaseCommand, CommandError
 
-from challenges.importer import (
-    CHALLENGES_DIR,
-    ChallengePackageError,
-    install_challenge,
-    prepare_challenge_package,
-)
+from challenges import package
+from challenges.importer import install_challenge, prepare_challenge_package
 
 
 class Command(BaseCommand):
@@ -22,19 +18,22 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
-        if not CHALLENGES_DIR.is_dir():
+        challenges_dir = package.CHALLENGES_DIR
+        if not challenges_dir.is_dir():
             raise CommandError(
-                f"Challenge source directory not found: {CHALLENGES_DIR}"
+                f"Challenge source directory not found: {challenges_dir}"
             )
         available = {
-            path.name: path for path in CHALLENGES_DIR.iterdir() if path.is_dir()
+            path.name: path
+            for path in challenges_dir.iterdir()
+            if path.is_dir() and not path.name.startswith(".")
         }
         requested = options["slugs"] or sorted(available)
         missing = set(requested) - available.keys()
         if missing:
             raise CommandError(f"Unknown challenge slugs: {', '.join(sorted(missing))}")
         if not requested:
-            raise CommandError(f"No challenge packages found in {CHALLENGES_DIR}.")
+            raise CommandError(f"No challenge packages found in {challenges_dir}.")
         try:
             prepared = [
                 prepare_challenge_package(
@@ -44,35 +43,34 @@ class Command(BaseCommand):
                 )
                 for slug in dict.fromkeys(requested)
             ]
-        except ChallengePackageError as exc:
+        except package.ChallengePackageError as exc:
             raise CommandError(str(exc)) from exc
         for field in ("name", "slug"):
             seen = set()
-            for package in prepared:
-                if package is not None:
-                    value = getattr(package.challenge, field)
+            for challenge_package in prepared:
+                if challenge_package is not None:
+                    value = getattr(challenge_package.challenge, field)
                     if value in seen:
                         raise CommandError(
                             f"Selected challenges have a duplicate {field}: {value}"
                         )
                     seen.add(value)
-        for package in prepared:
-            if package is None:
+        for challenge_package in prepared:
+            if challenge_package is None:
                 self.stdout.write(
                     "Challenge already exists; use --replace to update it."
                 )
                 continue
             try:
-                install_challenge(package)
-            except ChallengePackageError as exc:
-                raise CommandError(str(exc)) from exc
-            except OSError as exc:
+                install_challenge(challenge_package)
+            except package.ChallengePackageError as exc:
                 raise CommandError(
-                    f"Could not install {package.challenge.slug}: {exc}"
+                    f"Could not install {challenge_package.challenge.slug}: {exc}"
                 ) from exc
             self.stdout.write(
                 self.style.SUCCESS(
-                    f"Imported {package.challenge.slug}: "
-                    f"{package.challenge.name} ({package.turn_count} turns)."
+                    f"Imported {challenge_package.challenge.slug}: "
+                    f"{challenge_package.challenge.name} "
+                    f"({challenge_package.turn_count} turns)."
                 )
             )

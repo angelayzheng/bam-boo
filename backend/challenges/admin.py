@@ -9,12 +9,9 @@ from django.template.response import TemplateResponse
 from django.urls import path
 from django.utils.html import format_html
 
-from .importer import (
-    DEFAULT_MAX_ARCHIVE_BYTES,
-    ChallengePackageError,
-    import_challenge_archive,
-)
+from .importer import DEFAULT_MAX_ARCHIVE_BYTES, import_challenge_archive
 from .models import Challenge
+from .package import ChallengePackageError
 
 
 class ChallengePackageImportForm(forms.Form):
@@ -62,7 +59,16 @@ class ChallengeAdmin(admin.ModelAdmin):
         "required_action",
         "conversation_tree_display",
     )
-    readonly_fields = ("slug", "conversation_tree_display")
+    readonly_fields = (
+        "name",
+        "slug",
+        "challenge_date",
+        "difficulty",
+        "category",
+        "tone",
+        "required_action",
+        "conversation_tree_display",
+    )
 
     @admin.display(description="Conversation tree")
     def conversation_tree_display(self, obj):

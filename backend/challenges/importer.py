@@ -1,22 +1,22 @@
-"""Validate and install local and uploaded challenge packages."""
+"""Import validated challenge packages into source and media storage."""
 
-import json
 import logging
 import shutil
 import stat
 import tempfile
 import threading
 import zipfile
-from contextlib import contextmanager
+from contextlib import ExitStack, contextmanager
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
-from django.core.validators import validate_slug
-from django.db import transaction
+from django.db import IntegrityError, transaction
 
-from .models import Challenge, validate_conversation_tree
+from . import package
+from .audio import AudioValidationError, validate_audio_file
+from .models import Challenge
 
 try:
     import fcntl
@@ -26,18 +26,6 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 _IMPORT_LOCK = threading.Lock()
-
-CHALLENGES_DIR = Path(__file__).resolve().parent / "source_data" / "challenges"
-
-METADATA_FIELDS = (
-    "name",
-    "slug",
-    "challenge_date",
-    "difficulty",
-    "category",
-    "tone",
-    "required_action",
-)
 
 ALLOWED_ARCHIVE_SUFFIXES = {".json", ".mp3", ".txt"}
 IGNORED_ARCHIVE_FILENAMES = {".DS_Store", "Thumbs.db", "desktop.ini"}
@@ -71,17 +59,15 @@ DEFAULT_MAX_UNCOMPRESSED_BYTES = 400 * 1024 * 1024
 DEFAULT_MAX_FILES = 200
 
 
-class ChallengePackageError(Exception):
-    """A challenge package cannot be validated or installed."""
-
-
 @dataclass(frozen=True)
 class PreparedChallenge:
     challenge: Challenge
-    folder: Path
-    files: frozenset[str]
+    source_package: package.ChallengePackage
     replaced: bool
-    turn_count: int
+
+    @property
+    def turn_count(self):
+        return self.source_package.turn_count
 
 
 @dataclass(frozen=True)
@@ -91,85 +77,52 @@ class ImportResult:
     turn_count: int
 
 
+def _validate_package_audio(source_package):
+    for relative in sorted(source_package.files):
+        if not relative.startswith("audio/"):
+            continue
+        try:
+            validate_audio_file(source_package.folder / relative)
+        except AudioValidationError as exc:
+            raise AudioValidationError(f"{relative}: {exc}") from exc
+
+
 def prepare_challenge_package(folder, *, replace=False, skip_existing=False):
     """Validate a complete package before changing any files or records."""
     folder = Path(folder)
-    if not folder.is_dir():
-        raise ChallengePackageError(f"Challenge package directory not found: {folder}")
-
     try:
-        manifest_path = folder / f"{folder.name}.json"
-        if manifest_path.is_symlink():
-            raise ChallengePackageError("The manifest must not be a symbolic link.")
-        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-        values = {key: manifest[key] for key in METADATA_FIELDS}
-        if values["slug"] != folder.name:
-            raise ChallengePackageError("slug must match its folder name.")
-
-        existing = Challenge.objects.filter(slug=values["slug"]).first()
+        source_package = package.load_challenge_package(folder)
+        existing = Challenge.objects.filter(slug=source_package.slug).first()
         if existing and not replace:
             if skip_existing:
                 return None
-            raise ChallengePackageError(
-                f"Challenge {values['slug']!r} already exists; "
+            raise package.ChallengePackageError(
+                f"Challenge {source_package.slug!r} already exists; "
                 "select Replace to update it."
             )
 
-        tree = manifest["conversation_tree"]
-        if not tree:
-            raise ChallengePackageError(
-                "conversation_tree must contain a customer opening."
-            )
-        validate_conversation_tree(tree)
-        files = set()
-
-        def resolve(node):
-            if not node.get("node_key"):
-                raise ChallengePackageError("Every turn must have a unique node_key.")
-            validate_slug(node["node_key"])
-            resolved = {**node}
-            for field, directory, extension in (
-                ("text_file", "transcripts", ".txt"),
-                ("audio_file", "audio", ".mp3"),
-            ):
-                relative = f"{directory}/{node['node_key']}{extension}"
-                if node[field] != relative:
-                    raise ChallengePackageError(f"{field} must be {relative!r}.")
-                source = folder / relative
-                if (
-                    source.is_symlink()
-                    or not source.is_file()
-                    or not source.stat().st_size
-                ):
-                    raise ChallengePackageError(f"Missing or empty file: {relative}")
-                if (
-                    field == "text_file"
-                    and not source.read_text(encoding="utf-8").strip()
-                ):
-                    raise ChallengePackageError(f"Empty transcript: {relative}")
-                files.add(relative)
-                resolved[field] = f"challenges/{values['slug']}/{relative}"
-            resolved["children"] = [
-                resolve(child) for child in node.get("children", [])
-            ]
-            return resolved
-
+        _validate_package_audio(source_package)
         challenge = existing or Challenge()
-        for key, value in values.items():
+        for key, value in source_package.metadata.items():
             setattr(challenge, key, value)
-        challenge.conversation_tree = resolve(tree)
+        challenge.conversation_tree = source_package.conversation_tree
         challenge.full_clean()
         return PreparedChallenge(
             challenge=challenge,
-            folder=folder,
-            files=frozenset(files),
+            source_package=source_package,
             replaced=existing is not None,
-            turn_count=len(files) // 2,
         )
-    except ChallengePackageError:
+    except package.ChallengePackageError:
         raise
-    except (OSError, ValueError, KeyError, TypeError, ValidationError) as exc:
-        raise ChallengePackageError(
+    except (
+        AudioValidationError,
+        OSError,
+        ValueError,
+        KeyError,
+        TypeError,
+        ValidationError,
+    ) as exc:
+        raise package.ChallengePackageError(
             f"Invalid challenge package {folder.name}: {exc}"
         ) from exc
 
@@ -182,12 +135,12 @@ def _remove_path(path):
 
 
 @contextmanager
-def _import_lock(challenges_root):
+def _import_lock(media_root):
     if fcntl is None:
         with _IMPORT_LOCK:
             yield
         return
-    lock_path = Path(challenges_root).parent / ".challenge-import.lock"
+    lock_path = Path(media_root).parent / ".challenge-import.lock"
     with lock_path.open("a+") as lock_file:
         fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
         try:
@@ -196,45 +149,113 @@ def _import_lock(challenges_root):
             fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
 
 
-def install_challenge(prepared):
-    """Stage a complete challenge and restore the previous directory on failure."""
-    challenge = prepared.challenge
-    challenges_root = Path(settings.MEDIA_ROOT) / "challenges"
-    challenges_root.mkdir(parents=True, exist_ok=True)
-    destination = challenges_root / challenge.slug
-    with tempfile.TemporaryDirectory(
-        prefix=".import-", dir=challenges_root
-    ) as temporary:
-        temporary = Path(temporary)
-        staged = temporary / "new"
-        staged.mkdir()
+def _stage_package(source_package, parent, slug):
+    temporary = tempfile.TemporaryDirectory(prefix=".import-", dir=parent)
+    staged = Path(temporary.name) / "new"
+    staged.mkdir()
+    try:
         shutil.copyfile(
-            prepared.folder / f"{challenge.slug}.json",
-            staged / f"{challenge.slug}.json",
+            source_package.folder / f"{slug}.json",
+            staged / f"{slug}.json",
         )
-        for relative in prepared.files:
+        for relative in source_package.files:
             target = staged / relative
             target.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copyfile(prepared.folder / relative, target)
-        backup = temporary / "previous"
-        with _import_lock(challenges_root):
-            had_previous = destination.exists()
-            if had_previous:
-                destination.rename(backup)
+            shutil.copyfile(source_package.folder / relative, target)
+    except Exception:
+        temporary.cleanup()
+        raise
+    return temporary, staged
+
+
+def _published_source_destination(source_package):
+    return Path(package.CHALLENGES_DIR) / source_package.slug
+
+
+def _needs_source_install(source_package):
+    destination = _published_source_destination(source_package)
+    return source_package.folder.resolve() != destination.resolve()
+
+
+def _install_challenge(prepared):
+    """Stage and atomically install the media and optional source package."""
+    challenge = prepared.challenge
+    source_package = prepared.source_package
+    media_root = Path(settings.MEDIA_ROOT) / "challenges"
+    media_root.mkdir(parents=True, exist_ok=True)
+    media_destination = media_root / challenge.slug
+
+    install_source = _needs_source_install(source_package)
+    source_root = Path(package.CHALLENGES_DIR)
+    if install_source:
+        source_root.mkdir(parents=True, exist_ok=True)
+    source_destination = source_root / challenge.slug
+
+    with ExitStack() as stack:
+        media_temporary, media_staged = _stage_package(
+            source_package, media_root, challenge.slug
+        )
+        stack.callback(media_temporary.cleanup)
+        source_temporary = None
+        source_staged = None
+        if install_source:
+            source_temporary, source_staged = _stage_package(
+                source_package, source_root, challenge.slug
+            )
+            stack.callback(source_temporary.cleanup)
+
+        with _import_lock(media_root):
+            media_backup = Path(media_temporary.name) / "previous"
+            source_backup = (
+                Path(source_temporary.name) / "previous"
+                if source_temporary is not None
+                else None
+            )
+            media_previous = media_destination.exists()
+            source_previous = install_source and source_destination.exists()
+            media_installed = False
+            source_installed = False
             try:
+                if media_previous:
+                    media_destination.rename(media_backup)
+                if source_previous:
+                    source_destination.rename(source_backup)
                 with transaction.atomic():
                     challenge.save()
-                    staged.rename(destination)
+                    media_staged.rename(media_destination)
+                    media_installed = True
+                    if source_staged is not None:
+                        source_staged.rename(source_destination)
+                        source_installed = True
             except Exception:
-                _remove_path(destination)
-                if had_previous:
-                    backup.rename(destination)
+                if source_installed:
+                    _remove_path(source_destination)
+                if media_installed:
+                    _remove_path(media_destination)
+                if source_previous and source_backup.exists():
+                    source_backup.rename(source_destination)
+                if media_previous and media_backup.exists():
+                    media_backup.rename(media_destination)
                 raise
-        logger.info(
-            "Installed challenge package %s with %s turns.",
-            challenge.slug,
-            prepared.turn_count,
+
+    logger.info(
+        "Installed challenge package %s with %s turns.",
+        challenge.slug,
+        prepared.turn_count,
+    )
+
+
+def install_challenge(prepared):
+    """Install a prepared challenge, converting expected failures to package errors."""
+    try:
+        _install_challenge(prepared)
+    except (IntegrityError, OSError, ValidationError) as exc:
+        logger.exception(
+            "Could not install challenge package %s.", prepared.challenge.slug
         )
+        raise package.ChallengePackageError(
+            f"Could not save challenge files: {exc}"
+        ) from exc
 
 
 def import_challenge_package(folder, *, replace=False, skip_existing=False):
@@ -246,13 +267,7 @@ def import_challenge_package(folder, *, replace=False, skip_existing=False):
     )
     if prepared is None:
         return None
-    try:
-        install_challenge(prepared)
-    except OSError as exc:
-        logger.exception(
-            "Could not install challenge package %s.", prepared.challenge.slug
-        )
-        raise ChallengePackageError(f"Could not save challenge files: {exc}") from exc
+    install_challenge(prepared)
     return ImportResult(
         challenge=prepared.challenge,
         replaced=prepared.replaced,
@@ -287,38 +302,46 @@ def _is_ignored_archive_member(name):
 
 def _validate_archive_path(name):
     if not name or "\x00" in name:
-        raise ChallengePackageError("The ZIP contains an invalid empty path.")
+        raise package.ChallengePackageError("The ZIP contains an invalid empty path.")
     if "\\" in name:
-        raise ChallengePackageError(
+        raise package.ChallengePackageError(
             f"The ZIP contains a path with a backslash: {name!r}."
         )
     if name.startswith("/"):
-        raise ChallengePackageError(f"The ZIP contains an absolute path: {name!r}.")
+        raise package.ChallengePackageError(
+            f"The ZIP contains an absolute path: {name!r}."
+        )
     if any(ord(character) < 32 for character in name):
-        raise ChallengePackageError(
+        raise package.ChallengePackageError(
             f"The ZIP contains a path with control characters: {name!r}."
         )
 
     pure = PurePosixPath(name)
     if pure.is_absolute():
-        raise ChallengePackageError(f"The ZIP contains an absolute path: {name!r}.")
+        raise package.ChallengePackageError(
+            f"The ZIP contains an absolute path: {name!r}."
+        )
     if any(part in ("", ".", "..") for part in pure.parts):
-        raise ChallengePackageError(f"The ZIP contains a path traversal: {name!r}.")
+        raise package.ChallengePackageError(
+            f"The ZIP contains a path traversal: {name!r}."
+        )
     if ":" in name:
-        raise ChallengePackageError(f"The ZIP contains a path with a colon: {name!r}.")
+        raise package.ChallengePackageError(
+            f"The ZIP contains a path with a colon: {name!r}."
+        )
     for part in pure.parts:
         if part.endswith((" ", ".")):
-            raise ChallengePackageError(
+            raise package.ChallengePackageError(
                 f"The ZIP contains a path with a trailing space or dot: {name!r}."
             )
         stem = part.split(".", 1)[0].upper()
         if stem in WINDOWS_RESERVED_NAMES:
-            raise ChallengePackageError(
+            raise package.ChallengePackageError(
                 f"The ZIP contains a reserved filename: {name!r}."
             )
 
 
-def _validate_archive_members(archive, members):
+def _validate_archive_members(members):
     max_files = _setting("CHALLENGE_IMPORT_MAX_FILES", DEFAULT_MAX_FILES)
     max_uncompressed = _setting(
         "CHALLENGE_IMPORT_MAX_UNCOMPRESSED_BYTES",
@@ -332,31 +355,35 @@ def _validate_archive_members(archive, members):
         name = info.filename
         _validate_archive_path(name)
         if info.flag_bits & 0x1:
-            raise ChallengePackageError(
+            raise package.ChallengePackageError(
                 f"The ZIP contains an encrypted file: {name!r}."
             )
         mode = info.external_attr >> 16
         if stat.S_ISLNK(mode):
-            raise ChallengePackageError(f"The ZIP contains a symbolic link: {name!r}.")
+            raise package.ChallengePackageError(
+                f"The ZIP contains a symbolic link: {name!r}."
+            )
         if info.is_dir():
             continue
         suffix = PurePosixPath(name).suffix.lower()
         if suffix not in ALLOWED_ARCHIVE_SUFFIXES:
-            raise ChallengePackageError(
+            raise package.ChallengePackageError(
                 f"The ZIP contains an unsupported file type: {name!r}."
             )
         casefolded = name.casefold()
         if casefolded in seen_names:
-            raise ChallengePackageError(f"The ZIP contains a duplicate file: {name!r}.")
+            raise package.ChallengePackageError(
+                f"The ZIP contains a duplicate file: {name!r}."
+            )
         seen_names.add(casefolded)
         file_count += 1
         if file_count > max_files:
-            raise ChallengePackageError(
+            raise package.ChallengePackageError(
                 f"The ZIP contains more than {max_files} files."
             )
         uncompressed_size += info.file_size
         if uncompressed_size > max_uncompressed:
-            raise ChallengePackageError(
+            raise package.ChallengePackageError(
                 "The ZIP expands beyond the allowed uncompressed size."
             )
 
@@ -375,7 +402,7 @@ def _extract_members(archive, members, destination):
         relative = PurePosixPath(info.filename)
         target = destination.joinpath(*relative.parts)
         if not target.resolve().is_relative_to(destination_root):
-            raise ChallengePackageError(
+            raise package.ChallengePackageError(
                 f"The ZIP contains an unsafe path: {info.filename!r}."
             )
         target.parent.mkdir(parents=True, exist_ok=True)
@@ -387,14 +414,14 @@ def _extract_members(archive, members, destination):
                         break
                     written_total += len(chunk)
                     if written_total > max_uncompressed:
-                        raise ChallengePackageError(
+                        raise package.ChallengePackageError(
                             "The ZIP expands beyond the allowed uncompressed size."
                         )
                     output.write(chunk)
-        except ChallengePackageError:
+        except package.ChallengePackageError:
             raise
         except (OSError, RuntimeError, NotImplementedError) as exc:
-            raise ChallengePackageError(
+            raise package.ChallengePackageError(
                 f"Could not extract {info.filename!r}: {exc}"
             ) from exc
 
@@ -405,7 +432,7 @@ def extract_challenge_archive(uploaded_file, destination):
     try:
         uploaded_file.seek(0)
         if not zipfile.is_zipfile(uploaded_file):
-            raise ChallengePackageError("Upload a valid .zip archive.")
+            raise package.ChallengePackageError("Upload a valid .zip archive.")
         uploaded_file.seek(0)
         with zipfile.ZipFile(uploaded_file) as archive:
             members = [
@@ -414,15 +441,17 @@ def extract_challenge_archive(uploaded_file, destination):
                 if not _is_ignored_archive_member(info.filename)
             ]
             if not members:
-                raise ChallengePackageError("The ZIP is empty.")
-            _validate_archive_members(archive, members)
+                raise package.ChallengePackageError("The ZIP is empty.")
+            _validate_archive_members(members)
             _extract_members(archive, members, destination)
-    except ChallengePackageError:
+    except package.ChallengePackageError:
         raise
     except (zipfile.BadZipFile, zipfile.LargeZipFile) as exc:
-        raise ChallengePackageError("Upload a valid .zip archive.") from exc
+        raise package.ChallengePackageError("Upload a valid .zip archive.") from exc
     except (OSError, RuntimeError, NotImplementedError) as exc:
-        raise ChallengePackageError(f"Could not read the ZIP archive: {exc}") from exc
+        raise package.ChallengePackageError(
+            f"Could not read the ZIP archive: {exc}"
+        ) from exc
 
     entries = [
         path
@@ -430,21 +459,21 @@ def extract_challenge_archive(uploaded_file, destination):
         if not _is_ignored_archive_member(path.name)
     ]
     if len(entries) != 1 or not entries[0].is_dir():
-        raise ChallengePackageError(
+        raise package.ChallengePackageError(
             "The ZIP must contain exactly one top-level challenge folder named after the slug."
         )
     return entries[0]
 
 
 def import_challenge_archive(uploaded_file, *, replace=False, skip_existing=False):
-    """Validate and install a ZIP package without touching the source tree."""
+    """Validate and install a ZIP package."""
     max_archive = _setting(
         "CHALLENGE_IMPORT_MAX_ARCHIVE_BYTES",
         DEFAULT_MAX_ARCHIVE_BYTES,
     )
     try:
         if _uploaded_file_size(uploaded_file) > max_archive:
-            raise ChallengePackageError(
+            raise package.ChallengePackageError(
                 f"The ZIP must be {max_archive // (1024 * 1024)} MB or smaller."
             )
         with tempfile.TemporaryDirectory(prefix="challenge-import-") as temporary:
@@ -454,9 +483,9 @@ def import_challenge_archive(uploaded_file, *, replace=False, skip_existing=Fals
                 replace=replace,
                 skip_existing=skip_existing,
             )
-    except ChallengePackageError:
+    except package.ChallengePackageError:
         raise
     except OSError as exc:
-        raise ChallengePackageError(
+        raise package.ChallengePackageError(
             f"Could not read the challenge package: {exc}"
         ) from exc

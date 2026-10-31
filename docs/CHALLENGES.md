@@ -30,6 +30,8 @@ The importer publishes the same structure beneath `backend/media/challenges/<slu
 
 2. Add one MP3 and one UTF-8 `.txt` transcript for every turn. Keep the same filename stem as the turn's unique `node_key`. Customer turns use `type: "question"`; agent turns use `type: "response"`.
 
+   Every MP3 must be playable MP3 audio. The importer runs `ffprobe` on each recording and rejects the package if FFmpeg is missing, the file has no audio stream, the codec is not MP3, or the duration is invalid.
+
    Install FFmpeg and normalize all challenge recordings from the repository root:
 
    ```bash
@@ -85,7 +87,7 @@ The importer publishes the same structure beneath `backend/media/challenges/<slu
 
    On Windows, run these commands in WSL with the Linux environment at `backend/.venv`, as described in [SETUP.md](SETUP.md).
 
-The importer checks that the slug matches its folder name and validates metadata, alternating turn types, unique turn keys, expected paths, nonempty files, and UTF-8 transcripts before installing selected packages. Transcript paths and audio paths in the manifest are relative to that challenge's folder; the database stores them with the `challenges/<slug>/` prefix.
+The importer checks that the slug matches its folder name and validates metadata, alternating turn types, unique turn keys, expected paths, nonempty files, UTF-8 transcripts, and playable MP3 audio before installing selected packages. Transcript paths and audio paths in the manifest are relative to that challenge's folder; the database stores them with the `challenges/<slug>/` prefix.
 
 ## Update an existing challenge
 
@@ -119,14 +121,39 @@ Staff can import a challenge without shell, Git, or server access. Create a staf
 2. Create one ZIP containing that folder as its only top-level entry. Do not upload loose files or multiple challenge folders.
 3. Open `/admin/`, go to **Challenges**, and select **Import challenge package**.
 4. Choose the ZIP and select **Import challenge package**. Tick **Replace an existing challenge with this slug** only when updating a challenge that already exists.
-5. The package is validated before anything is changed. A successful import reports the challenge name, slug, date, and turn count. A failed import reports the exact problem and leaves the database and published media untouched.
+5. The package is validated before anything is changed. A successful import reports the challenge name, slug, date, and turn count. A failed import reports the exact problem and leaves the database, published media, and source package untouched.
 
 The admin import accepts the same manifest, file layout, and validation rules as `import_challenges`. It additionally rejects path traversal, absolute paths, backslashes, symbolic links, encrypted ZIP entries, duplicate files, unsupported file types, and archives above the configured limits. macOS metadata such as `__MACOSX`, `.DS_Store`, and `._*` files are ignored. The limits are configured in `backend/config/settings.py` as `CHALLENGE_IMPORT_MAX_ARCHIVE_BYTES`, `CHALLENGE_IMPORT_MAX_UNCOMPRESSED_BYTES`, and `CHALLENGE_IMPORT_MAX_FILES`.
 
-Admin imports publish to `backend/media/challenges/<slug>/`; they do not add a copy to `backend/challenges/source_data/challenges/`. Back up `backend/db.sqlite3` and `backend/media/challenges/` before importing. The published folder contains the manifest and all referenced media, so it can be copied back into `source_data/challenges/` for recovery or version control.
+Admin imports publish to both `backend/media/challenges/<slug>/` and `backend/challenges/source_data/challenges/<slug>/`. The source package is the canonical copy used by validation and recovery; keep `source_data/challenges/` writable and persistent in production. Back up `backend/db.sqlite3`, `backend/media/challenges/`, and `backend/challenges/source_data/challenges/` together before importing.
 
-The default admin add form is disabled because a valid challenge requires a complete media package. The challenge slug and conversation tree are read-only after import; metadata such as the display name, schedule date, difficulty, category, tone, and required action remains editable for corrections.
+The default admin add form is disabled because a valid challenge requires a complete media package. Challenge fields are read-only after import; to change metadata or content, upload an updated package and select **Replace**. This keeps the database, published media, and source package synchronized.
 
 `seed_kale_demo` remains a shortcut for importing `forgot-password-x3`; its `--force` flag delegates to `--replace`. The bundled demo uses a fixed date and slug. Django assigns its numeric ID on first import, so IDs can differ across databases; replacement preserves the existing ID within a database. Use the slug to identify the same challenge across machines.
+
+## Validate production challenge data
+
+Run the validation command before deployments and after imports, when no import is in progress:
+
+```bash
+backend/.venv/bin/python backend/manage.py validate_challenges
+```
+
+The command is read-only. It prints `OK` and exits `0` only when the database, published media, and source packages are production-ready. Otherwise it prints one `ERROR: ...` line per breaking issue and exits non-zero. It has no warnings, no informational summaries, and no optional modes.
+
+It checks:
+
+- Database integrity and applied migrations.
+- Challenge rows pass model validation and have a nonempty conversation tree.
+- Every tree node has the exact expected transcript and audio path.
+- Every referenced published file exists, is a regular nonempty readable file under `MEDIA_ROOT`, and resolves to the URL generated by the API.
+- Transcripts are valid UTF-8 and nonblank.
+- `MEDIA_ROOT` and `source_data/challenges/` exist and `MEDIA_URL` is configured.
+- Every challenge has a source package whose metadata and tree match the database.
+- Every source file is byte-identical to its published media copy.
+
+Existing challenges imported before source persistence must be re-imported, or have their published folders copied into `source_data/challenges/`, before validation can pass.
+
+It intentionally does not check duplicate dates, schedule coverage, orphan media, unreferenced files, tree size, admin log entries, or non-challenge models.
 
 The challenge list and detail APIs expose both `id` (the existing numeric database key) and `slug` (the stable package identifier). The current frontend still selects the working demo by slug; this storage layout and import command support adding further challenges independently of a future challenge-selection UI.
