@@ -35,7 +35,7 @@ const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri']
 function Stars({ value }: { value: number }) {
   return (
     <span
-      className="text-green-light flex text-lg leading-none"
+      className="text-green-light flex text-[10px] leading-none sm:text-lg"
       role="img"
       aria-label={`${value} out of 3 stars`}
     >
@@ -233,7 +233,7 @@ export default function HomePage({
                       type="button"
                       disabled={!isToday}
                       onClick={isToday ? onStart : undefined}
-                      className={`bg-beige flex min-h-16 min-w-0 flex-col items-start gap-1 p-2 text-left sm:min-h-24 sm:p-3 ${isToday ? 'bg-orange-light/30 hover:bg-orange-light/50 cursor-pointer' : 'cursor-default'}`}
+                      className={`bg-beige flex min-h-16 min-w-0 flex-col items-start gap-1 overflow-hidden p-1.5 text-left sm:min-h-24 sm:p-3 ${isToday ? 'bg-orange-light/30 hover:bg-orange-light/50 cursor-pointer' : 'cursor-default'}`}
                       aria-label={
                         isToday
                           ? `Start ${challenge?.name}`
