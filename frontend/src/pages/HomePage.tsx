@@ -70,7 +70,7 @@ function LeaderboardRow({
 }) {
   return (
     <li
-      className={`flex items-center gap-4 rounded-xl px-3 py-2.5 shadow-sm ${rowStyle}`}
+      className={`hover:shadow-card flex items-center gap-4 rounded-xl px-3 py-2.5 shadow-sm transition hover:-translate-y-0.5 ${isYou ? 'bg-orange-light' : 'bg-green-pale/60'}`}
     >
       <span
         className={`grid size-10 shrink-0 place-items-center rounded-full text-lg font-bold text-white ${isYou ? 'bg-orange' : 'bg-green-dark'}`}
@@ -86,6 +86,7 @@ function LeaderboardRow({
 interface HomePageProps {
   challenge: Challenge | null
   onStart: () => void
+  onHome?: () => void
   user: AuthUser | null
   accountLoading: boolean
   onAccount: () => void
@@ -95,6 +96,7 @@ interface HomePageProps {
 export default function HomePage({
   challenge,
   onStart,
+  onHome,
   user,
   accountLoading,
   onAccount,
@@ -122,6 +124,8 @@ export default function HomePage({
         user={user}
         accountLoading={accountLoading}
         onAccount={onAccount}
+        onHome={onHome}
+        onChallenge={challenge ? onStart : undefined}
       />
       <main className="mx-auto grid max-w-7xl min-w-0 gap-10 px-5 py-8 sm:px-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.6fr)]">
         {notice && <div className="min-w-0 lg:col-span-2">{notice}</div>}
@@ -234,13 +238,13 @@ export default function HomePage({
                       {isInMonth && (
                         <>
                           <span
-                            className={`text-base font-semibold sm:text-xl ${isToday ? 'text-orange' : isWeekend ? 'text-black/40' : ''}`}
+                            className={`text-sm font-semibold sm:text-xl ${isToday ? 'text-orange' : isWeekend ? 'text-black/40' : ''}`}
                           >
                             {day}
                           </span>
                           {score === 'missed' ? (
                             <span
-                              className="text-orange text-lg"
+                              className="text-orange text-sm sm:text-lg"
                               role="img"
                               aria-label="Missed"
                             >

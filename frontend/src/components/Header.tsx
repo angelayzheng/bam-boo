@@ -9,6 +9,7 @@ interface HeaderProps {
   accountLoading?: boolean
   onAccount?: () => void
   onHome?: () => void
+  onChallenge?: () => void
 }
 
 // Runs a navigation callback without a full page reload, if one is provided.
@@ -21,12 +22,16 @@ function navigate(callback?: () => void) {
     : undefined
 }
 
+const navLink =
+  'rounded-lg px-2 py-1 transition hover:bg-green-pale/60 hover:text-green-dark focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-dark'
+
 export default function Header({
   compact = false,
   user,
   accountLoading = false,
   onAccount,
   onHome,
+  onChallenge,
 }: HeaderProps) {
   return (
     <header className="bg-beige">
@@ -35,17 +40,23 @@ export default function Header({
           <a
             href="/"
             onClick={navigate(onHome)}
-            className="focus-visible:outline-green-dark rounded-lg focus-visible:outline-2 focus-visible:outline-offset-4"
+            className="focus-visible:outline-green-dark rounded-lg transition hover:opacity-80 focus-visible:outline-2 focus-visible:outline-offset-4"
             aria-label="bam-boo home"
           >
             <img src={logo} alt="Bam-boo!" className="h-9 w-auto" />
           </a>
           {!compact && (
-            <nav className="hidden items-center gap-6 text-lg font-bold text-black sm:flex">
-              <a href="/" onClick={navigate(onHome)}>
+            <nav className="hidden items-center gap-4 text-lg font-bold text-black sm:flex">
+              <a
+                href="/"
+                onClick={navigate(onChallenge ?? onHome)}
+                className={navLink}
+              >
                 Today’s Challenge
               </a>
-              <a href="/leaderboard">Leaderboard</a>
+              <a href="/leaderboard" className={navLink}>
+                Leaderboard
+              </a>
             </nav>
           )}
         </div>
@@ -66,7 +77,7 @@ export default function Header({
               <a
                 href={user ? '/profile' : '/login'}
                 onClick={navigate(onAccount)}
-                className="focus-visible:outline-green-dark hover:bg-green-pale/50 flex min-w-0 items-center gap-2 rounded-xl px-2 py-1 text-lg font-bold text-black focus-visible:outline-2 focus-visible:outline-offset-2"
+                className="focus-visible:outline-green-dark hover:bg-green-pale/50 flex min-w-0 items-center gap-2 rounded-xl px-2 py-1 text-lg font-bold text-black transition focus-visible:outline-2 focus-visible:outline-offset-2"
               >
                 {user && (
                   <span

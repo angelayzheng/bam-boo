@@ -283,6 +283,7 @@ function App() {
       challenge={challenge}
       notice={notice}
       onStart={startChallenge}
+      onHome = {() => navigate('/')}
       user={user}
       accountLoading={authLoading}
       onAccount={openAccount}
