@@ -1,7 +1,9 @@
+import type { ReactNode } from 'react'
 import Header from '../components/Header'
 import { FlameIcon } from '../components/icons'
 import { challengeDate } from '../challenges'
 import type { Challenge } from '../types'
+import type { AuthUser } from '../auth'
 
 // TODO: replace with real data once the backend provides it.
 const MOCK_LEADERBOARD = [
@@ -93,12 +95,23 @@ function LeaderboardRow({
 }
 
 interface HomePageProps {
-  challenge: Challenge
+  challenge: Challenge | null
   onStart: () => void
+  user: AuthUser | null
+  accountLoading: boolean
+  onAccount: () => void
+  notice?: ReactNode
 }
 
-export default function HomePage({ challenge, onStart }: HomePageProps) {
-  const challengeDay = challengeDate(challenge)
+export default function HomePage({
+  challenge,
+  onStart,
+  user,
+  accountLoading,
+  onAccount,
+  notice,
+}: HomePageProps) {
+  const challengeDay = challenge ? challengeDate(challenge) : new Date()
   const startOfMonth = new Date(
     challengeDay.getFullYear(),
     challengeDay.getMonth(),
@@ -116,8 +129,14 @@ export default function HomePage({ challenge, onStart }: HomePageProps) {
 
   return (
     <div className="bg-beige min-h-screen text-black">
-      <Header />
+      <Header
+        user={user}
+        accountLoading={accountLoading}
+        onAccount={onAccount}
+      />
       <main className="mx-auto grid max-w-7xl min-w-0 gap-10 px-5 py-8 sm:px-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.6fr)]">
+        {notice && <div className="min-w-0 lg:col-span-2">{notice}</div>}
+
         {/* Left column */}
         <div className="flex min-w-0 flex-col gap-10">
           <section className="border-orange overflow-hidden rounded-2xl border">
@@ -130,16 +149,23 @@ export default function HomePage({ challenge, onStart }: HomePageProps) {
                 }).format(challengeDay)}
               </p>
               <h1 className="text-orange mt-2 text-4xl leading-tight font-extrabold">
-                {challenge.name}
+                {challenge ? challenge.name : 'Daily recording'}
               </h1>
+              {!challenge && (
+                <p className="mt-2 text-lg text-black/70">
+                  Recordings will appear here when available.
+                </p>
+              )}
             </div>
-            <button
-              type="button"
-              onClick={onStart}
-              className="from-orange to-olive focus-visible:outline-green-dark w-full bg-linear-to-b px-6 py-4 text-2xl font-bold text-white transition hover:brightness-105 focus-visible:outline-3 focus-visible:outline-offset-2"
-            >
-              Start Today’s Challenge
-            </button>
+            {challenge && (
+              <button
+                type="button"
+                onClick={onStart}
+                className="from-orange to-olive focus-visible:outline-green-dark w-full bg-linear-to-b px-6 py-4 text-2xl font-bold text-white transition hover:brightness-105 focus-visible:outline-3 focus-visible:outline-offset-2"
+              >
+                Start Today’s Challenge
+              </button>
+            )}
           </section>
 
           <section>
@@ -197,7 +223,7 @@ export default function HomePage({ challenge, onStart }: HomePageProps) {
               <div className="bg-green-light/60 grid grid-cols-7 gap-px">
                 {calendarDays.map((day, index) => {
                   const isInMonth = day > 0 && day <= daysInMonth
-                  const isToday = day === challengeDay.getDate()
+                  const isToday = !!challenge && day === challengeDay.getDate()
                   const isWeekend = index % 7 === 0 || index % 7 === 6
                   const score = isInMonth ? MOCK_SCORES[day] : undefined
 
@@ -210,7 +236,7 @@ export default function HomePage({ challenge, onStart }: HomePageProps) {
                       className={`bg-beige flex min-h-16 min-w-0 flex-col items-start gap-1 p-2 text-left sm:min-h-24 sm:p-3 ${isToday ? 'bg-orange-light/30 hover:bg-orange-light/50 cursor-pointer' : 'cursor-default'}`}
                       aria-label={
                         isToday
-                          ? `Start ${challenge.name}`
+                          ? `Start ${challenge?.name}`
                           : isInMonth
                             ? `${challengeDay.toLocaleString('en-CA', { month: 'long' })} ${day}`
                             : undefined

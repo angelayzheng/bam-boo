@@ -9,3 +9,4 @@ class ChallengeAdmin(admin.ModelAdmin):
     list_filter = ("category", "difficulty")
     search_fields = ("slug", "name", "tone")
     prepopulated_fields = {"slug": ("name",)}
+    readonly_fields = ("id",)
