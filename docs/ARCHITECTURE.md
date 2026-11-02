@@ -79,7 +79,7 @@ frontend/
 		tone.ts         Challenge tone-grading API client
 		routes.ts       Routes derived from the loaded challenge date
 		types.ts        Shared frontend flow types
-	    index.css       Tailwind CSS import and global styles
+	    index.css       Tailwind import, design tokens (@theme), and global styles
 			assets/         Frontend image and SVG assets
 	tests/            API-loading and conversation tests using native TypeScript support
 	package.json      npm scripts and dependencies
@@ -97,7 +97,7 @@ docs/
 
 ## Frontend
 
-The frontend is written in TypeScript. Its entry point is `frontend/src/main.tsx`; it mounts the root `App` component into the page and loads `frontend/src/index.css`. Training content comes from the Django challenge API and SQLite. `challenges.ts` loads the challenge list, selects the `forgot-password-x3` demo when present (otherwise the first challenge), fetches its detail, and loads the referenced transcripts in parallel. Media URLs resolve from the origin root so direct visits to nested challenge routes work. Loading, retry, empty-database, and missing-transcript states use a compact inline notice while the frontend layout remains visible; there is no static-scenario fallback. Without challenge data, the home page shows the current local month, placeholder statistics, disabled calendar actions, and an empty recording card. Retrying failed requests restores real challenge/account data without reloading the page. The interface is styled with Tailwind CSS utility classes in React components; `frontend/src/index.css` imports Tailwind and contains only global CSS rules.
+The frontend is written in TypeScript. Its entry point is `frontend/src/main.tsx`; it mounts the root `App` component into the page and loads `frontend/src/index.css`. Training content comes from the Django challenge API and SQLite. `challenges.ts` loads the challenge list, selects the `forgot-password-x3` demo when present (otherwise the first challenge), fetches its detail, and loads the referenced transcripts in parallel. Media URLs resolve from the origin root so direct visits to nested challenge routes work. Loading, retry, empty-database, and missing-transcript states use a compact inline notice while the frontend layout remains visible; there is no static-scenario fallback. Without challenge data, the home page shows the current local month, placeholder statistics, disabled calendar actions, and an empty recording card. Retrying failed requests restores real challenge/account data without reloading the page. The interface is styled with Tailwind CSS utility classes in React components. `frontend/src/index.css` imports Tailwind, defines the design tokens (brand colors, font, radius, shadow, and animation) in an @theme block, and contains global CSS rules. Use the token-based classes (for example bg-beige, text-orange, bg-green-light) instead of arbitrary hex values.
 
 Use npm scripts from the `frontend` directory:
 

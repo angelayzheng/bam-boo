@@ -71,6 +71,16 @@ export async function loadChallenge(signal: AbortSignal): Promise<Challenge> {
   }
 }
 
+export async function loadChallengeSummaries(
+  signal: AbortSignal,
+): Promise<ChallengeSummary[]> {
+  const { challenges } = await getJson<{ challenges: ChallengeSummary[] }>(
+    '/api/challenges/',
+    signal,
+  )
+  return challenges
+}
+
 export function challengeDate(challenge: ChallengeSummary): Date {
   return new Date(`${challenge.challenge_date}T00:00:00`)
 }
