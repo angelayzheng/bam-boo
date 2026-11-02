@@ -94,21 +94,21 @@ export default function AuthPage({
   }
 
   const inputClass =
-    'mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-[#17243d] outline-none focus:border-[#19856a] focus:ring-2 focus:ring-[#19856a]/20'
+    'mt-2 w-full rounded-xl border-1 border-green-light bg-white px-4 py-3 text-black outline-none placeholder:text-black/30 focus:border-green-dark focus:ring-4 focus:ring-green-dark/10 disabled:opacity-60'
 
   return (
-    <div className="min-h-screen bg-[#f7f8f5] text-[#17243d]">
+    <div className="bg-beige min-h-screen text-black">
       <Header compact onHome={() => onNavigate('/')} />
       <main className="mx-auto max-w-md px-5 py-12 sm:py-16">
         {notice}
-        <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
-          <p className="text-xs font-bold tracking-widest text-[#19856a] uppercase">
+        <div className="shadow-card rounded-2xl bg-white/60 p-6 sm:p-8">
+          <p className="text-green-dark text-sm font-bold tracking-widest uppercase">
             Your bam-boo account
           </p>
-          <h1 className="mt-3 text-3xl font-bold tracking-tight">
+          <h1 className="text-orange mt-3 text-4xl font-extrabold">
             {isSignup ? 'Create an account' : 'Welcome back'}
           </h1>
-          <p className="mt-3 text-sm text-slate-600">
+          <p className="mt-3 text-base text-black/70">
             {isSignup
               ? 'Make yourself at home and view your training profile.'
               : 'Log in to view your profile and progress.'}
@@ -118,7 +118,7 @@ export default function AuthPage({
             className="mt-7 space-y-5"
             aria-busy={pending}
           >
-            <label className="block text-sm font-semibold" htmlFor="username">
+            <label className="block text-base font-semibold" htmlFor="username">
               Username
               <input
                 className={inputClass}
@@ -133,9 +133,9 @@ export default function AuthPage({
               />
             </label>
             {isSignup && (
-              <label className="block text-sm font-semibold" htmlFor="email">
+              <label className="block text-base font-semibold" htmlFor="email">
                 Email{' '}
-                <span className="font-normal text-slate-500">(optional)</span>
+                <span className="font-normal text-black/50">(optional)</span>
                 <input
                   className={inputClass}
                   id="email"
@@ -151,9 +151,12 @@ export default function AuthPage({
             )}
             {isSignup && (
               <div>
-                <label className="block text-sm font-semibold" htmlFor="group">
+                <label
+                  className="block text-base font-semibold"
+                  htmlFor="group"
+                >
                   Group{' '}
-                  <span className="font-normal text-slate-500">(optional)</span>
+                  <span className="font-normal text-black/50">(optional)</span>
                   <select
                     id="group"
                     name="group_id"
@@ -171,7 +174,7 @@ export default function AuthPage({
                     ))}
                   </select>
                 </label>
-                <div id="group-status" className="mt-2 text-xs text-slate-500">
+                <div id="group-status" className="mt-2 text-sm text-black/60">
                   {groupsLoading ? (
                     <p role="status">Loading groups…</p>
                   ) : groupsError ? (
@@ -185,7 +188,7 @@ export default function AuthPage({
                           setGroupsLoading(true)
                           setGroupsAttempt((value) => value + 1)
                         }}
-                        className="font-semibold text-[#176d59] underline underline-offset-4"
+                        className="text-green-dark font-semibold underline underline-offset-4 transition hover:text-black"
                       >
                         Retry
                       </button>
@@ -196,7 +199,7 @@ export default function AuthPage({
                 </div>
               </div>
             )}
-            <label className="block text-sm font-semibold" htmlFor="password">
+            <label className="block text-base font-semibold" htmlFor="password">
               Password
               <input
                 className={inputClass}
@@ -215,13 +218,13 @@ export default function AuthPage({
               <>
                 <p
                   id="password-hint"
-                  className="text-xs leading-relaxed text-slate-500"
+                  className="text-sm leading-relaxed text-black/60"
                 >
                   Use at least 8 characters. Avoid common passwords, only
                   numbers, or a password similar to your username or email.
                 </p>
                 <label
-                  className="block text-sm font-semibold"
+                  className="block text-base font-semibold"
                   htmlFor="confirmation"
                 >
                   Confirm password
@@ -242,7 +245,7 @@ export default function AuthPage({
             {error && (
               <p
                 role="alert"
-                className="rounded-xl bg-red-50 p-3 text-sm text-red-800"
+                className="rounded-xl bg-red-50 p-3 text-base text-red-800"
               >
                 {error}
               </p>
@@ -250,7 +253,7 @@ export default function AuthPage({
             <button
               type="submit"
               disabled={pending || sessionLoading}
-              className="w-full rounded-xl bg-[#17243d] px-5 py-3 font-semibold text-white hover:bg-[#223253] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#19856a] disabled:cursor-wait disabled:opacity-60"
+              className="bg-orange focus-visible:outline-green-dark w-full rounded-xl px-5 py-3 text-base font-bold text-white transition hover:brightness-95 focus-visible:outline-2 focus-visible:outline-offset-2 active:scale-[0.98] disabled:cursor-wait disabled:opacity-60"
             >
               {sessionLoading
                 ? 'Checking account…'
@@ -261,7 +264,7 @@ export default function AuthPage({
                     : 'Log in'}
             </button>
           </form>
-          <p className="mt-6 text-center text-sm text-slate-600">
+          <p className="mt-6 text-center text-base text-black/70">
             {isSignup ? 'Already have an account? ' : 'New here? '}
             <a
               href={isSignup ? '/login' : '/signup'}
@@ -269,7 +272,7 @@ export default function AuthPage({
                 event.preventDefault()
                 onNavigate(isSignup ? '/login' : '/signup')
               }}
-              className="font-semibold text-[#176d59] underline underline-offset-4"
+              className="text-green-dark font-semibold underline underline-offset-4 transition hover:text-black"
             >
               {isSignup ? 'Log in' : 'Create an account'}
             </a>
@@ -281,7 +284,7 @@ export default function AuthPage({
             event.preventDefault()
             onNavigate('/')
           }}
-          className="mt-6 block text-center text-sm font-semibold text-slate-600 underline underline-offset-4"
+          className="mt-6 block text-center text-base font-semibold text-black/70 underline underline-offset-4 transition hover:text-black"
         >
           Continue to recordings
         </a>
