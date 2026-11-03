@@ -18,7 +18,6 @@ export interface ChallengeSummary {
   challenge_date: string
   difficulty: number
   category: string
-  tone: string
 }
 
 export interface Challenge extends ChallengeSummary {

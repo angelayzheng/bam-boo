@@ -4,6 +4,7 @@ import Header from '../components/Header'
 import { ArrowLeftIcon, CheckIcon } from '../components/icons'
 import { challengeDateLabel } from '../challenges'
 import { matchesAnswer, respond, responseOptions } from '../conversation'
+import { scoreTone } from '../tone'
 import type { Challenge, ConversationNode, ResultData } from '../types'
 
 type Stage = 'tone' | 'response' | 'action'
@@ -31,6 +32,9 @@ export default function ChallengePage({
   const [tone, setTone] = useState('')
   const [toneTime, setToneTime] = useState(0)
   const [toneCorrect, setToneCorrect] = useState(false)
+  const [tonePending, setTonePending] = useState(false)
+  const [toneError, setToneError] = useState('')
+  const toneRequest = useRef<AbortController | null>(null)
   const [selectedResponse, setSelectedResponse] =
     useState<ConversationNode | null>(null)
   const [path, setPath] = useState<ConversationNode[]>([
@@ -46,6 +50,7 @@ export default function ChallengePage({
 
   useEffect(() => {
     startedAt.current = Date.now()
+    return () => toneRequest.current?.abort()
   }, [])
 
   useEffect(() => {
@@ -61,14 +66,34 @@ export default function ChallengePage({
     })
   }, [path.length, stage])
 
-  const submitTone = () => {
+  const submitTone = async () => {
+    if (toneRequest.current) return
+    const controller = new AbortController()
+    toneRequest.current = controller
+    setTonePending(true)
+    setToneError('')
     const elapsed = Math.max(
       1,
       Math.round((Date.now() - startedAt.current) / 1000),
     )
-    setToneTime(elapsed)
-    setToneCorrect(matchesAnswer(tone, challenge.tone))
-    setStage('response')
+    try {
+      const correct = await scoreTone(tone, challenge.id, controller.signal)
+      if (controller.signal.aborted) return
+      setToneTime(elapsed)
+      setToneCorrect(correct)
+      setStage('response')
+    } catch (error) {
+      if (!controller.signal.aborted) {
+        setToneError(
+          error instanceof Error
+            ? error.message
+            : 'Tone scoring failed. Please try again.',
+        )
+      }
+    } finally {
+      toneRequest.current = null
+      if (!controller.signal.aborted) setTonePending(false)
+    }
   }
 
   const submitAction = () => {
@@ -151,7 +176,7 @@ export default function ChallengePage({
                 className="mt-6"
                 onSubmit={(event) => {
                   event.preventDefault()
-                  if (tone.trim()) submitTone()
+                  if (tone.trim()) void submitTone()
                 }}
               >
                 <label htmlFor="tone" className="sr-only">
@@ -159,6 +184,8 @@ export default function ChallengePage({
                 </label>
                 <input
                   id="tone"
+                  disabled={tonePending}
+                  aria-describedby={toneError ? 'tone-error' : undefined}
                   value={tone}
                   onChange={(event) =>
                     setTone(
@@ -174,12 +201,21 @@ export default function ChallengePage({
                   <p className="text-sm text-black/50">1–2 words only</p>
                   <button
                     type="submit"
-                    disabled={!tone.trim()}
+                    disabled={!tone.trim() || tonePending}
                     className={primaryButton}
                   >
-                    Lock in answer
+                    {tonePending ? 'Checking tone…' : 'Lock in answer'}
                   </button>
                 </div>
+                {toneError && (
+                  <p
+                    id="tone-error"
+                    role="alert"
+                    className="mt-3 text-sm text-red-700"
+                  >
+                    {toneError}
+                  </p>
+                )}
               </form>
             </section>
           </div>
