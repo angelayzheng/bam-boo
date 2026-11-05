@@ -7,7 +7,7 @@ from pathlib import Path
 from django.core.exceptions import ValidationError
 from django.core.validators import validate_slug
 
-from .models import validate_conversation_tree
+from .models import Challenge, validate_conversation_tree
 
 CHALLENGES_DIR = Path(__file__).resolve().parent / "source_data" / "challenges"
 
@@ -45,6 +45,16 @@ def iter_conversation_nodes(tree):
         yield from iter_conversation_nodes(child)
 
 
+def _normalize_metadata(manifest):
+    metadata = {}
+    for key in METADATA_FIELDS:
+        value = Challenge._meta.get_field(key).to_python(manifest[key])
+        if key == "challenge_date" and value is not None:
+            value = value.isoformat()
+        metadata[key] = value
+    return metadata
+
+
 def load_challenge_package(folder):
     """Load a package without touching the database or probing audio."""
     folder = Path(folder)
@@ -56,7 +66,7 @@ def load_challenge_package(folder):
         if manifest_path.is_symlink():
             raise ChallengePackageError("The manifest must not be a symbolic link.")
         manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-        metadata = {key: manifest[key] for key in METADATA_FIELDS}
+        metadata = _normalize_metadata(manifest)
         if metadata["slug"] != folder.name:
             raise ChallengePackageError("slug must match its folder name.")
 

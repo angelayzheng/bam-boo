@@ -127,6 +127,21 @@ def make_zip(
     )
 
 
+def make_corrupt_zip(manifest=None):
+    upload = make_zip(manifest)
+    data = bytearray(upload.read())
+    offset = data.index(b"PK\x03\x04")
+    name_length = int.from_bytes(data[offset + 26 : offset + 28], "little")
+    extra_length = int.from_bytes(data[offset + 28 : offset + 30], "little")
+    payload = offset + 30 + name_length + extra_length
+    data[payload : payload + 2] = b"\xff\xff"
+    return SimpleUploadedFile(
+        "challenge.zip",
+        bytes(data),
+        content_type="application/zip",
+    )
+
+
 def make_zip_from_folder(folder):
     folder = Path(folder)
     buffer = io.BytesIO()

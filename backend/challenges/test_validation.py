@@ -14,6 +14,7 @@ from .package import CHALLENGES_DIR
 from .test_support import (
     MediaTestCase,
     challenge_manifest,
+    make_zip,
     make_zip_from_folder,
     write_package,
 )
@@ -121,6 +122,11 @@ class ChallengeValidationTests(MediaTestCase):
         import_challenge_archive(
             make_zip_from_folder(CHALLENGES_DIR / "forgot-password-x3")
         )
+        self.assertEqual(ChallengeDatabaseValidator().validate(), [])
+
+    def test_imported_string_difficulty_passes_validation(self):
+        result = import_challenge_archive(make_zip(challenge_manifest(difficulty="1")))
+        self.assertEqual(result.challenge.difficulty, 1)
         self.assertEqual(ChallengeDatabaseValidator().validate(), [])
 
     def test_command_prints_ok(self):

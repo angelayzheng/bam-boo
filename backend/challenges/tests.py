@@ -24,6 +24,7 @@ from .test_support import (
     MediaTestCase,
     challenge_manifest,
     make_challenge,
+    make_corrupt_zip,
     make_zip,
     make_zip_from_folder,
 )
@@ -428,6 +429,12 @@ class ChallengeArchiveImportTests(MediaTestCase):
         with self.assertRaisesMessage(ChallengePackageError, "valid .zip"):
             import_challenge_archive(upload)
 
+    def test_reports_decompression_failure_as_package_error(self):
+        with self.assertRaisesMessage(ChallengePackageError, "Could not extract"):
+            import_challenge_archive(make_corrupt_zip())
+        self.assertEqual(Challenge.objects.count(), 0)
+        self.assertEqual(list(self.source.iterdir()), [])
+
     def test_rejects_symbolic_links(self):
         buffer = io.BytesIO()
         with zipfile.ZipFile(buffer, "w") as archive:
@@ -520,6 +527,12 @@ class ChallengeAdminImportTests(MediaTestCase):
         response = self.client.post(self.url, {"package": upload})
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "valid .zip")
+        self.assertEqual(Challenge.objects.count(), 0)
+
+    def test_decompression_failure_shows_error_and_changes_nothing(self):
+        response = self.client.post(self.url, {"package": make_corrupt_zip()})
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Could not extract")
         self.assertEqual(Challenge.objects.count(), 0)
 
     def test_existing_slug_requires_replace(self):

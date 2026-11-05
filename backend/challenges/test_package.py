@@ -30,6 +30,25 @@ class ChallengePackageTests(SimpleTestCase):
         self.assertIn("audio/q1.mp3", loaded.files)
         self.assertIn("transcripts/q1.txt", loaded.files)
 
+    def test_normalizes_metadata_types(self):
+        source_folder = write_package(
+            self.root,
+            challenge_manifest(difficulty="1"),
+        )
+        loaded = load_challenge_package(source_folder)
+        self.assertEqual(loaded.metadata["difficulty"], 1)
+        self.assertIs(type(loaded.metadata["difficulty"]), int)
+
+    def test_rejects_invalid_metadata_values(self):
+        source_folder = write_package(
+            self.root,
+            challenge_manifest(difficulty="not-a-number"),
+        )
+        with self.assertRaisesMessage(
+            ChallengePackageError, "Invalid challenge package"
+        ):
+            load_challenge_package(source_folder)
+
     def test_iterates_every_node(self):
         source_folder = write_package(self.root, challenge_manifest())
         loaded = load_challenge_package(source_folder)

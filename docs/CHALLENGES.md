@@ -87,7 +87,7 @@ The importer publishes the same structure beneath `backend/media/challenges/<slu
 
    On Windows, run these commands in WSL with the Linux environment at `backend/.venv`, as described in [SETUP.md](SETUP.md).
 
-The importer checks that the slug matches its folder name and validates metadata, alternating turn types, unique turn keys, expected paths, nonempty files, UTF-8 transcripts, and playable MP3 audio before installing selected packages. Transcript paths and audio paths in the manifest are relative to that challenge's folder; the database stores them with the `challenges/<slug>/` prefix.
+The importer checks that the slug matches its folder name and validates metadata, alternating turn types, unique turn keys, expected paths, nonempty files, UTF-8 transcripts, and playable MP3 audio before installing selected packages. Manifest metadata is normalized to Django field types before publishing, so compatible values such as `"difficulty": "1"` become integer `1` and the source and database metadata stay consistent. Transcript paths and audio paths in the manifest are relative to that challenge's folder; the database stores them with the `challenges/<slug>/` prefix.
 
 ## Update an existing challenge
 
@@ -123,7 +123,7 @@ Staff can import a challenge without shell, Git, or server access. Create a staf
 4. Choose the ZIP and select **Import challenge package**. Tick **Replace an existing challenge with this slug** only when updating a challenge that already exists.
 5. The package is validated before anything is changed. A successful import reports the challenge name, slug, date, and turn count. A failed import reports the exact problem and leaves the database, published media, and source package untouched.
 
-The admin import accepts the same manifest, file layout, and validation rules as `import_challenges`. It additionally rejects path traversal, absolute paths, backslashes, symbolic links, encrypted ZIP entries, duplicate files, unsupported file types, and archives above the configured limits. macOS metadata such as `__MACOSX`, `.DS_Store`, and `._*` files are ignored. The limits are configured in `backend/config/settings.py` as `CHALLENGE_IMPORT_MAX_ARCHIVE_BYTES`, `CHALLENGE_IMPORT_MAX_UNCOMPRESSED_BYTES`, and `CHALLENGE_IMPORT_MAX_FILES`.
+The admin import accepts the same manifest, file layout, and validation rules as `import_challenges`. It additionally rejects path traversal, absolute paths, backslashes, symbolic links, encrypted ZIP entries, duplicate files, unsupported file types, corrupt or undecompressible archive data, and archives above the configured limits. macOS metadata such as `__MACOSX`, `.DS_Store`, and `._*` files are ignored. The limits are configured in `backend/config/settings.py` as `CHALLENGE_IMPORT_MAX_ARCHIVE_BYTES`, `CHALLENGE_IMPORT_MAX_UNCOMPRESSED_BYTES`, and `CHALLENGE_IMPORT_MAX_FILES`.
 
 Admin imports publish to both `backend/media/challenges/<slug>/` and `backend/challenges/source_data/challenges/<slug>/`. The source package is the canonical copy used by validation and recovery; keep `source_data/challenges/` writable and persistent in production. Back up `backend/db.sqlite3`, `backend/media/challenges/`, and `backend/challenges/source_data/challenges/` together before importing.
 

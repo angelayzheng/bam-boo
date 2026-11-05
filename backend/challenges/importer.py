@@ -6,6 +6,7 @@ import stat
 import tempfile
 import threading
 import zipfile
+import zlib
 from contextlib import ExitStack, contextmanager
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
@@ -420,7 +421,7 @@ def _extract_members(archive, members, destination):
                     output.write(chunk)
         except package.ChallengePackageError:
             raise
-        except (OSError, RuntimeError, NotImplementedError) as exc:
+        except (OSError, RuntimeError, NotImplementedError, zlib.error) as exc:
             raise package.ChallengePackageError(
                 f"Could not extract {info.filename!r}: {exc}"
             ) from exc
