@@ -42,7 +42,7 @@ class ChallengeScoreApiTests(TestCase):
         self.client = Client(enforce_csrf_checks=True)
         self.client.force_login(self.user)
         self.token = self.client.get("/api/users/auth/csrf/").json()["csrfToken"]
-        self.url = f"/api/users/me/scores/{self.challenge.pk}/"
+        self.url = f"/api/users/me/scores/{self.challenge.slug}/"
 
     def post(self, payload, url=None):
         return self.client.post(
@@ -77,12 +77,12 @@ class ChallengeScoreApiTests(TestCase):
                 )
                 self.assertEqual(response.status_code, 201)
                 self.assertEqual(
-                    response.json()["scores"], {str(self.challenge.pk): expected}
+                    response.json()["scores"], {str(self.challenge.slug): expected}
                 )
                 self.assertEqual(response.json()["completed_challenges"], 1)
                 self.assertEqual(response.json()["total_score"], expected)
                 profile = UserProfile.objects.get(user=self.user)
-                self.assertEqual(profile.scores, {str(self.challenge.pk): expected})
+                self.assertEqual(profile.scores, {str(self.challenge.slug): expected})
                 self.assertEqual(profile.total_score, expected)
                 self.assertIn("no-store", response.headers["Cache-Control"])
 
@@ -92,7 +92,7 @@ class ChallengeScoreApiTests(TestCase):
         three_stars = {**two_stars, "action_correct": True}
         for _ in range(2):
             self.assertEqual(self.post(one_star).json()["total_score"], 1)
-        second_url = f"/api/users/me/scores/{self.second.pk}/"
+        second_url = f"/api/users/me/scores/{self.second.slug}/"
         self.assertEqual(self.post(two_stars, second_url).json()["total_score"], 3)
         self.assertEqual(self.post(three_stars).json()["total_score"], 5)
         repeated = self.post(one_star).json()
@@ -100,7 +100,7 @@ class ChallengeScoreApiTests(TestCase):
         self.assertEqual(repeated["completed_challenges"], 2)
         self.assertEqual(
             repeated["scores"],
-            {str(self.challenge.pk): 3, str(self.second.pk): 2},
+            {str(self.challenge.slug): 3, str(self.second.slug): 2},
         )
         profile = self.client.get(f"/api/users/{self.user.pk}/profile/").json()
         self.assertEqual(
@@ -153,7 +153,7 @@ class ChallengeScoreApiTests(TestCase):
         self.token = self.client.get("/api/users/auth/csrf/").json()["csrfToken"]
         self.assertEqual(self.post({}).status_code, 401)
 
-    def test_attempt_keeps_challenge_id_and_original_completion_time(self):
+    def test_attempt_keeps_challenge_slug_and_original_completion_time(self):
         completed_at = "2026-10-28T23:15:43-04:00"
         before = timezone.now()
         response = self.post(
@@ -166,11 +166,14 @@ class ChallengeScoreApiTests(TestCase):
         )
         self.assertEqual(response.status_code, 201)
         attempt = ChallengeAttempt.objects.get()
-        self.assertEqual(attempt.challenge_id, self.challenge.pk)
+        self.assertEqual(attempt.challenge_id, self.challenge.slug)
         self.assertEqual(attempt.completed_at, parse_datetime(completed_at))
         self.assertGreaterEqual(attempt.received_at, before)
         self.assertLessEqual(attempt.received_at, timezone.now())
-        self.assertEqual(response.json()["attempt"]["challenge_id"], self.challenge.pk)
+        self.assertEqual(
+            response.json()["attempt"]["challenge_slug"], self.challenge.slug
+        )
+        self.assertNotIn("challenge_id", response.json()["attempt"])
         self.assertEqual(
             parse_datetime(response.json()["attempt"]["completed_at"]),
             attempt.completed_at,
@@ -196,7 +199,7 @@ class ChallengeScoreApiTests(TestCase):
         )
         self.assertEqual(ChallengeAttempt.objects.count(), 2)
         self.assertEqual(
-            UserProfile.objects.get(user=self.user).scores[str(self.challenge.pk)],
+            UserProfile.objects.get(user=self.user).scores[str(self.challenge.slug)],
             3,
         )
 
@@ -209,7 +212,7 @@ class ChallengeScoreApiTests(TestCase):
         }
         self.assertEqual(self.post(payload).status_code, 201)
         self.assertEqual(
-            self.post(payload, f"/api/users/me/scores/{self.second.pk}/").status_code,
+            self.post(payload, f"/api/users/me/scores/{self.second.slug}/").status_code,
             409,
         )
         self.client.force_login(self.other)

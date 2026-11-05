@@ -220,7 +220,7 @@ class ToneSimilarityTests(TestCase):
 
         Challenge.objects.filter(pk=self.challenge.pk).update(tone=second)
         return self.client.get(
-            reverse("tone-similarity", args=[self.challenge.pk]), {"answer": first}
+            reverse("tone-similarity", args=[self.challenge.slug]), {"answer": first}
         )
 
     def test_cosine_uses_magnitudes_and_preserves_negative_values(self):
@@ -278,14 +278,14 @@ class ToneSimilarityTests(TestCase):
 
     def test_only_get_is_allowed(self):
         self.assertEqual(
-            self.client.post(f"/api/tone/{self.challenge.pk}/").status_code, 405
+            self.client.post(f"/api/tone/{self.challenge.slug}/").status_code, 405
         )
 
     def test_missing_reference_embedding_is_unavailable(self):
         self.assertEqual(self.score("calm", "unknown").status_code, 503)
 
     def test_missing_or_invalid_answer(self):
-        url = f"/api/tone/{self.challenge.pk}/"
+        url = f"/api/tone/{self.challenge.slug}/"
         self.assertEqual(self.client.get(url).status_code, 400)
 
     def test_missing_challenge(self):
@@ -295,7 +295,7 @@ class ToneSimilarityTests(TestCase):
 
     def test_client_cannot_override_reference_tone(self):
         response = self.client.get(
-            f"/api/tone/{self.challenge.pk}/",
+            f"/api/tone/{self.challenge.slug}/",
             {"answer": "angry", "expected": "angry", "tone": "angry"},
         )
         self.assertEqual(response.json(), {"similarity": -1.0, "correct": False})

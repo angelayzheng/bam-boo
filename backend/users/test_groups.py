@@ -122,7 +122,10 @@ class ProfileGroupMigrationTests(TransactionTestCase):
             for index, name in enumerate(("Existing team", "New team", "New team", "")):
                 user = OldUser.objects.create(username=f"migration-{index}")
                 profile = OldProfile.objects.create(
-                    user_id=user.pk, group=name, scores={"42": 67}, total_score=67
+                    user_id=user.pk,
+                    group=name,
+                    scores={str(challenge.pk): 67, "999999": 3},
+                    total_score=70,
                 )
                 profile_ids.append(profile.pk)
                 if index == 0:
@@ -145,9 +148,11 @@ class ProfileGroupMigrationTests(TransactionTestCase):
             self.assertEqual(profiles[1].group.name, "New team")
             self.assertIsNone(profiles[3].group_id)
             self.assertEqual(CurrentGroup.objects.count(), 2)
-            self.assertEqual(profiles[0].scores, {"42": 2})
+            self.assertEqual(profiles[0].scores, {challenge.slug: 2})
             self.assertEqual(profiles[0].total_score, 2)
-            self.assertEqual(Attempt.objects.get().score, 2)
+            attempt = Attempt.objects.get()
+            self.assertEqual(attempt.score, 2)
+            self.assertEqual(attempt.challenge_id, challenge.slug)
             self.assertEqual(
                 current.get_model("auth", "User").groups.through.objects.count(), 0
             )
@@ -161,7 +166,13 @@ class ProfileGroupMigrationTests(TransactionTestCase):
                 ["Existing team", "New team", "New team", ""],
             )
             restored_profile = restored.objects.get(pk=profile_ids[0])
-            self.assertEqual(restored_profile.scores, {"42": 67})
+            self.assertEqual(restored_profile.scores, {str(challenge.pk): 67})
             self.assertEqual(restored_profile.total_score, 67)
+            restored_attempt = (
+                executor.loader.project_state(previous)
+                .apps.get_model("users", "ChallengeAttempt")
+                .objects.get()
+            )
+            self.assertEqual(restored_attempt.challenge_id, challenge.pk)
         finally:
             MigrationExecutor(connection).migrate(latest)

@@ -66,10 +66,10 @@ export default function ProfilePage({
     loadChallengeSummaries(controller.signal)
       .then((list) => {
         if (!controller.signal.aborted)
-          setSummaries(Object.fromEntries(list.map((c) => [String(c.id), c])))
+          setSummaries(Object.fromEntries(list.map((c) => [c.slug, c])))
       })
       .catch(() => {
-        // Fall back to "Challenge <id>" if names fail to load.
+        // Fall back to "Challenge <slug>" if names fail to load.
       })
     return () => controller.abort()
   }, [])
@@ -189,11 +189,11 @@ export default function ProfilePage({
                     </tr>
                   </thead>
                   <tbody>
-                    {Object.entries(profile.scores).map(([id, score]) => {
-                      const info = summaries[id]
+                    {Object.entries(profile.scores).map(([slug, score]) => {
+                      const info = summaries[slug]
                       return (
                         <tr
-                          key={id}
+                          key={slug}
                           className="border-green-pale border-b last:border-0"
                         >
                           <th scope="row" className="py-3 font-medium">
@@ -205,7 +205,7 @@ export default function ProfilePage({
                                 </span>
                               </>
                             ) : (
-                              `Challenge ${id}`
+                              `Challenge ${slug}`
                             )}
                           </th>
                           <td className="text-green-dark py-3 text-right font-bold">

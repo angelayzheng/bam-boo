@@ -120,18 +120,32 @@ class ChallengeModelTests(TestCase):
         listing = self.client.get("/api/challenges/")
         self.assertEqual(listing.status_code, 200)
         self.assertEqual(len(listing.json()["challenges"]), 1)
-        self.assertNotIn("tone", listing.json()["challenges"][0])
+        summary = listing.json()["challenges"][0]
+        self.assertEqual(
+            set(summary),
+            {"name", "slug", "challenge_date", "difficulty", "category"},
+        )
+        self.assertNotIn("tone", summary)
         self.assertNotContains(listing, challenge.tone)
 
-        detail = self.client.get(f"/api/challenges/{challenge.id}/")
+        detail = self.client.get("/api/challenges/morning-greeting/")
         self.assertEqual(detail.status_code, 200)
         payload = detail.json()
-        self.assertNotIn("tone", payload)
-        self.assertNotContains(detail, challenge.tone)
+        self.assertEqual(payload["tone"], challenge.tone)
         self.assertEqual(payload["slug"], "morning-greeting")
         self.assertEqual(payload["name"], "Morning Greeting")
+        self.assertEqual(payload["challenge_date"], "2026-10-14")
         self.assertEqual(payload["required_action"], "Greet the customer warmly.")
-        self.assertEqual(payload["conversation_tree"]["node_key"], "q1")
+        self.assertNotIn("id", payload)
+        self.assertNotIn("created_at", payload)
+        self.assertNotIn("updated_at", payload)
+        tree = payload["conversation_tree"]
+        self.assertEqual(tree["node_key"], "q1")
+        self.assertEqual(tree["transcript_url"], "/media/challenges/greeting/q1.txt")
+        self.assertEqual(tree["audio_url"], "/media/challenges/greeting/q1.mp3")
+        self.assertEqual(tree["children"][0]["node_key"], "r1")
+        self.assertNotIn("text_file", tree)
+        self.assertNotIn("audio_file", tree)
 
     def test_challenge_list_category_filter(self):
         make_challenge()
@@ -145,8 +159,100 @@ class ChallengeModelTests(TestCase):
         self.assertEqual(len(filtered.json()["challenges"]), 1)
         self.assertEqual(filtered.json()["challenges"][0]["slug"], "server-outage")
 
+    def test_challenge_list_strict_filters(self):
+        make_challenge()
+        make_challenge(
+            name="Evening Greeting",
+            slug="evening-greeting",
+            challenge_date="2026-10-15",
+            difficulty=3,
+            category="family",
+        )
+        for query, expected in (
+            ("date=2026-10-14", ["morning-greeting"]),
+            ("date=2026-10-15", ["evening-greeting"]),
+            ("difficulty=2", ["morning-greeting"]),
+            ("difficulty=3", ["evening-greeting"]),
+            ("category=family", ["evening-greeting"]),
+            ("date=2026-10-15&difficulty=3&category=family", ["evening-greeting"]),
+            ("date=2026-10-15&difficulty=2", []),
+        ):
+            with self.subTest(query=query):
+                response = self.client.get(f"/api/challenges/?{query}")
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(
+                    [challenge["slug"] for challenge in response.json()["challenges"]],
+                    expected,
+                )
+
+    def test_challenge_list_fuzzy_name_search_ranks_matches(self):
+        make_challenge()
+        make_challenge(
+            name="Morning Meetup",
+            slug="morning-meetup",
+            challenge_date="2026-10-15",
+            difficulty=3,
+        )
+        make_challenge(
+            name="Evening Greeting",
+            slug="evening-greeting",
+            challenge_date="2026-10-16",
+            category="family",
+        )
+        response = self.client.get("/api/challenges/?name=morning%20greetng")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["challenges"][0]["slug"], "morning-greeting")
+
+        combined = self.client.get(
+            "/api/challenges/?name=morning&date=2026-10-15&difficulty=3&category=social"
+        )
+        self.assertEqual(
+            [challenge["slug"] for challenge in combined.json()["challenges"]],
+            ["morning-meetup"],
+        )
+        excluded = self.client.get(
+            "/api/challenges/?name=morning%20meetup&category=family"
+        )
+        self.assertEqual(excluded.json()["challenges"], [])
+
+    def test_challenge_list_fuzzy_search_orders_best_match_first(self):
+        make_challenge(
+            name="Password Rest",
+            slug="password-rest",
+            challenge_date="2026-10-15",
+        )
+        make_challenge(
+            name="Password Reset",
+            slug="password-reset",
+            challenge_date="2026-10-16",
+        )
+        response = self.client.get("/api/challenges/?name=password%20reset")
+        self.assertEqual(
+            [challenge["slug"] for challenge in response.json()["challenges"]],
+            ["password-reset", "password-rest"],
+        )
+
+    def test_challenge_list_rejects_invalid_filters(self):
+        make_challenge()
+        for query in (
+            "date=not-a-date",
+            "difficulty=not-a-number",
+            "difficulty=6",
+            "category=unknown",
+        ):
+            with self.subTest(query=query):
+                response = self.client.get(f"/api/challenges/?{query}")
+                self.assertEqual(response.status_code, 400)
+                self.assertIn("detail", response.json())
+
     def test_challenge_detail_404(self):
-        response = self.client.get("/api/challenges/9999/")
+        response = self.client.get("/api/challenges/missing-challenge/")
+        self.assertEqual(response.status_code, 404)
+        self.assertEqual(response.json()["detail"], "Challenge not found.")
+
+    def test_numeric_challenge_detail_route_is_removed(self):
+        challenge = make_challenge()
+        response = self.client.get(f"/api/challenges/{challenge.id}/")
         self.assertEqual(response.status_code, 404)
 
 

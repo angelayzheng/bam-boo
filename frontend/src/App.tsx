@@ -15,7 +15,18 @@ const RESULT_STORAGE_KEY = 'bam-boo:last-challenge-result'
 function loadSavedResult(): ResultData | null {
   try {
     const saved = window.sessionStorage.getItem(RESULT_STORAGE_KEY)
-    return saved ? (JSON.parse(saved) as ResultData) : null
+    if (!saved) return null
+    const result: unknown = JSON.parse(saved)
+    if (
+      typeof result !== 'object' ||
+      result === null ||
+      typeof (result as ResultData).challengeSlug !== 'string' ||
+      !(result as ResultData).challengeSlug
+    ) {
+      window.sessionStorage.removeItem(RESULT_STORAGE_KEY)
+      return null
+    }
+    return result as ResultData
   } catch {
     return null
   }
@@ -258,7 +269,7 @@ function App() {
   if (
     challenge &&
     route === 'results' &&
-    result?.challengeId === challenge.id
+    result?.challengeSlug === challenge.slug
   ) {
     return (
       <ResultsPage
