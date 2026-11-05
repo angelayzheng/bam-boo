@@ -32,7 +32,7 @@ test('signup loads existing group choices with cancellation and no caching', asy
 test('completion sends result metrics with session cookies and CSRF to the current-user score endpoint', async (t) => {
   const signal = new AbortController().signal
   const result = {
-    challengeId: 42,
+    challengeSlug: 'forgot-password-x3',
     attemptId: '627e5d91-c343-44ae-b6ab-532b2ed41b8e',
     completedAt: '2026-10-29T01:23:45.000Z',
     toneCorrect: true,
@@ -44,7 +44,7 @@ test('completion sends result metrics with session cookies and CSRF to the curre
     user_id: 7,
     username: 'ada',
     avatar: 'fox',
-    scores: { 42: 3 },
+    scores: { 'forgot-password-x3': 3 },
     total_score: 3,
     completed_challenges: 1,
   }
@@ -55,7 +55,7 @@ test('completion sends result metrics with session cookies and CSRF to the curre
     assert.equal(options.signal, signal)
     if (url === `${basePath}csrf/`)
       return Response.json({ csrfToken: 'fresh-token' })
-    assert.equal(url, '/api/users/me/scores/42/')
+    assert.equal(url, '/api/users/me/scores/forgot-password-x3/')
     assert.equal(options.method, 'POST')
     assert.equal(options.headers['X-CSRFToken'], 'fresh-token')
     assert.deepEqual(JSON.parse(options.body), {
@@ -68,12 +68,15 @@ test('completion sends result metrics with session cookies and CSRF to the curre
     return Response.json(profile)
   })
   assert.deepEqual(await saveChallengeResult(result, signal), profile)
-  assert.deepEqual(requests, [`${basePath}csrf/`, '/api/users/me/scores/42/'])
+  assert.deepEqual(requests, [
+    `${basePath}csrf/`,
+    '/api/users/me/scores/forgot-password-x3/',
+  ])
 })
 
 test('saving reports an expired login or backend failure and can be retried', async (t) => {
   const result = {
-    challengeId: 42,
+    challengeSlug: 'forgot-password-x3',
     attemptId: '627e5d91-c343-44ae-b6ab-532b2ed41b8e',
     completedAt: '2026-10-29T01:23:45.000Z',
     toneCorrect: false,
@@ -99,7 +102,10 @@ test('saving reports an expired login or backend failure and can be retried', as
     saveChallengeResult(result, new AbortController().signal),
     /Could not connect/,
   )
-  response = Response.json({ scores: { 42: 1 }, total_score: 1 })
+  response = Response.json({
+    scores: { 'forgot-password-x3': 1 },
+    total_score: 1,
+  })
   assert.equal(
     (await saveChallengeResult(result, new AbortController().signal))
       .total_score,
@@ -239,7 +245,7 @@ test('profile loads stored progress for the signed-in account with cancellation'
     avatar: 'fox',
     total_score: 2,
     completed_challenges: 1,
-    scores: { 42: 2 },
+    scores: { 'forgot-password-x3': 2 },
   }
   t.mock.method(globalThis, 'fetch', async (url, options) => {
     assert.equal(url, '/api/users/7/profile/')

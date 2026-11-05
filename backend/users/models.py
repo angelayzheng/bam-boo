@@ -77,10 +77,10 @@ class UserProfile(models.Model):
     def recalculate_total(self):
         self.total_score = sum(self.scores.values())
 
-    def add_score(self, challenge_id, score):
+    def add_score(self, challenge_slug, score):
         if isinstance(score, bool) or not isinstance(score, int) or not 0 <= score <= 3:
             raise ValidationError("Score must be a whole number between 0 and 3.")
-        self.scores[str(challenge_id)] = score
+        self.scores[challenge_slug] = score
         self.recalculate_total()
 
     def record_login(self, day=None):
@@ -100,6 +100,8 @@ class ChallengeAttempt(models.Model):
     )
     challenge = models.ForeignKey(
         "challenges.Challenge",
+        to_field="slug",
+        db_column="challenge_slug",
         on_delete=models.CASCADE,
         related_name="attempts",
     )

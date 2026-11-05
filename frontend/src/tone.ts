@@ -1,10 +1,10 @@
 export async function scoreTone(
   answer: string,
-  challengeId: number,
+  challengeSlug: string,
   signal: AbortSignal,
 ): Promise<boolean> {
   const response = await fetch(
-    `/api/tone/${challengeId}/?answer=${encodeURIComponent(answer.trim())}`,
+    `/api/tone/${encodeURIComponent(challengeSlug)}/?answer=${encodeURIComponent(answer.trim())}`,
     { signal },
   )
   if (response.status === 404) {

@@ -77,7 +77,7 @@ export default function ChallengePage({
       Math.round((Date.now() - startedAt.current) / 1000),
     )
     try {
-      const correct = await scoreTone(tone, challenge.id, controller.signal)
+      const correct = await scoreTone(tone, challenge.slug, controller.signal)
       if (controller.signal.aborted) return
       setToneTime(elapsed)
       setToneCorrect(correct)
@@ -98,7 +98,7 @@ export default function ChallengePage({
 
   const submitAction = () => {
     onComplete({
-      challengeId: challenge.id,
+      challengeSlug: challenge.slug,
       attemptId: crypto.randomUUID(),
       completedAt: new Date().toISOString(),
       toneCorrect,
@@ -110,7 +110,7 @@ export default function ChallengePage({
   const sendResponse = () => {
     if (!selectedResponse) return
     setPath(respond(path, selectedResponse))
-    setActiveAudio(selectedResponse.text_file)
+    setActiveAudio(selectedResponse.transcript_url)
     setSelectedResponse(null)
   }
 
@@ -231,7 +231,7 @@ export default function ChallengePage({
             >
               {path.map((node, index) => (
                 <li
-                  key={node.text_file}
+                  key={node.transcript_url}
                   className={
                     node.type === 'response' ? 'ml-6 sm:ml-12' : 'mr-6 sm:mr-12'
                   }
@@ -243,9 +243,9 @@ export default function ChallengePage({
                         ? 'Customer'
                         : 'You · Support agent'
                     }
-                    autoPlay={activeAudio === node.text_file}
+                    autoPlay={activeAudio === node.transcript_url}
                     onEnded={() =>
-                      setActiveAudio(path[index + 1]?.text_file ?? '')
+                      setActiveAudio(path[index + 1]?.transcript_url ?? '')
                     }
                   />
                 </li>
@@ -279,13 +279,13 @@ export default function ChallengePage({
                   <legend className="sr-only">Your next response</legend>
                   {options.map((response) => (
                     <label
-                      key={response.text_file}
+                      key={response.transcript_url}
                       className={`flex cursor-pointer items-start gap-4 rounded-2xl border-2 p-4 transition ${selectedResponse === response ? 'border-green-dark bg-green-pale/50' : 'border-green-light hover:bg-green-pale/30 bg-white'}`}
                     >
                       <input
                         type="radio"
                         name="response"
-                        value={response.text_file}
+                        value={response.transcript_url}
                         checked={selectedResponse === response}
                         onChange={() => setSelectedResponse(response)}
                         className="accent-green-dark mt-1 size-5 shrink-0"

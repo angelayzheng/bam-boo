@@ -21,7 +21,7 @@ urlpatterns = [
     path("auth/me/", current_user, name="auth-me"),
     path("groups/", signup_groups, name="signup-groups"),
     path(
-        "me/scores/<int:challenge_id>/",
+        "me/scores/<slug:challenge_slug>/",
         save_challenge_score,
         name="save-challenge-score",
     ),

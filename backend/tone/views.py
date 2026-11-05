@@ -41,9 +41,9 @@ def _load_vector(tone):
 
 
 @require_GET
-def tone_similarity(request, challenge_id):
+def tone_similarity(request, challenge_slug):
     """Grade an answer against the challenge's private, database-backed tone."""
-    challenge = Challenge.objects.filter(pk=challenge_id).only("tone").first()
+    challenge = Challenge.objects.filter(slug=challenge_slug).only("tone").first()
     if challenge is None:
         return JsonResponse({"detail": "Challenge not found."}, status=404)
     answer = request.GET.get("answer", "")
