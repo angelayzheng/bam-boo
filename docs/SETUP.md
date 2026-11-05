@@ -8,9 +8,9 @@ Install Git, Node.js 24 with npm, and Python 3.14 or newer.
 
 Run the commands below from the repository root unless noted otherwise.
 
-### Install FFmpeg (audio normalization only)
+### Install FFmpeg (audio normalization and challenge imports)
 
-FFmpeg is only required to run the challenge audio normalizer; it is not needed to run the app. FFmpeg is a system package, so install it separately from the Python packages in `backend/requirements.txt`.
+FFmpeg is required to run the challenge audio normalizer and to import challenges. Django uses `ffprobe` to validate every MP3 before publishing a package; imports fail if FFmpeg is unavailable or an audio file is not playable MP3 audio. FFmpeg is not needed to run the app or serve already-imported challenges. It is a system package, so install it separately from the Python packages in `backend/requirements.txt`.
 
 On macOS with Homebrew:
 
@@ -25,10 +25,11 @@ sudo apt update
 sudo apt install ffmpeg
 ```
 
-Confirm it is available:
+Confirm both tools are available:
 
 ```bash
 ffmpeg -version
+ffprobe -version
 ```
 
 ## First-time setup
