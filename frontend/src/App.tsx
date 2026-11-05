@@ -188,6 +188,7 @@ function App() {
           progressVersion={progressVersion}
           user={user}
           onHome={() => navigate('/')}
+          onChallenge={challenge ? startChallenge : undefined}
           onLogout={async () => {
             await signOut()
             setUser(null)
@@ -283,6 +284,7 @@ function App() {
       challenge={challenge}
       notice={notice}
       onStart={startChallenge}
+      onHome={() => navigate('/')}
       user={user}
       accountLoading={authLoading}
       onAccount={openAccount}

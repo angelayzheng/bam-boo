@@ -20,3 +20,4 @@ frontend/dist/
 # Downloaded Numberbatch dataset (see data/README.md)
 /data/*.txt.gz
 /data/*.txt.gz.part
+.DS_Store

@@ -14,7 +14,6 @@ def _challenge_summary(challenge):
         "challenge_date": challenge.challenge_date.isoformat(),
         "difficulty": challenge.difficulty,
         "category": challenge.category,
-        "tone": challenge.tone,
     }
 
 
