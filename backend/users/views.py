@@ -4,20 +4,28 @@ from uuid import UUID
 
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.models import Group
+from django.core.exceptions import ValidationError
+from django.core.validators import validate_email
 from django.db import IntegrityError, transaction
 from django.http import JsonResponse
 from django.middleware.csrf import get_token
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
+from django.utils.text import slugify
 from django.views.decorators.cache import never_cache
-from django.views.decorators.csrf import csrf_exempt
-from django.views.decorators.http import require_GET, require_POST
+from django.views.decorators.http import require_GET, require_http_methods, require_POST
 
 from challenges.models import Challenge
 
 from .forms import SignupForm
-from .models import ChallengeAttempt, UserProfile
+from .models import (
+    AvatarChoices,
+    ChallengeAttempt,
+    UserProfile,
+    validate_login_days,
+    validate_scores,
+)
 
 
 def _auth_payload(request):
@@ -264,23 +272,168 @@ def save_challenge_score(request, challenge_slug):
     )
 
 
-@csrf_exempt
+@require_http_methods(["GET", "POST"])
+@never_cache
 def user_by_slug(request, username):
     """GET/POST /api/users/<username>/: read or update a user."""
-    # The username is used as the user's slug. The implementation is
-    # intentionally commented out while the update rules are finalized.
-    #
-    # profile = get_object_or_404(
-    #     UserProfile.objects.select_related("user"), user__username=username
-    # )
-    # if request.method == "GET":
-    #     return JsonResponse({...})
-    # if request.method == "POST":
-    #     payload = json.loads(request.body or "{}")
-    #     ...
-    #     profile.save()
-    #     return JsonResponse({...})
-    return JsonResponse({"detail": "Not implemented."}, status=501)
+    if request.method == "POST" and not request.user.is_authenticated:
+        return JsonResponse({"detail": "Authentication required."}, status=401)
+
+    profile = get_object_or_404(
+        UserProfile.objects.select_related("user"), user__username=username
+    )
+    if request.method == "GET":
+        return JsonResponse(_user_data(profile))
+
+    if request.user.pk != profile.user_id:
+        return JsonResponse(
+            {"detail": "You can only update your own profile."}, status=403
+        )
+    if request.content_type != "application/json":
+        return JsonResponse(
+            {"detail": "Expected an application/json body."}, status=400
+        )
+    try:
+        payload = json.loads(request.body)
+    except ValueError, UnicodeDecodeError:
+        return JsonResponse({"detail": "Expected a valid JSON object."}, status=400)
+    if not isinstance(payload, dict):
+        return JsonResponse({"detail": "Expected a JSON object."}, status=400)
+    allowed_fields = {
+        "slug",
+        "challenge_scores",
+        "total_score",
+        "name",
+        "team",
+        "login_days",
+        "avatar",
+        "email",
+    }
+    if set(payload) - allowed_fields:
+        return JsonResponse({"detail": "Unexpected profile fields."}, status=400)
+    if payload.get("slug", username) != username:
+        return JsonResponse(
+            {"detail": "slug must match the user in the request URL."}, status=400
+        )
+    updated_scores = None
+    if "challenge_scores" in payload:
+        updated_scores = payload["challenge_scores"]
+        try:
+            validate_scores(updated_scores)
+        except ValidationError as exc:
+            return JsonResponse({"detail": str(exc)}, status=400)
+    expected_total = (
+        sum(updated_scores.values())
+        if updated_scores is not None
+        else profile.total_score
+    )
+    if "total_score" in payload:
+        total_score = payload["total_score"]
+        if (
+            isinstance(total_score, bool)
+            or not isinstance(total_score, (int, float))
+            or (isinstance(total_score, float) and not isfinite(total_score))
+            or total_score != expected_total
+        ):
+            return JsonResponse(
+                {"detail": "total_score must equal the sum of challenge_scores."},
+                status=400,
+            )
+    if "name" in payload and (
+        not isinstance(payload["name"], str)
+        or not payload["name"].strip()
+        or len(payload["name"].strip()) > 150
+    ):
+        return JsonResponse(
+            {"detail": "name must be a non-empty string of at most 150 characters."},
+            status=400,
+        )
+    if "team" in payload and not isinstance(payload["team"], str):
+        return JsonResponse({"detail": "team must be a string."}, status=400)
+    if "login_days" in payload:
+        try:
+            validate_login_days(payload["login_days"])
+        except ValidationError as exc:
+            return JsonResponse({"detail": str(exc)}, status=400)
+    if "avatar" in payload and payload["avatar"] not in AvatarChoices.values:
+        return JsonResponse(
+            {"detail": "avatar must be one of the supported avatar values."},
+            status=400,
+        )
+    if "email" in payload:
+        if not isinstance(payload["email"], str) or len(payload["email"]) > 254:
+            return JsonResponse(
+                {"detail": "email must be a string of at most 254 characters."},
+                status=400,
+            )
+        if payload["email"]:
+            try:
+                validate_email(payload["email"])
+            except ValidationError:
+                return JsonResponse(
+                    {"detail": "email must be a valid email address."}, status=400
+                )
+
+    if "team" in payload:
+        team_slug = payload["team"]
+        if not team_slug:
+            profile.group = None
+        else:
+            matching_groups = [
+                group
+                for group in Group.objects.order_by("pk")
+                if slugify(group.name) == team_slug
+            ]
+            if len(matching_groups) != 1:
+                return JsonResponse(
+                    {"detail": "team must match an existing, unique team slug."},
+                    status=400,
+                )
+            profile.group = matching_groups[0]
+    if "avatar" in payload:
+        profile.avatar = payload["avatar"]
+    if updated_scores is not None:
+        profile.scores = updated_scores
+        profile.total_score = expected_total
+    if "login_days" in payload:
+        profile.login_days = sorted(payload["login_days"])
+    if "name" in payload:
+        profile.user.first_name = payload["name"].strip()
+        profile.user.last_name = ""
+    if "email" in payload:
+        profile.user.email = payload["email"]
+
+    update_fields = ["updated_at"]
+    profile_fields = ("group", "avatar", "login_days")
+    update_fields.extend(field for field in profile_fields if field in payload)
+    if updated_scores is not None:
+        update_fields.extend(("scores", "total_score"))
+    if "team" in payload:
+        update_fields.append("group")
+    with transaction.atomic():
+        if "name" in payload or "email" in payload:
+            user_fields = []
+            if "name" in payload:
+                user_fields.append("first_name")
+                user_fields.append("last_name")
+            if "email" in payload:
+                user_fields.append("email")
+            profile.user.save(update_fields=user_fields)
+        profile.save(update_fields=update_fields)
+    return JsonResponse(_user_data(profile))
+
+
+def _user_data(profile):
+    return {
+        "slug": profile.user.username,
+        "challenge_scores": profile.scores,
+        "total_score": float(profile.total_score),
+        "name": profile.user.get_full_name().strip() or profile.user.username,
+        "team": slugify(profile.group.name) if profile.group else "",
+        "login_days": sorted(profile.login_days),
+        "avatar": profile.avatar,
+        "email": profile.user.email,
+    }
 
 
 @require_GET
