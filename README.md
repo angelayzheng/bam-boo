@@ -37,7 +37,6 @@ The Django backend stores challenges, conversation trees, user profiles, scores,
 backend/
   challenges/       Challenge models, API, challenge imports, and source packages
   config/           Django settings and URL configuration
-  counter/          Shared bam/boo count model and API
   tone/             Word embedding storage and import command
   users/            User profiles, scores, and leaderboard API
   media/            Local imported audio and transcripts (not committed)
