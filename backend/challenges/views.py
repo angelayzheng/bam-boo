@@ -1,11 +1,11 @@
 from datetime import date
 from difflib import SequenceMatcher
 
-from django.conf import settings
 from django.http import JsonResponse
 from django.views.decorators.http import require_GET
 
 from .models import Challenge, ChallengeCategory
+from .serialization import tree_with_urls
 
 NAME_MATCH_THRESHOLD = 0.6
 
@@ -20,19 +20,6 @@ def _challenge_summary(challenge):
     }
 
 
-def _tree_with_urls(node):
-    """Copy a conversation-tree node, resolving its filename pair to URLs."""
-    resolved = {
-        "type": node["type"],
-        "transcript_url": f"{settings.MEDIA_URL}{node['text_file']}",
-        "audio_url": f"{settings.MEDIA_URL}{node['audio_file']}",
-        "children": [_tree_with_urls(child) for child in node.get("children", [])],
-    }
-    if "node_key" in node:
-        resolved["node_key"] = node["node_key"]
-    return resolved
-
-
 def _challenge_detail(challenge):
     payload = _challenge_summary(challenge)
     tree = challenge.conversation_tree or {}
@@ -40,7 +27,7 @@ def _challenge_detail(challenge):
         {
             "tone": challenge.tone,
             "required_action": challenge.required_action,
-            "conversation_tree": _tree_with_urls(tree) if tree else {},
+            "conversation_tree": tree_with_urls(tree) if tree else {},
         }
     )
     return payload

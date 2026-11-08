@@ -1,0 +1,12 @@
+{% extends "admin/change_list.html" %}
+
+{% block object-tools-items %}
+  {% if perms.challenges.add_challenge and perms.challenges.change_challenge %}
+    <li>
+      <a href="{% url 'admin:challenges_challenge_import_package' %}" class="addlink">
+        Import challenge package
+      </a>
+    </li>
+  {% endif %}
+  {{ block.super }}
+{% endblock %}
