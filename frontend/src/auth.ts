@@ -42,7 +42,7 @@ export interface ScoreSaveResponse extends UserProfile {
   attempt: {
     id: number
     attempt_id: string
-    challenge_id: number
+    challenge_slug: string
     score: number
     completed_at: string
     received_at: string
@@ -141,7 +141,7 @@ export async function saveChallengeResult(
   signal: AbortSignal,
 ): Promise<ScoreSaveResponse> {
   return postJson<ScoreSaveResponse>(
-    `/api/users/me/scores/${result.challengeId}/`,
+    `/api/users/me/scores/${encodeURIComponent(result.challengeSlug)}/`,
     {
       tone_correct: result.toneCorrect,
       tone_time: result.toneTime,

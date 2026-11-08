@@ -156,4 +156,4 @@ Existing challenges imported before source persistence must be re-imported, or h
 
 It intentionally does not check duplicate dates, schedule coverage, orphan media, unreferenced files, tree size, admin log entries, or non-challenge models.
 
-The challenge list and detail APIs expose both `id` (the existing numeric database key) and `slug` (the stable package identifier). The current frontend still selects the working demo by slug; this storage layout and import command support adding further challenges independently of a future challenge-selection UI.
+The challenge list and detail APIs expose only `slug`, the stable package identifier; the internal numeric database key is not returned. The score and tone APIs also accept the slug. The frontend selects the working demo by slug; this storage layout and import command support adding further challenges independently of a future challenge-selection UI.

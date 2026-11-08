@@ -161,7 +161,7 @@ def _profile_data(profile):
 
 @never_cache
 @require_POST
-def save_challenge_score(request, challenge_id):
+def save_challenge_score(request, challenge_slug):
     if not request.user.is_authenticated:
         return JsonResponse({"detail": "Authentication required."}, status=401)
     if request.content_type != "application/json":
@@ -207,7 +207,8 @@ def save_challenge_score(request, challenge_id):
             },
             status=400,
         )
-    if not Challenge.objects.filter(pk=challenge_id).exists():
+    challenge = Challenge.objects.filter(slug=challenge_slug).first()
+    if challenge is None:
         return JsonResponse({"detail": "Challenge not found."}, status=404)
 
     stars = (
@@ -226,14 +227,14 @@ def save_challenge_score(request, challenge_id):
             submission_id=attempt_id,
             defaults={
                 "profile": profile,
-                "challenge_id": challenge_id,
+                "challenge": challenge,
                 "score": score,
                 "completed_at": completed_at,
             },
         )
         if (
             attempt.profile_id != profile.pk
-            or attempt.challenge_id != challenge_id
+            or attempt.challenge_id != challenge.slug
             or attempt.score != score
             or attempt.completed_at != completed_at
         ):
@@ -244,7 +245,7 @@ def save_challenge_score(request, challenge_id):
                 status=409,
             )
         profile.add_score(
-            challenge_id, max(profile.scores.get(str(challenge_id), 0), score)
+            challenge.slug, max(profile.scores.get(challenge.slug, 0), score)
         )
         profile.save(update_fields=["scores", "total_score", "updated_at"])
     return JsonResponse(
@@ -253,7 +254,7 @@ def save_challenge_score(request, challenge_id):
             "attempt": {
                 "id": attempt.pk,
                 "attempt_id": attempt.submission_id,
-                "challenge_id": attempt.challenge_id,
+                "challenge_slug": attempt.challenge_id,
                 "score": attempt.score,
                 "completed_at": attempt.completed_at.isoformat(),
                 "received_at": attempt.received_at.isoformat(),

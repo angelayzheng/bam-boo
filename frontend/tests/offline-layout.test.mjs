@@ -95,13 +95,13 @@ test('a direct profile visit shows the login form while the account is unknown',
 test('results distinguish saving, saved, retryable failure, guests, and another account', () => {
   const props = {
     challenge: {
-      id: 42,
+      slug: 'test-recording',
       name: 'Test recording',
       challenge_date: '2026-10-15',
       required_action: 'reset password',
     },
     result: {
-      challengeId: 42,
+      challengeSlug: 'test-recording',
       attemptId: '627e5d91-c343-44ae-b6ab-532b2ed41b8e',
       completedAt: '2026-10-29T01:23:45.000Z',
       toneCorrect: true,

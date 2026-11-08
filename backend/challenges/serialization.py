@@ -11,8 +11,6 @@ def tree_with_urls(node):
     """Copy a conversation-tree node, resolving its filename pair to URLs."""
     resolved = {
         "type": node["type"],
-        "text_file": node["text_file"],
-        "audio_file": node["audio_file"],
         "transcript_url": media_url(node["text_file"]),
         "audio_url": media_url(node["audio_file"]),
         "children": [tree_with_urls(child) for child in node.get("children", [])],

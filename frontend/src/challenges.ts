@@ -57,7 +57,7 @@ export async function loadChallenge(signal: AbortSignal): Promise<Challenge> {
     )
   }
   const challenge = await getJson<Challenge>(
-    `/api/challenges/${selected.id}/`,
+    `/api/challenges/${selected.slug}/`,
     signal,
   )
   if (challenge.conversation_tree.type !== 'question') {

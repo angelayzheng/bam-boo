@@ -3,8 +3,6 @@ export type Screen = 'home' | 'challenge' | 'results'
 export interface ConversationNode {
   type: 'question' | 'response'
   node_key?: string
-  text_file: string
-  audio_file: string
   transcript_url: string
   audio_url: string
   text: string
@@ -12,7 +10,6 @@ export interface ConversationNode {
 }
 
 export interface ChallengeSummary {
-  id: number
   name: string
   slug: string
   challenge_date: string
@@ -26,7 +23,7 @@ export interface Challenge extends ChallengeSummary {
 }
 
 export interface ResultData {
-  challengeId: number
+  challengeSlug: string
   attemptId: string
   completedAt: string
   toneCorrect: boolean

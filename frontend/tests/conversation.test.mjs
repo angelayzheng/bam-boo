@@ -5,8 +5,6 @@ import { matchesAnswer, respond, responseOptions } from '../src/conversation.ts'
 const turn = (key, type, children = []) => ({
   node_key: key,
   type,
-  text_file: `${key}.txt`,
-  audio_file: `${key}.mp3`,
   transcript_url: `/media/${key}.txt`,
   audio_url: `/media/${key}.mp3`,
   text: key,
