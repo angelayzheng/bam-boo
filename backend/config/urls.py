@@ -21,8 +21,6 @@ from django.contrib import admin
 from django.http import JsonResponse
 from django.urls import include, path
 
-from counter.views import count
-
 
 def health_check(request):
     return JsonResponse({"status": "ok"})
@@ -35,7 +33,6 @@ def index(request):
 urlpatterns = [
     path("", index, name="index"),
     path("api/health/", health_check, name="health-check"),
-    path("api/count/", count, name="count"),
     path("api/challenges/", include("challenges.urls")),
     path("api/users/", include("users.urls")),
     path("api/tone/", include("tone.urls")),
