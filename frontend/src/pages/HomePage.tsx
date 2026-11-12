@@ -1,8 +1,8 @@
 import type { ReactNode } from 'react'
 import Header from '../components/Header'
 import { FlameIcon } from '../components/icons'
-import { challengeDate } from '../challenges'
-import type { Challenge } from '../types'
+import { challengeDate } from '../presenters/challengeDatePresenter'
+import type { ChallengeSummary } from '../types'
 import type { AuthUser } from '../auth'
 
 // TODO: replace with real data once the backend provides it.
@@ -84,7 +84,7 @@ function LeaderboardRow({
 }
 
 interface HomePageProps {
-  challenge: Challenge | null
+  challenge: ChallengeSummary | null
   onStart: () => void
   onHome?: () => void
   user: AuthUser | null

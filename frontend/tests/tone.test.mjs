@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { scoreTone } from '../src/tone.ts'
+import { scoreTone } from '../src/dataAccessInterface/toneGatewayApi.ts'
 
 test('sends only the answer and challenge slug with the cancellation signal', async (t) => {
   const controller = new AbortController()

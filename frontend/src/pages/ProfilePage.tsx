@@ -3,7 +3,8 @@ import type { ReactNode } from 'react'
 import Header from '../components/Header'
 import { loadProfile } from '../auth'
 import type { AuthUser, UserProfile } from '../auth'
-import { challengeDateLabel, loadChallengeSummaries } from '../challenges'
+import { loadChallengeSummaries } from '../dataAccessInterface/challengeGatewayApi'
+import { challengeDateLabel } from '../presenters/challengeDatePresenter'
 import type { ChallengeSummary } from '../types'
 
 interface ProfilePageProps {

@@ -1,11 +1,22 @@
+import { useEffect, useState } from 'react'
 import Header from '../components/Header'
 import { CheckIcon, StarIcon } from '../components/icons'
-import { challengeDateLabel } from '../challenges'
+import { challengeDateLabel } from '../presenters/challengeDatePresenter'
+import { browserClock } from '../dataAccessInterface/browserServices'
+import { challengeApi } from '../dataAccessInterface/challengeGatewayApi'
+import type { StartChallengeInputBoundary } from '../useCases/startChallenge/startChallengeBoundaries'
+import { StartChallengeInteractor } from '../useCases/startChallenge/startChallengeInteractor'
+import { createSessionStore } from '../useCases/sessionStore'
+import {
+  ChallengeLoadError,
+  ChallengeLoading,
+} from '../components/challenge/ChallengeLoading'
 import type { Challenge, ResultData, ScoreSaveState } from '../types'
 import type { AuthUser } from '../auth'
 
 interface ResultsPageProps {
-  challenge: Challenge
+  challenge: Challenge | null
+  date: string
   result: ResultData
   onHome: () => void
   onRetry: () => void
@@ -20,7 +31,20 @@ interface ResultsPageProps {
 const statusLink =
   'text-green-dark font-semibold underline underline-offset-4 transition hover:text-black'
 
-export default function ResultsPage({
+interface ResultsViewProps {
+  challenge: Challenge
+  result: ResultData
+  onHome: () => void
+  onRetry: () => void
+  user: AuthUser | null
+  sessionLoading: boolean
+  saveState: ScoreSaveState
+  onSaveRetry: () => void
+  onLogin: () => void
+  onProfile: () => void
+}
+
+function ResultsView({
   challenge,
   result,
   onHome,
@@ -31,7 +55,7 @@ export default function ResultsPage({
   onSaveRetry,
   onLogin,
   onProfile,
-}: ResultsPageProps) {
+}: ResultsViewProps) {
   const achievements = [
     {
       earned: result.toneCorrect,
@@ -163,5 +187,74 @@ export default function ResultsPage({
         </div>
       </main>
     </div>
+  )
+}
+
+export default function ResultsPage({
+  challenge: seed,
+  date,
+  result,
+  onHome,
+  ...rest
+}: ResultsPageProps) {
+  const [challenge, setChallenge] = useState<Challenge | null>(seed)
+  const [error, setError] = useState('')
+  const [attempt, setAttempt] = useState(0)
+
+  useEffect(() => {
+    if (challenge) return
+    const controller = new AbortController()
+    const store = createSessionStore()
+    const interactor: StartChallengeInputBoundary =
+      new StartChallengeInteractor(
+        challengeApi,
+        {
+          present: (output) => {
+            if (output.status === 'error' && !controller.signal.aborted) {
+              setError(output.message)
+            }
+          },
+        },
+        browserClock,
+        store,
+      )
+    void interactor.execute({ date, signal: controller.signal }).then(() => {
+      const session = store.get()
+      if (session) setChallenge(session.challenge)
+    })
+    return () => controller.abort()
+  }, [challenge, date, attempt])
+
+  const retryLoad = () => {
+    setError('')
+    setAttempt((value) => value + 1)
+  }
+
+  useEffect(() => {
+    if (challenge && challenge.slug !== result.challengeSlug) onHome()
+  }, [challenge, result.challengeSlug, onHome])
+
+  if (!challenge) {
+    return (
+      <div className="bg-beige min-h-screen text-black">
+        <Header compact onHome={onHome} />
+        <main className="mx-auto max-w-3xl px-5 py-6 sm:px-8 sm:py-10">
+          {error ? (
+            <ChallengeLoadError message={error} onRetry={retryLoad} />
+          ) : (
+            <ChallengeLoading />
+          )}
+        </main>
+      </div>
+    )
+  }
+
+  return (
+    <ResultsView
+      challenge={challenge}
+      result={result}
+      onHome={onHome}
+      {...rest}
+    />
   )
 }
