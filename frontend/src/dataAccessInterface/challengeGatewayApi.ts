@@ -1,4 +1,5 @@
-import type { Challenge, ChallengeSummary, ConversationNode } from './types'
+import type { Challenge, ChallengeSummary, ConversationNode } from '../types'
+import type { ChallengeGateway } from '../boundaries/dataAccessInterfaces'
 
 // Vite proxies these same-origin requests to Django in local development.
 async function getJson<T>(path: string, signal: AbortSignal): Promise<T> {
@@ -43,21 +44,22 @@ async function loadTurn(
   }
 }
 
-export async function loadChallenge(signal: AbortSignal): Promise<Challenge> {
+export async function loadChallengeSummaries(
+  signal: AbortSignal,
+): Promise<ChallengeSummary[]> {
   const { challenges } = await getJson<{ challenges: ChallengeSummary[] }>(
     '/api/challenges/',
     signal,
   )
-  const selected =
-    challenges.find(({ slug }) => slug === 'forgot-password-x3') ??
-    challenges[0]
-  if (!selected) {
-    throw new Error(
-      'No recordings are available. Run the demo seed command in the setup guide.',
-    )
-  }
+  return challenges
+}
+
+export async function loadDetail(
+  slug: string,
+  signal: AbortSignal,
+): Promise<Challenge> {
   const challenge = await getJson<Challenge>(
-    `/api/challenges/${selected.slug}/`,
+    `/api/challenges/${encodeURIComponent(slug)}/`,
     signal,
   )
   if (challenge.conversation_tree.type !== 'question') {
@@ -71,25 +73,24 @@ export async function loadChallenge(signal: AbortSignal): Promise<Challenge> {
   }
 }
 
-export async function loadChallengeSummaries(
+export async function loadByDate(
+  date: string,
   signal: AbortSignal,
-): Promise<ChallengeSummary[]> {
-  const { challenges } = await getJson<{ challenges: ChallengeSummary[] }>(
-    '/api/challenges/',
-    signal,
+): Promise<Challenge> {
+  const summaries = await loadChallengeSummaries(signal)
+  const summary = summaries.find(
+    ({ challenge_date }) => challenge_date === date,
   )
-  return challenges
+  if (!summary) {
+    throw new Error(
+      'No recordings are available. Run the demo seed command in the setup guide.',
+    )
+  }
+  return loadDetail(summary.slug, signal)
 }
 
-export function challengeDate(challenge: ChallengeSummary): Date {
-  return new Date(`${challenge.challenge_date}T00:00:00`)
-}
-
-export function challengeDateLabel(challenge: ChallengeSummary): string {
-  return new Intl.DateTimeFormat('en-CA', {
-    weekday: 'long',
-    month: 'long',
-    day: 'numeric',
-    year: 'numeric',
-  }).format(challengeDate(challenge))
+export const challengeApi: ChallengeGateway = {
+  loadSummaries: loadChallengeSummaries,
+  loadByDate,
+  loadDetail,
 }

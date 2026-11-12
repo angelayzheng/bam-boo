@@ -1,4 +1,4 @@
-import type { ConversationNode } from './types.ts'
+import type { ConversationNode } from '../types.ts'
 
 export function responseOptions(path: ConversationNode[]): ConversationNode[] {
   const current = path.at(-1)

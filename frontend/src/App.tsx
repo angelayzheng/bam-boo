@@ -6,9 +6,14 @@ import AuthPage from './pages/AuthPage'
 import ProfilePage from './pages/ProfilePage'
 import { ApiError, getCurrentUser, saveChallengeResult, signOut } from './auth'
 import type { AuthUser } from './auth'
-import { loadChallenge } from './challenges'
+import { loadChallengeSummaries } from './dataAccessInterface/challengeGatewayApi'
 import { challengePath, getRoute, resultsPath } from './routes'
-import type { Challenge, ResultData, ScoreSaveState } from './types'
+import type {
+  Challenge,
+  ChallengeSummary,
+  ResultData,
+  ScoreSaveState,
+} from './types'
 
 const RESULT_STORAGE_KEY = 'bam-boo:last-challenge-result'
 
@@ -35,6 +40,9 @@ function loadSavedResult(): ResultData | null {
 function App() {
   const [pathname, setPathname] = useState(() => window.location.pathname)
   const [result, setResult] = useState<ResultData | null>(loadSavedResult)
+  const [todayChallenge, setTodayChallenge] = useState<ChallengeSummary | null>(
+    null,
+  )
   const [challenge, setChallenge] = useState<Challenge | null>(null)
   const [error, setError] = useState('')
   const [attempt, setAttempt] = useState(0)
@@ -103,9 +111,13 @@ function App() {
 
   useEffect(() => {
     const controller = new AbortController()
-    loadChallenge(controller.signal)
-      .then((loaded) => {
-        if (!controller.signal.aborted) setChallenge(loaded)
+    loadChallengeSummaries(controller.signal)
+      .then((summaries) => {
+        if (controller.signal.aborted) return
+        const selected =
+          summaries.find(({ slug }) => slug === 'forgot-password-x3') ??
+          summaries[0]
+        setTodayChallenge(selected ?? null)
       })
       .catch((cause: unknown) => {
         if (!controller.signal.aborted) {
@@ -132,27 +144,30 @@ function App() {
   }
 
   const startChallenge = () => {
-    if (!challenge) return
+    if (!todayChallenge) return
     // Keep the last completion available while its score saves in the background.
-    navigate(challengePath(challenge.challenge_date))
+    navigate(challengePath(todayChallenge.challenge_date))
   }
 
-  const completeChallenge = (nextResult: ResultData) => {
-    if (!challenge) return
+  const completeChallenge = (
+    nextResult: ResultData,
+    completedChallenge: Challenge,
+  ) => {
     const ownedResult = { ...nextResult, userId: user?.id ?? null }
     setScoreSave({ status: 'saving' })
     setResult(ownedResult)
+    setChallenge(completedChallenge)
     window.sessionStorage.setItem(
       RESULT_STORAGE_KEY,
       JSON.stringify(ownedResult),
     )
-    navigate(resultsPath(challenge.challenge_date))
+    navigate(resultsPath(completedChallenge.challenge_date))
   }
 
-  const route = getRoute(pathname, challenge?.challenge_date)
+  const route = getRoute(pathname, todayChallenge?.challenge_date)
   const openAccount = () => navigate(user ? '/profile' : '/login')
 
-  const connecting = authLoading || (!challenge && !error)
+  const connecting = authLoading || (!todayChallenge && !error)
   const notice =
     error || authError || connecting ? (
       <div
@@ -199,7 +214,7 @@ function App() {
           progressVersion={progressVersion}
           user={user}
           onHome={() => navigate('/')}
-          onChallenge={challenge ? startChallenge : undefined}
+          onChallenge={todayChallenge ? startChallenge : undefined}
           onLogout={async () => {
             await signOut()
             setUser(null)
@@ -232,7 +247,9 @@ function App() {
               JSON.stringify(ownedResult),
             )
             navigate(
-              challenge ? resultsPath(challenge.challenge_date) : '/profile',
+              todayChallenge
+                ? resultsPath(todayChallenge.challenge_date)
+                : '/profile',
             )
           } else {
             navigate('/profile')
@@ -242,7 +259,7 @@ function App() {
     )
   }
 
-  if (challenge && route === 'challenge') {
+  if (todayChallenge && route === 'challenge') {
     if (authLoading) {
       return (
         <div className="min-h-screen bg-[#f7f8f5] text-slate-900">
@@ -259,21 +276,20 @@ function App() {
     }
     return (
       <ChallengePage
-        challenge={challenge}
+        date={todayChallenge.challenge_date}
         onExit={() => navigate('/')}
         onComplete={completeChallenge}
       />
     )
   }
 
-  if (
-    challenge &&
-    route === 'results' &&
-    result?.challengeSlug === challenge.slug
-  ) {
+  if (todayChallenge && route === 'results' && result) {
+    const resultsChallenge =
+      challenge && challenge.slug === result.challengeSlug ? challenge : null
     return (
       <ResultsPage
-        challenge={challenge}
+        challenge={resultsChallenge}
+        date={todayChallenge.challenge_date}
         result={result}
         onHome={() => navigate('/')}
         onRetry={startChallenge}
@@ -292,7 +308,7 @@ function App() {
 
   return (
     <HomePage
-      challenge={challenge}
+      challenge={todayChallenge}
       notice={notice}
       onStart={startChallenge}
       onHome={() => navigate('/')}
