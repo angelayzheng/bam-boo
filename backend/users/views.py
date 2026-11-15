@@ -183,7 +183,7 @@ def user_by_slug(request, username):
         )
     try:
         payload = json.loads(request.body)
-    except (ValueError, UnicodeDecodeError):
+    except ValueError, UnicodeDecodeError:
         return JsonResponse({"detail": "Expected a valid JSON object."}, status=400)
     if not isinstance(payload, dict):
         return JsonResponse({"detail": "Expected a JSON object."}, status=400)
