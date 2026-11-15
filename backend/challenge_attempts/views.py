@@ -1,14 +1,21 @@
 import json
 
 from django.http import JsonResponse
+from django.utils.dateparse import parse_datetime
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_POST
 
-from .use_cases import (
-    AttemptConflict,
-    ChallengeNotFound,
-    InvalidAttemptData,
-    RecordChallengeAttempt,
+from .data_access.django_challenge_attempt_data_access_object import (
+    DjangoChallengeAttemptDataAccessObject,
+)
+from .interface_adapter.record_challenge_attempt.record_challenge_attempt_controller import (
+    RecordChallengeAttemptController,
+)
+from .interface_adapter.record_challenge_attempt.record_challenge_attempt_presenter import (
+    RecordChallengeAttemptPresenter,
+)
+from .use_case.record_challenge_attempt.record_challenge_attempt_interactor import (
+    RecordChallengeAttemptInteractor,
 )
 
 
@@ -24,38 +31,34 @@ def save_challenge_score(request, challenge_slug):
 
     try:
         payload = json.loads(request.body)
-    except ValueError, UnicodeDecodeError:
+    except (ValueError, UnicodeDecodeError):
         return JsonResponse({"detail": "Expected a valid JSON object."}, status=400)
 
-    try:
-        profile, attempt, created = RecordChallengeAttempt().execute(
-            user=request.user,
-            challenge_slug=challenge_slug,
-            payload=payload,
-        )
-    except InvalidAttemptData as exc:
-        return JsonResponse({"detail": str(exc)}, status=400)
-    except ChallengeNotFound as exc:
-        return JsonResponse({"detail": str(exc)}, status=404)
-    except AttemptConflict as exc:
-        return JsonResponse({"detail": str(exc)}, status=409)
+    if not isinstance(payload, dict):
+        return JsonResponse({"detail": "Expected a JSON object."}, status=400)
 
-    return JsonResponse(
-        {
-            "user_id": profile.user_id,
-            "username": profile.user.username,
-            "avatar": profile.avatar,
-            "total_score": profile.total_score,
-            "completed_challenges": len(profile.scores),
-            "scores": profile.scores,
-            "attempt": {
-                "id": attempt.pk,
-                "attempt_id": attempt.submission_id,
-                "challenge_slug": attempt.challenge_id,
-                "score": attempt.score,
-                "completed_at": attempt.completed_at.isoformat(),
-                "received_at": attempt.received_at.isoformat(),
-            },
-        },
-        status=201 if created else 200,
+    completed_at_raw = payload.get("completed_at")
+    completed_at = (
+        parse_datetime(completed_at_raw)
+        if isinstance(completed_at_raw, str)
+        else None
     )
+
+    dao = DjangoChallengeAttemptDataAccessObject()
+    presenter = RecordChallengeAttemptPresenter()
+    interactor = RecordChallengeAttemptInteractor(
+        user_data_access_object=dao, presenter=presenter
+    )
+    controller = RecordChallengeAttemptController(interactor=interactor)
+
+    controller.execute(
+        user_id=request.user.pk,
+        challenge_slug=challenge_slug,
+        attempt_id=payload.get("attempt_id"),
+        tone_correct=payload.get("tone_correct"),
+        action_correct=payload.get("action_correct"),
+        tone_time=payload.get("tone_time"),
+        completed_at=completed_at,
+    )
+
+    return JsonResponse(presenter.response_body, status=presenter.status_code)

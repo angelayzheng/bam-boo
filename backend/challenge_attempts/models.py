@@ -22,7 +22,6 @@ class ChallengeAttempt(models.Model):
 
     class Meta:
         ordering = ["-completed_at", "-received_at"]
-        db_table = "users_challengeattempt"
 
     def __str__(self):
         return f"{self.profile.user.username}: {self.challenge.name} ({self.score})"
