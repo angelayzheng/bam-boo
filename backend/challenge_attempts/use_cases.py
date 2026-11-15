@@ -1,4 +1,3 @@
-import json
 from math import isfinite
 from uuid import UUID
 
@@ -60,7 +59,8 @@ class RecordChallengeAttempt:
                 raise ValueError
         except (TypeError, ValueError, OverflowError) as exc:
             raise InvalidAttemptData(
-                "A valid attempt_id UUID and timezone-aware completed_at timestamp are required."
+                "A valid attempt_id UUID and timezone-aware completed_at timestamp "
+                "are required."
             ) from exc
 
         challenge = Challenge.objects.filter(slug=challenge_slug).first()
@@ -92,7 +92,8 @@ class RecordChallengeAttempt:
                 raise AttemptConflict(
                     "This attempt ID has already been used for a different completion."
                 )
-            profile.add_score(challenge.slug, max(profile.scores.get(challenge.slug, 0), score))
+            best_score = max(profile.scores.get(challenge.slug, 0), score)
+            profile.add_score(challenge.slug, best_score)
             profile.save(update_fields=["scores", "total_score", "updated_at"])
 
         return profile, attempt, created

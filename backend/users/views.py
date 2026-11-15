@@ -11,7 +11,11 @@ from django.middleware.csrf import get_token
 from django.shortcuts import get_object_or_404
 from django.utils.text import slugify
 from django.views.decorators.cache import never_cache
-from django.views.decorators.http import require_GET, require_http_methods, require_POST
+from django.views.decorators.http import (
+    require_GET,
+    require_http_methods,
+    require_POST,
+)
 
 from .forms import SignupForm
 from .models import AvatarChoices, UserProfile, validate_login_days, validate_scores
