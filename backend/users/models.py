@@ -2,7 +2,6 @@ from datetime import date
 
 from django.contrib.auth.models import Group, User
 from django.core.exceptions import ValidationError
-from django.core.validators import MaxValueValidator
 from django.db import models
 from django.db.models.signals import post_save
 from django.dispatch import receiver
@@ -50,15 +49,23 @@ def validate_login_days(value):
 class UserProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="profile")
     group = models.ForeignKey(
-        Group, on_delete=models.SET_NULL, null=True, blank=True, related_name="profiles"
+        Group,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="profiles",
     )
     avatar = models.CharField(
-        max_length=16, choices=AvatarChoices.choices, default=AvatarChoices.FOX
+        max_length=16,
+        choices=AvatarChoices.choices,
+        default=AvatarChoices.FOX,
     )
     scores = models.JSONField(default=dict, blank=True, validators=[validate_scores])
     total_score = models.PositiveIntegerField(default=0)
     login_days = models.JSONField(
-        default=list, blank=True, validators=[validate_login_days]
+        default=list,
+        blank=True,
+        validators=[validate_login_days],
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -91,29 +98,6 @@ class UserProfile(models.Model):
     def save(self, *args, **kwargs):
         self.full_clean()
         super().save(*args, **kwargs)
-
-
-class ChallengeAttempt(models.Model):
-    submission_id = models.CharField(max_length=36, unique=True, editable=False)
-    profile = models.ForeignKey(
-        UserProfile, on_delete=models.CASCADE, related_name="attempts"
-    )
-    challenge = models.ForeignKey(
-        "challenges.Challenge",
-        to_field="slug",
-        db_column="challenge_slug",
-        on_delete=models.CASCADE,
-        related_name="attempts",
-    )
-    score = models.PositiveSmallIntegerField(validators=[MaxValueValidator(3)])
-    completed_at = models.DateTimeField()
-    received_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        ordering = ["-completed_at", "-received_at"]
-
-    def __str__(self):
-        return f"{self.profile.user.username}: {self.challenge.name} ({self.score})"
 
 
 @receiver(post_save, sender=User)

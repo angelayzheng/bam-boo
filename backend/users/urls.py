@@ -1,12 +1,13 @@
 from django.urls import path
 
+from challenge_attempts.views import save_challenge_score
+
 from .views import (
     csrf_token,
     current_user,
     leaderboard,
     login_user,
     logout_user,
-    save_challenge_score,
     signup,
     signup_groups,
     user_by_slug,
