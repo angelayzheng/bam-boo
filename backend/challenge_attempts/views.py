@@ -31,18 +31,19 @@ def save_challenge_score(request, challenge_slug):
 
     try:
         payload = json.loads(request.body)
-    except (ValueError, UnicodeDecodeError):
+    except ValueError, UnicodeDecodeError:
         return JsonResponse({"detail": "Expected a valid JSON object."}, status=400)
 
     if not isinstance(payload, dict):
         return JsonResponse({"detail": "Expected a JSON object."}, status=400)
 
     completed_at_raw = payload.get("completed_at")
-    completed_at = (
-        parse_datetime(completed_at_raw)
-        if isinstance(completed_at_raw, str)
-        else None
-    )
+    completed_at = None
+    if isinstance(completed_at_raw, str):
+        try:
+            completed_at = parse_datetime(completed_at_raw)
+        except TypeError, ValueError, OverflowError:
+            completed_at = None
 
     dao = DjangoChallengeAttemptDataAccessObject()
     presenter = RecordChallengeAttemptPresenter()

@@ -48,7 +48,7 @@ class RecordChallengeAttemptInteractor(RecordChallengeAttemptInputBoundary):
             if not isinstance(input_data.attempt_id, str):
                 raise ValueError
             attempt_uuid = str(UUID(input_data.attempt_id))
-        except (TypeError, ValueError):
+        except TypeError, ValueError:
             self._presenter.prepare_fail_view(
                 "A valid attempt_id UUID and timezone-aware completed_at timestamp "
                 "are required.",
