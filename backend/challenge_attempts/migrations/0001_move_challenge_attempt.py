@@ -14,52 +14,59 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.CreateModel(
-            name="ChallengeAttempt",
-            fields=[
-                (
-                    "id",
-                    models.BigAutoField(
-                        auto_created=True,
-                        primary_key=True,
-                        serialize=False,
-                        verbose_name="ID",
-                    ),
-                ),
-                (
-                    "submission_id",
-                    models.CharField(editable=False, max_length=36, unique=True),
-                ),
-                (
-                    "score",
-                    models.PositiveSmallIntegerField(
-                        validators=[django.core.validators.MaxValueValidator(3)]
-                    ),
-                ),
-                ("completed_at", models.DateTimeField()),
-                ("received_at", models.DateTimeField(auto_now_add=True)),
-                (
-                    "challenge",
-                    models.ForeignKey(
-                        db_column="challenge_slug",
-                        on_delete=django.db.models.deletion.CASCADE,
-                        related_name="attempts",
-                        to="challenges.challenge",
-                        to_field="slug",
-                    ),
-                ),
-                (
-                    "profile",
-                    models.ForeignKey(
-                        on_delete=django.db.models.deletion.CASCADE,
-                        related_name="attempts",
-                        to="users.userprofile",
-                    ),
+        migrations.SeparateDatabaseAndState(
+            database_operations=[],
+            state_operations=[
+                migrations.CreateModel(
+                    name="ChallengeAttempt",
+                    fields=[
+                        (
+                            "id",
+                            models.BigAutoField(
+                                auto_created=True,
+                                primary_key=True,
+                                serialize=False,
+                                verbose_name="ID",
+                            ),
+                        ),
+                        (
+                            "submission_id",
+                            models.CharField(
+                                editable=False, max_length=36, unique=True
+                            ),
+                        ),
+                        (
+                            "score",
+                            models.PositiveSmallIntegerField(
+                                validators=[django.core.validators.MaxValueValidator(3)]
+                            ),
+                        ),
+                        ("completed_at", models.DateTimeField()),
+                        ("received_at", models.DateTimeField(auto_now_add=True)),
+                        (
+                            "challenge",
+                            models.ForeignKey(
+                                db_column="challenge_slug",
+                                on_delete=django.db.models.deletion.CASCADE,
+                                related_name="attempts",
+                                to="challenges.challenge",
+                                to_field="slug",
+                            ),
+                        ),
+                        (
+                            "profile",
+                            models.ForeignKey(
+                                on_delete=django.db.models.deletion.CASCADE,
+                                related_name="attempts",
+                                to="users.userprofile",
+                            ),
+                        ),
+                    ],
+                    options={
+                        "db_table": "users_challengeattempt",
+                        "ordering": ["-completed_at", "-received_at"],
+                    },
                 ),
             ],
-            options={
-                "db_table": "users_challengeattempt",
-                "ordering": ["-completed_at", "-received_at"],
-            },
         ),
     ]

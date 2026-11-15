@@ -49,23 +49,15 @@ def validate_login_days(value):
 class UserProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="profile")
     group = models.ForeignKey(
-        Group,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name="profiles",
+        Group, on_delete=models.SET_NULL, null=True, blank=True, related_name="profiles"
     )
     avatar = models.CharField(
-        max_length=16,
-        choices=AvatarChoices.choices,
-        default=AvatarChoices.FOX,
+        max_length=16, choices=AvatarChoices.choices, default=AvatarChoices.FOX
     )
     scores = models.JSONField(default=dict, blank=True, validators=[validate_scores])
     total_score = models.PositiveIntegerField(default=0)
     login_days = models.JSONField(
-        default=list,
-        blank=True,
-        validators=[validate_login_days],
+        default=list, blank=True, validators=[validate_login_days]
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

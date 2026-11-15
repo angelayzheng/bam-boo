@@ -5,9 +5,9 @@ from django.test import Client, TestCase
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 
+from challenge_attempts.models import ChallengeAttempt
 from challenges.models import Challenge
-
-from .models import ChallengeAttempt, UserProfile
+from users.models import UserProfile
 
 
 class ChallengeScoreApiTests(TestCase):
@@ -227,21 +227,12 @@ class ChallengeScoreApiTests(TestCase):
             ("attempt_id", [None, 1, "invalid", {}, []]),
             (
                 "completed_at",
-                [
-                    None,
-                    1,
-                    "invalid",
-                    "2026-10-29",
-                    "2026-10-29T12:00:00",
-                    "2026-99-99T12:00:00Z",
-                ],
+                [None, 1, "invalid", "2026-10-29", "2026-10-29T12:00:00", "2026-99-99T12:00:00Z"],
             ),
         ):
             for value in values:
                 with self.subTest(field=field, value=value):
-                    self.assertEqual(
-                        self.post({**valid, field: value}).status_code, 400
-                    )
+                    self.assertEqual(self.post({**valid, field: value}).status_code, 400)
         self.assertEqual(ChallengeAttempt.objects.count(), 0)
         self.assertEqual(
             self.post(valid, "/api/users/me/scores/not-a-number/").status_code,
@@ -266,9 +257,7 @@ class ChallengeScoreApiTests(TestCase):
         ):
             for value in invalid_values:
                 with self.subTest(field=field, value=value):
-                    self.assertEqual(
-                        self.post({**valid, field: value}).status_code, 400
-                    )
+                    self.assertEqual(self.post({**valid, field: value}).status_code, 400)
             missing = {key: value for key, value in valid.items() if key != field}
             self.assertEqual(self.post(missing).status_code, 400)
         self.assertEqual(UserProfile.objects.get(user=self.user).scores, {})
@@ -284,8 +273,6 @@ class ChallengeScoreApiTests(TestCase):
                 )
                 self.assertEqual(response.status_code, 400)
         self.assertEqual(
-            self.client.post(
-                self.url, data={}, HTTP_X_CSRFTOKEN=self.token
-            ).status_code,
+            self.client.post(self.url, data={}, HTTP_X_CSRFTOKEN=self.token).status_code,
             400,
         )
