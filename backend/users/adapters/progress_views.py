@@ -12,9 +12,7 @@ from django.utils.text import slugify
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_GET, require_http_methods, require_POST
 
-from play.adapters.record_challenge_attempt.record_challenge_attempt_factory import (
-    build_record_challenge_attempt_use_case,
-)
+from config.container import get_container
 from users.models import (
     AvatarChoices,
     UserProfile,
@@ -66,7 +64,7 @@ def save_challenge_score(request, challenge_slug):
         except TypeError, ValueError, OverflowError:
             completed_at = None
 
-    use_case = build_record_challenge_attempt_use_case()
+    use_case = get_container().build_record_challenge_attempt_use_case()
     use_case.controller.execute(
         user_id=request.user.pk,
         challenge_slug=challenge_slug,

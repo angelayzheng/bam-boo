@@ -5,7 +5,9 @@ from users.domain.profile import Profile
 
 
 class ProfileRepository(Protocol):
-    def get_by_user_id(self, user_id: int) -> Profile | None: ...
+    def get_by_user_id(
+        self, user_id: int, *, for_update: bool = False
+    ) -> Profile | None: ...
 
     def get_by_username(self, username: str) -> Profile | None: ...
 

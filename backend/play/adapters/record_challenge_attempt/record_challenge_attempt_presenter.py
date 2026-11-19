@@ -2,11 +2,20 @@ from play.use_cases.record_challenge_attempt.record_challenge_attempt_output_bou
     RecordChallengeAttemptOutputBoundary,
 )
 from play.use_cases.record_challenge_attempt.record_challenge_attempt_output_data import (
+    RecordChallengeAttemptFailureData,
+    RecordChallengeAttemptFailureReason,
     RecordChallengeAttemptOutputData,
 )
 
 
 class RecordChallengeAttemptPresenter(RecordChallengeAttemptOutputBoundary):
+    _FAILURE_STATUS_CODES = {
+        RecordChallengeAttemptFailureReason.INVALID_INPUT: 400,
+        RecordChallengeAttemptFailureReason.CHALLENGE_NOT_FOUND: 404,
+        RecordChallengeAttemptFailureReason.PROFILE_NOT_FOUND: 404,
+        RecordChallengeAttemptFailureReason.ATTEMPT_CONFLICT: 409,
+    }
+
     def __init__(self):
         self.response_body: dict = {}
         self.status_code: int = 200
@@ -32,6 +41,6 @@ class RecordChallengeAttemptPresenter(RecordChallengeAttemptOutputBoundary):
         }
         self.status_code = 201 if output_data.created else 200
 
-    def prepare_fail_view(self, error_message: str, status_code: int) -> None:
-        self.response_body = {"detail": error_message}
-        self.status_code = status_code
+    def prepare_fail_view(self, failure: RecordChallengeAttemptFailureData) -> None:
+        self.response_body = {"detail": failure.message}
+        self.status_code = self._FAILURE_STATUS_CODES[failure.reason]

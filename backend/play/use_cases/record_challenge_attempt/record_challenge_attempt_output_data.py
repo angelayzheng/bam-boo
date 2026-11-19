@@ -1,5 +1,19 @@
 from dataclasses import dataclass
 from datetime import datetime
+from enum import Enum
+
+
+class RecordChallengeAttemptFailureReason(Enum):
+    INVALID_INPUT = "invalid_input"
+    CHALLENGE_NOT_FOUND = "challenge_not_found"
+    PROFILE_NOT_FOUND = "profile_not_found"
+    ATTEMPT_CONFLICT = "attempt_conflict"
+
+
+@dataclass(frozen=True, slots=True)
+class RecordChallengeAttemptFailureData:
+    reason: RecordChallengeAttemptFailureReason
+    message: str
 
 
 @dataclass(frozen=True, slots=True)

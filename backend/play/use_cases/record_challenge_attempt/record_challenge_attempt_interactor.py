@@ -2,14 +2,13 @@ from datetime import datetime
 from math import isfinite
 from uuid import UUID
 
+from challenges.use_cases.ports import ChallengeRepository
 from play.domain.attempt import Attempt
 from play.domain.star_rules import StarRules
+from play.use_cases.ports import AttemptRepository, UnitOfWork
+from users.domain.profile import Profile
+from users.use_cases.ports import ProfileRepository
 
-from .record_challenge_attempt_data_access_interface import (
-    AttemptConflictError,
-    RecordChallengeAttemptDataAccessInterface,
-    RecordedChallengeAttempt,
-)
 from .record_challenge_attempt_input_boundary import (
     RecordChallengeAttemptInputBoundary,
 )
@@ -19,6 +18,8 @@ from .record_challenge_attempt_output_boundary import (
 )
 from .record_challenge_attempt_output_data import (
     AttemptOutputData,
+    RecordChallengeAttemptFailureData,
+    RecordChallengeAttemptFailureReason,
     RecordChallengeAttemptOutputData,
 )
 
@@ -26,11 +27,18 @@ from .record_challenge_attempt_output_data import (
 class RecordChallengeAttemptInteractor(RecordChallengeAttemptInputBoundary):
     def __init__(
         self,
-        data_access: RecordChallengeAttemptDataAccessInterface,
+        *,
+        challenges: ChallengeRepository,
+        attempts: AttemptRepository,
+        profiles: ProfileRepository,
+        unit_of_work: UnitOfWork,
         presenter: RecordChallengeAttemptOutputBoundary,
         star_rules: StarRules | None = None,
     ):
-        self._data_access = data_access
+        self._challenges = challenges
+        self._attempts = attempts
+        self._profiles = profiles
+        self._unit_of_work = unit_of_work
         self._presenter = presenter
         self._star_rules = star_rules or StarRules()
 
@@ -38,8 +46,9 @@ class RecordChallengeAttemptInteractor(RecordChallengeAttemptInputBoundary):
         if not isinstance(input_data.tone_correct, bool) or not isinstance(
             input_data.action_correct, bool
         ):
-            self._presenter.prepare_fail_view(
-                "tone_correct and action_correct must be booleans.", 400
+            self._fail(
+                RecordChallengeAttemptFailureReason.INVALID_INPUT,
+                "tone_correct and action_correct must be booleans.",
             )
             return
 
@@ -50,8 +59,9 @@ class RecordChallengeAttemptInteractor(RecordChallengeAttemptInputBoundary):
             or (isinstance(tone_time, float) and not isfinite(tone_time))
             or tone_time < 0
         ):
-            self._presenter.prepare_fail_view(
-                "tone_time must be a finite, non-negative number of seconds.", 400
+            self._fail(
+                RecordChallengeAttemptFailureReason.INVALID_INPUT,
+                "tone_time must be a finite, non-negative number of seconds.",
             )
             return
 
@@ -60,10 +70,10 @@ class RecordChallengeAttemptInteractor(RecordChallengeAttemptInputBoundary):
         )
         completed_at = input_data.completed_at
         if not isinstance(completed_at, datetime) or completed_at.utcoffset() is None:
-            self._presenter.prepare_fail_view(
+            self._fail(
+                RecordChallengeAttemptFailureReason.INVALID_INPUT,
                 "A valid attempt_id UUID and timezone-aware completed_at timestamp "
                 "are required.",
-                400,
             )
             return
         try:
@@ -78,30 +88,62 @@ class RecordChallengeAttemptInteractor(RecordChallengeAttemptInputBoundary):
                 completed_at=completed_at,
             )
         except TypeError, ValueError:
-            self._presenter.prepare_fail_view(
+            self._fail(
+                RecordChallengeAttemptFailureReason.INVALID_INPUT,
                 "A valid attempt_id UUID and timezone-aware completed_at timestamp "
                 "are required.",
-                400,
             )
             return
 
-        if not self._data_access.challenge_exists(attempt.challenge_slug):
-            self._presenter.prepare_fail_view("Challenge not found.", 404)
-            return
+        with self._unit_of_work.atomic():
+            profile = self._profiles.get_by_user_id(attempt.profile_id, for_update=True)
+            if profile is None:
+                self._fail(
+                    RecordChallengeAttemptFailureReason.PROFILE_NOT_FOUND,
+                    "Profile not found.",
+                )
+                return
+            if self._challenges.get_by_slug(attempt.challenge_slug) is None:
+                self._fail(
+                    RecordChallengeAttemptFailureReason.CHALLENGE_NOT_FOUND,
+                    "Challenge not found.",
+                )
+                return
 
-        try:
-            recorded = self._data_access.record(attempt)
-        except AttemptConflictError as exc:
-            self._presenter.prepare_fail_view(str(exc), 409)
-            return
+            existing = self._attempts.get_by_submission_id(attempt.submission_id)
+            if existing is not None:
+                if not existing.matches_completion(
+                    attempt.profile_id,
+                    attempt.challenge_slug,
+                    attempt.score,
+                    attempt.completed_at,
+                ):
+                    self._fail(
+                        RecordChallengeAttemptFailureReason.ATTEMPT_CONFLICT,
+                        "This attempt ID has already been used for a different "
+                        "completion.",
+                    )
+                    return
+                stored = existing
+                created = False
+            else:
+                stored = self._attempts.save(attempt)
+                created = True
 
-        self._presenter.prepare_success_view(self._build_output_data(recorded))
+            profile.add_score(attempt.challenge_slug, attempt.score)
+            saved_profile = self._profiles.save(profile)
+            output_data = self._build_output_data(stored, saved_profile, created)
+
+        self._presenter.prepare_success_view(output_data)
+
+    def _fail(self, reason: RecordChallengeAttemptFailureReason, message: str) -> None:
+        self._presenter.prepare_fail_view(
+            RecordChallengeAttemptFailureData(reason=reason, message=message)
+        )
 
     def _build_output_data(
-        self, recorded: RecordedChallengeAttempt
+        self, attempt: Attempt, profile: Profile, created: bool
     ) -> RecordChallengeAttemptOutputData:
-        attempt = recorded.attempt
-        profile = recorded.profile
         if attempt.record_id is None or attempt.received_at is None:
             raise ValueError("A recorded attempt must have an ID and receipt time.")
         return RecordChallengeAttemptOutputData(
@@ -119,5 +161,5 @@ class RecordChallengeAttemptInteractor(RecordChallengeAttemptInputBoundary):
                 completed_at=attempt.completed_at,
                 received_at=attempt.received_at,
             ),
-            created=recorded.created,
+            created=created,
         )

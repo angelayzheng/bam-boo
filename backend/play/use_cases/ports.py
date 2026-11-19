@@ -1,6 +1,11 @@
+from contextlib import AbstractContextManager
 from typing import Protocol
 
 from play.domain.attempt import Attempt
+
+
+class UnitOfWork(Protocol):
+    def atomic(self) -> AbstractContextManager[None]: ...
 
 
 class AttemptRepository(Protocol):

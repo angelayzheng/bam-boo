@@ -1,6 +1,9 @@
 from typing import Protocol
 
-from .record_challenge_attempt_output_data import RecordChallengeAttemptOutputData
+from .record_challenge_attempt_output_data import (
+    RecordChallengeAttemptFailureData,
+    RecordChallengeAttemptOutputData,
+)
 
 
 class RecordChallengeAttemptOutputBoundary(Protocol):
@@ -8,4 +11,4 @@ class RecordChallengeAttemptOutputBoundary(Protocol):
         self, output_data: RecordChallengeAttemptOutputData
     ) -> None: ...
 
-    def prepare_fail_view(self, error_message: str, status_code: int) -> None: ...
+    def prepare_fail_view(self, failure: RecordChallengeAttemptFailureData) -> None: ...
