@@ -1,14 +1,16 @@
 from django.urls import path
 
-from .views import (
+from .adapters.auth_views import (
     csrf_token,
     current_user,
-    leaderboard,
     login_user,
     logout_user,
-    save_challenge_score,
     signup,
     signup_groups,
+)
+from .adapters.progress_views import (
+    leaderboard,
+    save_challenge_score,
     user_by_slug,
     user_profile,
 )
