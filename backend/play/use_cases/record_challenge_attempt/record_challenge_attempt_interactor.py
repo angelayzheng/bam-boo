@@ -110,25 +110,19 @@ class RecordChallengeAttemptInteractor(RecordChallengeAttemptInputBoundary):
                 )
                 return
 
-            existing = self._attempts.get_by_submission_id(attempt.submission_id)
-            if existing is not None:
-                if not existing.matches_completion(
-                    attempt.profile_id,
-                    attempt.challenge_slug,
-                    attempt.score,
-                    attempt.completed_at,
-                ):
-                    self._fail(
-                        RecordChallengeAttemptFailureReason.ATTEMPT_CONFLICT,
-                        "This attempt ID has already been used for a different "
-                        "completion.",
-                    )
-                    return
-                stored = existing
-                created = False
-            else:
-                stored = self._attempts.save(attempt)
-                created = True
+            stored, created = self._attempts.get_or_create(attempt)
+            if not stored.matches_completion(
+                attempt.profile_id,
+                attempt.challenge_slug,
+                attempt.score,
+                attempt.completed_at,
+            ):
+                self._fail(
+                    RecordChallengeAttemptFailureReason.ATTEMPT_CONFLICT,
+                    "This attempt ID has already been used for a different "
+                    "completion.",
+                )
+                return
 
             profile.add_score(attempt.challenge_slug, attempt.score)
             saved_profile = self._profiles.save(profile)

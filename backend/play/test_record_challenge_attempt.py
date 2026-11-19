@@ -55,6 +55,7 @@ class InMemoryChallengeRepository:
 class InMemoryAttemptRepository:
     def __init__(self):
         self.records: dict[str, Attempt] = {}
+        self.get_or_create_calls = 0
 
     def get_by_submission_id(self, submission_id):
         return self.records.get(submission_id)
@@ -71,6 +72,13 @@ class InMemoryAttemptRepository:
         )
         self.records[attempt.submission_id] = record
         return record
+
+    def get_or_create(self, attempt):
+        self.get_or_create_calls += 1
+        existing = self.records.get(attempt.submission_id)
+        if existing is not None:
+            return existing, False
+        return self.save(attempt), True
 
     def list_for_profile(self, profile_id):
         return [
@@ -155,9 +163,10 @@ class RecordChallengeAttemptInteractorTests(SimpleTestCase):
         self.assertEqual(presenter.response_body["completed_challenges"], 1)
 
     def test_repeated_submission_prepares_200_view(self):
+        attempts = InMemoryAttemptRepository()
         interactor, presenter = self.build_interactor(
             InMemoryChallengeRepository({"greeting"}),
-            InMemoryAttemptRepository(),
+            attempts,
             InMemoryProfileRepository(),
         )
         interactor.execute(self.input_data())
@@ -165,6 +174,8 @@ class RecordChallengeAttemptInteractorTests(SimpleTestCase):
         interactor.execute(self.input_data())
 
         self.assertEqual(presenter.status_code, 200)
+        self.assertEqual(attempts.get_or_create_calls, 2)
+        self.assertEqual(len(attempts.records), 1)
 
     def test_conflicting_submission_prepares_409_view(self):
         interactor, presenter = self.build_interactor(

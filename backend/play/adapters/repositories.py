@@ -30,6 +30,18 @@ class DjangoAttemptRepository(AttemptRepository):
         )
         return _to_domain(row)
 
+    def get_or_create(self, attempt: Attempt) -> tuple[Attempt, bool]:
+        row, created = ChallengeAttempt.objects.get_or_create(
+            submission_id=attempt.submission_id,
+            defaults={
+                "profile_id": attempt.profile_id,
+                "challenge_id": attempt.challenge_slug,
+                "score": attempt.score,
+                "completed_at": attempt.completed_at,
+            },
+        )
+        return _to_domain(row), created
+
     def list_for_profile(self, profile_id: int) -> list[Attempt]:
         return [
             _to_domain(row)
