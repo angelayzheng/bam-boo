@@ -1,4 +1,4 @@
-import type { Challenge, ConversationNode, ResultData } from '../types'
+import type { Challenge, ConversationNode, ResultData } from './types'
 import { matchesAnswer, respond, responseOptions } from './conversationRules.ts'
 
 export type Stage = 'tone' | 'response' | 'action'
@@ -73,6 +73,16 @@ export class ChallengeSession {
   }
 
   selectResponse(node: ConversationNode): void {
+    this.state.selectedResponse = node
+  }
+
+  selectResponseByKey(transcriptUrl: string): void {
+    const node = responseOptions(this.state.path).find(
+      (option) => option.transcript_url === transcriptUrl,
+    )
+    if (!node) {
+      throw new Error('Choose a response from the current conversation turn.')
+    }
     this.state.selectedResponse = node
   }
 

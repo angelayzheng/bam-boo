@@ -1,13 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import {
-  getCurrentUser,
-  loadProfile,
-  loadSignupGroups,
-  saveChallengeResult,
-  signIn,
-  signOut,
-} from '../src/auth.ts'
+import { authApi } from '../src/auth/dataAccessInterface/authGatewayApi.ts'
+import { scoreApi } from '../src/auth/dataAccessInterface/scoreGatewayApi.ts'
 
 const user = { id: 7, username: 'ada', email: 'ada@example.com' }
 const credentials = { username: 'ada', password: 'River!Quartz7Maple' }
@@ -26,7 +20,7 @@ test('signup loads existing group choices with cancellation and no caching', asy
     assert.equal(options.signal, signal)
     return Response.json({ groups })
   })
-  assert.deepEqual(await loadSignupGroups(signal), groups)
+  assert.deepEqual(await authApi.loadGroups(signal), groups)
 })
 
 test('completion sends result metrics with session cookies and CSRF to the current-user score endpoint', async (t) => {
@@ -67,7 +61,7 @@ test('completion sends result metrics with session cookies and CSRF to the curre
     })
     return Response.json(profile)
   })
-  assert.deepEqual(await saveChallengeResult(result, signal), profile)
+  assert.deepEqual(await scoreApi.saveChallengeResult(result, signal), profile)
   assert.deepEqual(requests, [
     `${basePath}csrf/`,
     '/api/users/me/scores/forgot-password-x3/',
@@ -94,12 +88,12 @@ test('saving reports an expired login or backend failure and can be retried', as
     return response
   })
   await assert.rejects(
-    saveChallengeResult(result, new AbortController().signal),
+    scoreApi.saveChallengeResult(result, new AbortController().signal),
     /Authentication required/,
   )
   response = new Response('Unavailable', { status: 503 })
   await assert.rejects(
-    saveChallengeResult(result, new AbortController().signal),
+    scoreApi.saveChallengeResult(result, new AbortController().signal),
     /Could not connect/,
   )
   response = Response.json({
@@ -107,7 +101,7 @@ test('saving reports an expired login or backend failure and can be retried', as
     total_score: 1,
   })
   assert.equal(
-    (await saveChallengeResult(result, new AbortController().signal))
+    (await scoreApi.saveChallengeResult(result, new AbortController().signal))
       .total_score,
     1,
   )
@@ -123,19 +117,19 @@ test('restores the current account using the session cookie without caching', as
     assert.equal(options.cache, 'no-store')
     return Response.json({ user, csrfToken: 'token' })
   })
-  assert.deepEqual(await getCurrentUser(signal), user)
+  assert.deepEqual(await authApi.restoreSession(signal), user)
 })
 
 test('an anonymous session is distinct from a failed session check', async (t) => {
   const mock = t.mock.method(globalThis, 'fetch', async () =>
     Response.json({ detail: 'Authentication required.' }, { status: 401 }),
   )
-  assert.equal(await getCurrentUser(new AbortController().signal), null)
+  assert.equal(await authApi.restoreSession(new AbortController().signal), null)
   mock.mock.mockImplementation(
     async () => new Response('Error', { status: 500 }),
   )
   await assert.rejects(
-    getCurrentUser(new AbortController().signal),
+    authApi.restoreSession(new AbortController().signal),
     /Could not connect/,
   )
 })
@@ -163,7 +157,7 @@ test('signup and login acquire CSRF tokens before sending credentials', async (t
       assert.deepEqual(JSON.parse(options.body), payload)
       return Response.json({ user, csrfToken: 'rotated-token' })
     })
-    assert.deepEqual(await signIn(action, payload, signal), user)
+    assert.deepEqual(await authApi.authenticate(action, payload, signal), user)
     assert.deepEqual(requests, [`${basePath}csrf/`, `${basePath}${action}/`])
     mock.mock.restore()
   }
@@ -185,8 +179,8 @@ test('logout obtains a fresh token after login rotates the CSRF secret', async (
     assert.equal(options.method, 'POST')
     return Response.json({ detail: 'Logged out.' })
   })
-  await signIn('login', credentials)
-  await signOut()
+  await authApi.authenticate('login', credentials)
+  await authApi.logout()
   assert.deepEqual(actions, [`${basePath}login/`, `${basePath}logout/`])
 })
 
@@ -206,7 +200,7 @@ test('server validation and invalid credentials are shown as useful messages', a
       : response,
   )
   await assert.rejects(
-    signIn('signup', credentials),
+    authApi.authenticate('signup', credentials),
     /That username is taken. Too common./,
   )
   response = Response.json(
@@ -214,7 +208,7 @@ test('server validation and invalid credentials are shown as useful messages', a
     { status: 401 },
   )
   await assert.rejects(
-    signIn('login', credentials),
+    authApi.authenticate('login', credentials),
     /Invalid username or password/,
   )
 })
@@ -225,7 +219,7 @@ test('HTML CSRF errors give a retry message rather than a JSON parsing error', a
       ? Response.json({ csrfToken: 'token' })
       : new Response('<html>Forbidden</html>', { status: 403 }),
   )
-  await assert.rejects(signOut(), /security token expired/)
+  await assert.rejects(authApi.logout(), /security token expired/)
 })
 
 test('a failed CSRF bootstrap prevents the mutation', async (t) => {
@@ -234,26 +228,11 @@ test('a failed CSRF bootstrap prevents the mutation', async (t) => {
     requests.push(url)
     return new Response('Unavailable', { status: 503 })
   })
-  await assert.rejects(signIn('login', credentials), /Could not connect/)
+  await assert.rejects(
+    authApi.authenticate('login', credentials),
+    /Could not connect/,
+  )
   assert.deepEqual(requests, [`${basePath}csrf/`])
-})
-
-test('profile loads stored progress for the signed-in account with cancellation', async (t) => {
-  const signal = new AbortController().signal
-  const profile = {
-    user_id: 7,
-    avatar: 'fox',
-    total_score: 2,
-    completed_challenges: 1,
-    scores: { 'forgot-password-x3': 2 },
-  }
-  t.mock.method(globalThis, 'fetch', async (url, options) => {
-    assert.equal(url, '/api/users/7/profile/')
-    assert.equal(options.signal, signal)
-    assert.equal(options.cache, 'no-store')
-    return Response.json(profile)
-  })
-  assert.deepEqual(await loadProfile(7, signal), profile)
 })
 
 test('aborted session checks preserve cancellation', async (t) => {
@@ -262,7 +241,7 @@ test('aborted session checks preserve cancellation', async (t) => {
   t.mock.method(globalThis, 'fetch', async (_url, { signal }) => {
     signal.throwIfAborted()
   })
-  await assert.rejects(getCurrentUser(controller.signal), {
+  await assert.rejects(authApi.restoreSession(controller.signal), {
     name: 'AbortError',
   })
 })

@@ -1,18 +1,19 @@
 import { useEffect, useState } from 'react'
 import Header from '../components/Header'
 import { CheckIcon, StarIcon } from '../components/icons'
-import { challengeDateLabel } from '../presenters/challengeDatePresenter'
-import { browserClock } from '../dataAccessInterface/browserServices'
-import { challengeApi } from '../dataAccessInterface/challengeGatewayApi'
-import type { StartChallengeInputBoundary } from '../useCases/startChallenge/startChallengeBoundaries'
-import { StartChallengeInteractor } from '../useCases/startChallenge/startChallengeInteractor'
-import { createSessionStore } from '../useCases/sessionStore'
+import { challengeDateLabel } from '../viewModels/challengeDatePresenter'
+import { browserClock } from '../challenge/dataAccessInterface/browserServices'
+import { challengeApi } from '../challenge/dataAccessInterface/challengeGatewayApi'
+import type { StartChallengeInputBoundary } from '../challenge/useCases/startChallenge/startChallengeBoundaries'
+import { StartChallengeInteractor } from '../challenge/useCases/startChallenge/startChallengeInteractor'
+import { createSessionStore } from '../challenge/useCases/sessionStore'
 import {
   ChallengeLoadError,
   ChallengeLoading,
-} from '../components/challenge/ChallengeLoading'
-import type { Challenge, ResultData, ScoreSaveState } from '../types'
-import type { AuthUser } from '../auth'
+} from '../challenge/components/ChallengeLoading'
+import type { Challenge, ResultData } from '../entities/types'
+import type { ScoreSaveState } from '../types'
+import type { AuthUser } from '../entities/types'
 
 interface ResultsPageProps {
   challenge: Challenge | null

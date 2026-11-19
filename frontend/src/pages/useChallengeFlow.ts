@@ -1,30 +1,36 @@
 import { useEffect, useMemo, useState } from 'react'
-import type { ConversationNode } from '../types'
+import type { Challenge, ResultData } from '../entities/types'
 import {
   browserClock,
   browserIds,
-} from '../dataAccessInterface/browserServices'
-import { challengeApi } from '../dataAccessInterface/challengeGatewayApi'
-import { toneApi } from '../dataAccessInterface/toneGatewayApi'
-import {
-  ChallengePresenter,
-  initialChallengeViewModel,
-} from '../presenters/ChallengePresenter'
-import type { ChallengeViewModel } from '../presenters/ChallengePresenter'
-import { createSessionStore } from '../useCases/sessionStore'
-import type { StartChallengeInputBoundary } from '../useCases/startChallenge/startChallengeBoundaries'
-import { StartChallengeInteractor } from '../useCases/startChallenge/startChallengeInteractor'
-import type { SubmitToneInputBoundary } from '../useCases/submitTone/submitToneBoundaries'
-import { SubmitToneInteractor } from '../useCases/submitTone/submitToneInteractor'
-import type { AdvanceConversationInputBoundary } from '../useCases/advanceConversation/advanceConversationBoundaries'
-import { AdvanceConversationInteractor } from '../useCases/advanceConversation/advanceConversationInteractor'
-import type { CompleteChallengeInputBoundary } from '../useCases/completeChallenge/completeChallengeBoundaries'
-import { CompleteChallengeInteractor } from '../useCases/completeChallenge/completeChallengeInteractor'
+} from '../challenge/dataAccessInterface/browserServices'
+import { challengeApi } from '../challenge/dataAccessInterface/challengeGatewayApi'
+import { toneApi } from '../challenge/dataAccessInterface/toneGatewayApi'
+import { createSessionStore } from '../challenge/useCases/sessionStore'
+import { initialChallengeViewModel } from '../challenge/viewModels/challengeViewModel'
+import type { ChallengeViewModel } from '../challenge/viewModels/challengeViewModel'
+import type { StartChallengeInputBoundary } from '../challenge/useCases/startChallenge/startChallengeBoundaries'
+import { StartChallengeInteractor } from '../challenge/useCases/startChallenge/startChallengeInteractor'
+import { StartChallengePresenter } from '../challenge/useCases/startChallenge/startChallengePresenter'
+import type { SubmitToneInputBoundary } from '../challenge/useCases/submitTone/submitToneBoundaries'
+import { SubmitToneInteractor } from '../challenge/useCases/submitTone/submitToneInteractor'
+import { SubmitTonePresenter } from '../challenge/useCases/submitTone/submitTonePresenter'
+import type { AdvanceConversationInputBoundary } from '../challenge/useCases/advanceConversation/advanceConversationBoundaries'
+import { AdvanceConversationInteractor } from '../challenge/useCases/advanceConversation/advanceConversationInteractor'
+import { AdvanceConversationPresenter } from '../challenge/useCases/advanceConversation/advanceConversationPresenter'
+import type { CompleteChallengeInputBoundary } from '../challenge/useCases/completeChallenge/completeChallengeBoundaries'
+import { CompleteChallengeInteractor } from '../challenge/useCases/completeChallenge/completeChallengeInteractor'
+import { CompleteChallengePresenter } from '../challenge/useCases/completeChallenge/completeChallengePresenter'
+
+export interface ChallengeCompletion {
+  result: ResultData
+  challenge: Challenge
+}
 
 export interface ChallengeController {
   setTone: (answer: string) => void
   submitTone: (answer: string, signal: AbortSignal) => Promise<void>
-  selectResponse: (response: ConversationNode) => void
+  selectResponse: (responseKey: string) => void
   sendResponse: () => void
   continueToAction: () => void
   audioEnded: (transcriptUrl: string) => void
@@ -41,35 +47,41 @@ interface ChallengeUseCasePorts {
 
 export function useChallengeFlow(date: string): {
   viewModel: ChallengeViewModel
+  completion: ChallengeCompletion | null
   controller: ChallengeController
   retry: () => void
 } {
   const [viewModel, setViewModel] = useState<ChallengeViewModel>(
     initialChallengeViewModel,
   )
+  const [completion, setCompletion] = useState<ChallengeCompletion | null>(null)
   const [attempt, setAttempt] = useState(0)
 
   const flow = useMemo<ChallengeUseCasePorts>(() => {
     const store = createSessionStore()
-    const presenter = new ChallengePresenter(setViewModel)
     const start: StartChallengeInputBoundary = new StartChallengeInteractor(
       challengeApi,
-      presenter,
+      new StartChallengePresenter(setViewModel),
       browserClock,
       store,
     )
     const submitTone: SubmitToneInputBoundary = new SubmitToneInteractor(
       store,
       toneApi,
-      presenter,
+      new SubmitTonePresenter(setViewModel),
       browserClock,
     )
     const advance: AdvanceConversationInputBoundary =
-      new AdvanceConversationInteractor(store, presenter)
+      new AdvanceConversationInteractor(
+        store,
+        new AdvanceConversationPresenter(setViewModel),
+      )
     const complete: CompleteChallengeInputBoundary =
       new CompleteChallengeInteractor(
         store,
-        presenter,
+        new CompleteChallengePresenter(setViewModel, (result, challenge) => {
+          setCompletion({ result, challenge })
+        }),
         browserIds,
         browserClock,
       )
@@ -87,7 +99,8 @@ export function useChallengeFlow(date: string): {
       setTone: (answer) => flow.submitTone.setTone({ answer }),
       submitTone: (answer, signal) =>
         flow.submitTone.execute({ answer, signal }),
-      selectResponse: (response) => flow.advance.selectResponse({ response }),
+      selectResponse: (responseKey) =>
+        flow.advance.selectResponse({ responseKey }),
       sendResponse: () => flow.advance.sendResponse(),
       continueToAction: () => flow.advance.continueToAction(),
       audioEnded: (transcriptUrl) => flow.advance.audioEnded({ transcriptUrl }),
@@ -99,7 +112,11 @@ export function useChallengeFlow(date: string): {
 
   return {
     viewModel,
+    completion,
     controller,
-    retry: () => setAttempt((value) => value + 1),
+    retry: () => {
+      setCompletion(null)
+      setAttempt((value) => value + 1)
+    },
   }
 }

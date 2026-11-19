@@ -1,8 +1,8 @@
-import { useEffect, useRef, useState } from 'react'
-import type { FormEvent, ReactNode } from 'react'
+import type { ReactNode } from 'react'
 import Header from '../components/Header'
-import { loadSignupGroups, signIn } from '../auth'
-import type { AuthUser, SignupGroup } from '../auth'
+import type { AuthUser } from '../entities/types'
+import AuthForm from '../auth/components/AuthForm'
+import { useAuthFlow } from './useAuthFlow'
 
 interface AuthPageProps {
   mode: 'login' | 'signup'
@@ -19,82 +19,8 @@ export default function AuthPage({
   sessionLoading = false,
   notice,
 }: AuthPageProps) {
-  const [username, setUsername] = useState('')
-  const [email, setEmail] = useState('')
-  const [groupId, setGroupId] = useState('')
-  const [password, setPassword] = useState('')
-  const [confirmation, setConfirmation] = useState('')
-  const [error, setError] = useState('')
-  const [pending, setPending] = useState(false)
-  const controller = useRef<AbortController | null>(null)
   const isSignup = mode === 'signup'
-  const [groups, setGroups] = useState<SignupGroup[]>([])
-  const [groupsLoading, setGroupsLoading] = useState(isSignup)
-  const [groupsError, setGroupsError] = useState('')
-  const [groupsAttempt, setGroupsAttempt] = useState(0)
-
-  useEffect(() => {
-    if (!isSignup) return
-    const request = new AbortController()
-    loadSignupGroups(request.signal)
-      .then((choices) => {
-        if (!request.signal.aborted) setGroups(choices)
-      })
-      .catch(() => {
-        if (!request.signal.aborted)
-          setGroupsError(
-            'Could not load groups. Make sure the backend is running, then try again.',
-          )
-      })
-      .finally(() => {
-        if (!request.signal.aborted) setGroupsLoading(false)
-      })
-    return () => request.abort()
-  }, [isSignup, groupsAttempt])
-
-  useEffect(() => () => controller.current?.abort(), [])
-
-  async function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    if (pending || sessionLoading) return
-    setError('')
-    if (isSignup && password !== confirmation) {
-      setError('Your passwords do not match.')
-      return
-    }
-    const request = new AbortController()
-    controller.current = request
-    setPending(true)
-    try {
-      const user = await signIn(
-        mode,
-        {
-          username: username.trim(),
-          password,
-          ...(isSignup
-            ? {
-                email: email.trim(),
-                ...(groupId ? { group_id: Number(groupId) } : {}),
-              }
-            : {}),
-        },
-        request.signal,
-      )
-      if (!request.signal.aborted) onAuthenticated(user)
-    } catch (cause) {
-      if (!request.signal.aborted)
-        setError(
-          cause instanceof Error
-            ? cause.message
-            : 'Could not sign in. Please try again.',
-        )
-    } finally {
-      if (!request.signal.aborted) setPending(false)
-    }
-  }
-
-  const inputClass =
-    'mt-2 w-full rounded-xl border-1 border-green-light bg-white px-4 py-3 text-black outline-none placeholder:text-black/30 focus:border-green-dark focus:ring-4 focus:ring-green-dark/10 disabled:opacity-60'
+  const flow = useAuthFlow({ mode, sessionLoading, onAuthenticated })
 
   return (
     <div className="bg-beige min-h-screen text-black">
@@ -113,157 +39,7 @@ export default function AuthPage({
               ? 'Make yourself at home and view your training profile.'
               : 'Log in to view your profile and progress.'}
           </p>
-          <form
-            onSubmit={submit}
-            className="mt-7 space-y-5"
-            aria-busy={pending}
-          >
-            <label className="block text-base font-semibold" htmlFor="username">
-              Username
-              <input
-                className={inputClass}
-                id="username"
-                name="username"
-                autoComplete="username"
-                required
-                maxLength={150}
-                value={username}
-                onChange={(event) => setUsername(event.target.value)}
-                disabled={pending}
-              />
-            </label>
-            {isSignup && (
-              <label className="block text-base font-semibold" htmlFor="email">
-                Email{' '}
-                <span className="font-normal text-black/50">(optional)</span>
-                <input
-                  className={inputClass}
-                  id="email"
-                  name="email"
-                  type="email"
-                  autoComplete="email"
-                  maxLength={254}
-                  value={email}
-                  onChange={(event) => setEmail(event.target.value)}
-                  disabled={pending}
-                />
-              </label>
-            )}
-            {isSignup && (
-              <div>
-                <label
-                  className="block text-base font-semibold"
-                  htmlFor="group"
-                >
-                  Group{' '}
-                  <span className="font-normal text-black/50">(optional)</span>
-                  <select
-                    id="group"
-                    name="group_id"
-                    className={inputClass}
-                    value={groupId}
-                    onChange={(event) => setGroupId(event.target.value)}
-                    disabled={pending || groupsLoading}
-                    aria-describedby="group-status"
-                  >
-                    <option value="">No group</option>
-                    {groups.map((choice) => (
-                      <option key={choice.id} value={choice.id}>
-                        {choice.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <div id="group-status" className="mt-2 text-sm text-black/60">
-                  {groupsLoading ? (
-                    <p role="status">Loading groups…</p>
-                  ) : groupsError ? (
-                    <p role="alert">
-                      {groupsError}{' '}
-                      <button
-                        type="button"
-                        disabled={pending}
-                        onClick={() => {
-                          setGroupsError('')
-                          setGroupsLoading(true)
-                          setGroupsAttempt((value) => value + 1)
-                        }}
-                        className="text-green-dark font-semibold underline underline-offset-4 transition hover:text-black"
-                      >
-                        Retry
-                      </button>
-                    </p>
-                  ) : groups.length === 0 ? (
-                    <p>No groups are available yet.</p>
-                  ) : null}
-                </div>
-              </div>
-            )}
-            <label className="block text-base font-semibold" htmlFor="password">
-              Password
-              <input
-                className={inputClass}
-                id="password"
-                name="password"
-                type="password"
-                autoComplete={isSignup ? 'new-password' : 'current-password'}
-                required
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-                disabled={pending}
-                aria-describedby={isSignup ? 'password-hint' : undefined}
-              />
-            </label>
-            {isSignup && (
-              <>
-                <p
-                  id="password-hint"
-                  className="text-sm leading-relaxed text-black/60"
-                >
-                  Use at least 8 characters. Avoid common passwords, only
-                  numbers, or a password similar to your username or email.
-                </p>
-                <label
-                  className="block text-base font-semibold"
-                  htmlFor="confirmation"
-                >
-                  Confirm password
-                  <input
-                    className={inputClass}
-                    id="confirmation"
-                    name="confirmation"
-                    type="password"
-                    autoComplete="new-password"
-                    required
-                    value={confirmation}
-                    onChange={(event) => setConfirmation(event.target.value)}
-                    disabled={pending}
-                  />
-                </label>
-              </>
-            )}
-            {error && (
-              <p
-                role="alert"
-                className="rounded-xl bg-red-50 p-3 text-base text-red-800"
-              >
-                {error}
-              </p>
-            )}
-            <button
-              type="submit"
-              disabled={pending || sessionLoading}
-              className="bg-orange focus-visible:outline-green-dark w-full rounded-xl px-5 py-3 text-base font-bold text-white transition hover:brightness-95 focus-visible:outline-2 focus-visible:outline-offset-2 active:scale-[0.98] disabled:cursor-wait disabled:opacity-60"
-            >
-              {sessionLoading
-                ? 'Checking account…'
-                : pending
-                  ? 'Please wait…'
-                  : isSignup
-                    ? 'Create account'
-                    : 'Log in'}
-            </button>
-          </form>
+          <AuthForm mode={mode} sessionLoading={sessionLoading} flow={flow} />
           <p className="mt-6 text-center text-base text-black/70">
             {isSignup ? 'Already have an account? ' : 'New here? '}
             <a

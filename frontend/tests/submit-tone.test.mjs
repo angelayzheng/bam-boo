@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { ChallengeSession } from '../src/entities/challengeSession.ts'
-import { SubmitToneInteractor } from '../src/useCases/submitTone/submitToneInteractor.ts'
-import { createSessionStore } from '../src/useCases/sessionStore.ts'
+import { SubmitToneInteractor } from '../src/challenge/useCases/submitTone/submitToneInteractor.ts'
+import { createSessionStore } from '../src/challenge/useCases/sessionStore.ts'
 
 const root = {
   type: 'question',

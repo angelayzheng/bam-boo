@@ -1,7 +1,7 @@
 import type { MouseEvent } from 'react'
 import { FlameIcon } from './icons'
 import logo from '../assets/bamboo-logo-inline.svg'
-import type { AuthUser } from '../auth'
+import type { AuthUser } from '../entities/types'
 
 interface HeaderProps {
   compact?: boolean

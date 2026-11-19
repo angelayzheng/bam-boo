@@ -1,17 +1,17 @@
 import { useEffect, useRef } from 'react'
 import Header from '../components/Header'
-import { scrollIntoView } from '../dataAccessInterface/browserServices'
+import { scrollIntoView } from '../challenge/dataAccessInterface/browserServices'
 import { useChallengeFlow } from './useChallengeFlow'
-import type { Challenge, ResultData } from '../types'
-import ChallengeHeader from '../components/challenge/ChallengeHeader'
+import type { Challenge, ResultData } from '../entities/types'
+import ChallengeHeader from '../challenge/components/ChallengeHeader'
 import {
   ChallengeLoadError,
   ChallengeLoading,
-} from '../components/challenge/ChallengeLoading'
-import ToneStage from '../components/challenge/ToneStage'
-import ConversationHistory from '../components/challenge/ConversationHistory'
-import ResponseStage from '../components/challenge/ResponseStage'
-import ActionStage from '../components/challenge/ActionStage'
+} from '../challenge/components/ChallengeLoading'
+import ToneStage from '../challenge/components/ToneStage'
+import ConversationHistory from '../challenge/components/ConversationHistory'
+import ResponseStage from '../challenge/components/ResponseStage'
+import ActionStage from '../challenge/components/ActionStage'
 
 interface ChallengePageProps {
   date: string
@@ -24,7 +24,7 @@ export default function ChallengePage({
   onExit,
   onComplete,
 }: ChallengePageProps) {
-  const { viewModel, controller, retry } = useChallengeFlow(date)
+  const { viewModel, completion, controller, retry } = useChallengeFlow(date)
   const toneRequest = useRef<AbortController | null>(null)
   const endRef = useRef<HTMLDivElement>(null)
   const lastSeen = useRef({ length: 0, stage: '' })
@@ -35,25 +35,27 @@ export default function ChallengePage({
   }, [])
 
   useEffect(() => {
-    const session = viewModel.session
-    if (!session) {
-      return
-    }
     const last = lastSeen.current
-    if (last.length === session.path.length && last.stage === session.stage) {
+    if (
+      last.length === viewModel.path.length &&
+      last.stage === viewModel.stage
+    ) {
       return
     }
-    lastSeen.current = { length: session.path.length, stage: session.stage }
+    lastSeen.current = {
+      length: viewModel.path.length,
+      stage: viewModel.stage,
+    }
     scrollIntoView(endRef.current)
-  }, [viewModel.session])
+  }, [viewModel.path.length, viewModel.stage])
 
   useEffect(() => {
-    if (!viewModel.result || completedRef.current || !viewModel.challenge) {
+    if (!completion || completedRef.current) {
       return
     }
     completedRef.current = true
-    onComplete(viewModel.result, viewModel.challenge)
-  }, [viewModel, onComplete])
+    onComplete(completion.result, completion.challenge)
+  }, [completion, onComplete])
 
   const submitTone = (answer: string) => {
     const toneController = new AbortController()
@@ -61,8 +63,7 @@ export default function ChallengePage({
     void controller.submitTone(answer, toneController.signal)
   }
 
-  const session = viewModel.session
-  const challenge = viewModel.challenge
+  const ready = viewModel.name !== null && viewModel.opening !== null
 
   return (
     <div className="bg-beige min-h-screen text-black">
@@ -73,7 +74,7 @@ export default function ChallengePage({
           <ChallengeLoadError message={viewModel.message} onRetry={retry} />
         )}
 
-        {challenge && session && (
+        {ready && (
           <>
             <ChallengeHeader
               dateLabel={viewModel.dateLabel}
@@ -84,48 +85,47 @@ export default function ChallengePage({
 
             <div className="mb-6">
               <p className="text-orange text-sm font-bold tracking-[0.14em] uppercase">
-                {challenge.category}
+                {viewModel.category}
               </p>
               <h1 className="text-orange mt-2 text-3xl font-extrabold sm:text-4xl">
-                {challenge.name}
+                {viewModel.name}
               </h1>
             </div>
 
-            {session.stage === 'tone' && (
+            {viewModel.stage === 'tone' && viewModel.opening && (
               <ToneStage
-                challenge={challenge}
-                tone={session.tone}
-                tonePending={session.tonePending}
-                toneError={session.toneError}
+                opening={viewModel.opening}
+                tone={viewModel.tone}
+                tonePending={viewModel.tonePending}
+                toneError={viewModel.toneError}
                 onToneChange={controller.setTone}
-                onSubmit={() => submitTone(session.tone)}
+                onSubmit={() => submitTone(viewModel.tone)}
               />
             )}
 
-            {session.stage !== 'tone' && (
+            {viewModel.stage !== 'tone' && (
               <ConversationHistory
-                path={session.path}
-                activeAudio={session.activeAudio}
+                path={viewModel.path}
+                activeAudio={viewModel.activeAudio}
                 onAudioEnded={controller.audioEnded}
               />
             )}
 
-            {session.stage === 'response' && (
+            {viewModel.stage === 'response' && (
               <ResponseStage
-                tone={session.tone}
-                toneTime={session.toneTime}
+                tone={viewModel.tone}
+                toneTime={viewModel.toneTime}
                 conversationFinished={viewModel.conversationFinished}
                 options={viewModel.options}
-                selectedResponse={session.selectedResponse}
                 onSelect={controller.selectResponse}
                 onSend={controller.sendResponse}
                 onContinue={controller.continueToAction}
               />
             )}
 
-            {session.stage === 'action' && (
+            {viewModel.stage === 'action' && (
               <ActionStage
-                nextAction={session.nextAction}
+                nextAction={viewModel.nextAction}
                 onActionChange={controller.setAction}
                 onFinish={controller.finish}
               />

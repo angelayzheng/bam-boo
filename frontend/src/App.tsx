@@ -1,19 +1,20 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import HomePage from './pages/HomePage'
 import ChallengePage from './pages/ChallengePage'
 import ResultsPage from './pages/ResultsPage'
 import AuthPage from './pages/AuthPage'
 import ProfilePage from './pages/ProfilePage'
-import { ApiError, getCurrentUser, saveChallengeResult, signOut } from './auth'
-import type { AuthUser } from './auth'
-import { loadChallengeSummaries } from './dataAccessInterface/challengeGatewayApi'
+import { authApi } from './auth/dataAccessInterface/authGatewayApi'
+import { scoreApi } from './auth/dataAccessInterface/scoreGatewayApi'
+import { ApiError } from './auth/dataAccessInterface/httpClient'
+import { RestoreSessionInteractor } from './auth/useCases/restoreSession/restoreSessionInteractor'
+import { RestoreSessionPresenter } from './auth/useCases/restoreSession/restoreSessionPresenter'
+import type { AuthUser } from './entities/types'
+import { loadChallengeSummaries } from './challenge/dataAccessInterface/challengeGatewayApi'
+import { selectHomeChallenge } from './entities/dailyChallenge'
 import { challengePath, getRoute, resultsPath } from './routes'
-import type {
-  Challenge,
-  ChallengeSummary,
-  ResultData,
-  ScoreSaveState,
-} from './types'
+import type { Challenge, ChallengeSummary, ResultData } from './entities/types'
+import type { ScoreSaveState } from './types'
 
 const RESULT_STORAGE_KEY = 'bam-boo:last-challenge-result'
 
@@ -40,6 +41,7 @@ function loadSavedResult(): ResultData | null {
 function App() {
   const [pathname, setPathname] = useState(() => window.location.pathname)
   const [result, setResult] = useState<ResultData | null>(loadSavedResult)
+  const [summaries, setSummaries] = useState<ChallengeSummary[]>([])
   const [todayChallenge, setTodayChallenge] = useState<ChallengeSummary | null>(
     null,
   )
@@ -67,7 +69,8 @@ function App() {
     )
       return
     const controller = new AbortController()
-    saveChallengeResult(result, controller.signal)
+    scoreApi
+      .saveChallengeResult(result, controller.signal)
       .then(() => {
         if (!controller.signal.aborted) {
           setScoreSave({ status: 'saved' })
@@ -89,35 +92,37 @@ function App() {
     return () => controller.abort()
   }, [result, currentUserId, saveAttempt])
 
+  const restoreSession = useMemo(
+    () =>
+      new RestoreSessionInteractor(
+        authApi,
+        new RestoreSessionPresenter((viewModel) => {
+          if (viewModel.status === 'error') {
+            setAuthError(viewModel.message)
+            setAuthLoading(false)
+            return
+          }
+          setUser(viewModel.user)
+          setAuthError('')
+          setAuthLoading(false)
+        }),
+      ),
+    [],
+  )
+
   useEffect(() => {
     const controller = new AbortController()
-    getCurrentUser(controller.signal)
-      .then((account) => {
-        if (!controller.signal.aborted) setUser(account)
-      })
-      .catch((cause: unknown) => {
-        if (!controller.signal.aborted)
-          setAuthError(
-            cause instanceof Error
-              ? cause.message
-              : 'Could not check your account.',
-          )
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) setAuthLoading(false)
-      })
+    void restoreSession.execute({ signal: controller.signal })
     return () => controller.abort()
-  }, [authAttempt])
+  }, [restoreSession, authAttempt])
 
   useEffect(() => {
     const controller = new AbortController()
     loadChallengeSummaries(controller.signal)
-      .then((summaries) => {
+      .then((loaded) => {
         if (controller.signal.aborted) return
-        const selected =
-          summaries.find(({ slug }) => slug === 'forgot-password-x3') ??
-          summaries[0]
-        setTodayChallenge(selected ?? null)
+        setSummaries(loaded)
+        setTodayChallenge(selectHomeChallenge(loaded))
       })
       .catch((cause: unknown) => {
         if (!controller.signal.aborted) {
@@ -212,11 +217,11 @@ function App() {
           key={user.id}
           notice={notice}
           progressVersion={progressVersion}
+          summaries={summaries}
           user={user}
           onHome={() => navigate('/')}
           onChallenge={todayChallenge ? startChallenge : undefined}
-          onLogout={async () => {
-            await signOut()
+          onLoggedOut={() => {
             setUser(null)
             setResult(null)
             window.sessionStorage.removeItem(RESULT_STORAGE_KEY)
@@ -309,6 +314,8 @@ function App() {
   return (
     <HomePage
       challenge={todayChallenge}
+      summaries={summaries}
+      progressVersion={progressVersion}
       notice={notice}
       onStart={startChallenge}
       onHome={() => navigate('/')}

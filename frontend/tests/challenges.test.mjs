@@ -4,7 +4,7 @@ import {
   loadByDate,
   loadChallengeSummaries,
   loadDetail,
-} from '../src/dataAccessInterface/challengeGatewayApi.ts'
+} from '../src/challenge/dataAccessInterface/challengeGatewayApi.ts'
 
 const root = {
   type: 'question',

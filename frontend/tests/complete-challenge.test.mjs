@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { ChallengeSession } from '../src/entities/challengeSession.ts'
-import { CompleteChallengeInteractor } from '../src/useCases/completeChallenge/completeChallengeInteractor.ts'
-import { createSessionStore } from '../src/useCases/sessionStore.ts'
+import { CompleteChallengeInteractor } from '../src/challenge/useCases/completeChallenge/completeChallengeInteractor.ts'
+import { createSessionStore } from '../src/challenge/useCases/sessionStore.ts'
 
 const root = {
   type: 'question',

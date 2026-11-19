@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { ChallengeSession } from '../src/entities/challengeSession.ts'
-import { AdvanceConversationInteractor } from '../src/useCases/advanceConversation/advanceConversationInteractor.ts'
-import { createSessionStore } from '../src/useCases/sessionStore.ts'
+import { AdvanceConversationInteractor } from '../src/challenge/useCases/advanceConversation/advanceConversationInteractor.ts'
+import { createSessionStore } from '../src/challenge/useCases/sessionStore.ts'
 
 const turn = (key, type, children = []) => ({
   node_key: key,
@@ -55,7 +55,7 @@ function make() {
 
 test('selecting and sending a reply grows the path and chains audio', () => {
   const { output, interactor } = make()
-  interactor.selectResponse({ response: replies[0] })
+  interactor.selectResponse({ responseKey: replies[0].transcript_url })
   assert.equal(output.outputs.at(-1).session.selectedResponse, replies[0])
   interactor.sendResponse()
   const session = output.outputs.at(-1).session
@@ -70,15 +70,18 @@ test('selecting and sending a reply grows the path and chains audio', () => {
 test('a reply from another branch is rejected', () => {
   const { interactor } = make()
   const unavailable = turn('other', 'response')
-  interactor.selectResponse({ response: unavailable })
-  assert.throws(() => interactor.sendResponse(), /current conversation turn/)
+  assert.throws(
+    () =>
+      interactor.selectResponse({ responseKey: unavailable.transcript_url }),
+    /current conversation turn/,
+  )
 })
 
 test('a terminal reply finishes the conversation and can continue', () => {
   const { output, interactor } = make()
-  interactor.selectResponse({ response: replies[0] })
+  interactor.selectResponse({ responseKey: replies[0].transcript_url })
   interactor.sendResponse()
-  interactor.selectResponse({ response: followups[0] })
+  interactor.selectResponse({ responseKey: followups[0].transcript_url })
   interactor.sendResponse()
   interactor.continueToAction()
   const session = output.outputs.at(-1).session
@@ -88,7 +91,7 @@ test('a terminal reply finishes the conversation and can continue', () => {
 
 test('audio endings chain to the next turn and clear at the end', () => {
   const { output, interactor } = make()
-  interactor.selectResponse({ response: replies[0] })
+  interactor.selectResponse({ responseKey: replies[0].transcript_url })
   interactor.sendResponse()
   interactor.audioEnded({ transcriptUrl: '/media/a1.txt' })
   assert.equal(output.outputs.at(-1).session.activeAudio, '/media/c2.txt')
