@@ -61,7 +61,7 @@ flowchart TB
 
     subgraph L2["2. Use cases (15 user goals, plus the ports they need)"]
         U1[Challenges · 2]
-        U2["Play · 2 (core)"]
+        U2["Attempt · 2 (core)"]
         U3[Accounts · 5]
         U4[Progress · 4]
         U5[Content · 2]
@@ -93,7 +93,7 @@ The diagram below follows the CSC207 Clean Architecture scenario layout for the 
 ```
 flowchart LR
     subgraph Adapters["Interface adapters"]
-        Controller["[C] Controller<br/>play/adapters/views.py"]
+        Controller["[C] Controller<br/>attempt/adapters/views.py"]
         Presenter["[C] Presenter<br/>builds JSON + status"]
         ViewModel["[C] ViewModel<br/>JSON response payload"]
     end
@@ -101,7 +101,7 @@ flowchart LR
     subgraph UseCases["Application business rules"]
         InputData["[C] InputData<br/>answers, time, ids"]
         InputBoundary["[I] InputBoundary<br/>execute(input)"]
-        Interactor["[C] Interactor<br/>play/use_cases/"]
+        Interactor["[C] Interactor<br/>attempt/use_cases/"]
         OutputBoundary["[I] OutputBoundary<br/>success / errors"]
         OutputData["[C] OutputData<br/>stars, total, saved"]
         DataAccessI["[I] Data access<br/>ChallengeRepository<br/>AttemptRepository<br/>ToneMatcher"]
@@ -142,13 +142,13 @@ It uses five of the six entities: `ConversationNode` belongs to `Challenge` and 
 
 ## File Structure
 
-Each backend app gets the same three folders, one per inner layer, and Django's own files stay as the outer layer. A new `play/` app holds the grading and scoring that today is split between `users/`, `tone/`, and the client.
+Each backend app gets the same three folders, one per inner layer, and Django's own files stay as the outer layer. A new `attempt/` app holds the grading and scoring that today is split between `users/`, `tone/`, and the client.
 
 ```
 backend/
 ├── config/
 │   └── container.py            # composition root: builds each use case with its adapters
-├── challenges/                 # (same shape in play/ and users/)
+├── challenges/                 # (same shape in attempt/ and users/)
 │   ├── domain/                 # entities + rules, no Django imports
 │   ├── use_cases/              # one file per use case + ports.py (interfaces)
 │   ├── adapters/
@@ -158,7 +158,7 @@ backend/
 │   │   └── media_store.py      # file-system implementation (challenges only)
 │   ├── models.py               # Django ORM models
 │   └── admin.py, management/   # Django admin + CLI commands (call use cases)
-├── play/                       # new: CompleteChallenge, GradeTone, scoring rules
+├── attempt/                       # new: CompleteChallenge, GradeTone, scoring rules
 └── tone/                       # storage only: word-vector model, load command, VectorToneMatcher
 
 
@@ -171,7 +171,7 @@ Each backend app is a feature area: it groups related use cases with the entitie
 | App | Use cases | Entities it owns | 
 | ----- | ----- | ----- | 
 | **`challenges/`** | `BrowseChallenges`, `GetChallengeForPlay`, `ImportChallengePackage`, `ValidateChallenges` | `Challenge`, `ConversationNode` | 
-| **`play/` (new)** | `GradeTone`, `CompleteChallenge` | `Attempt`, `StarRules`, `AnswerMatching` | 
+| **`attempt/` (new)** | `GradeTone`, `CompleteChallenge` | `Attempt`, `StarRules`, `AnswerMatching` | 
 | **`users/`** | `SignUp`, `LogIn`, `LogOut`, `GetCurrentUser`, `ListGroups`, `ViewProfile`, `UpdateProfile`, `ViewLeaderboard`, `RecordDailyLogin` | `Profile` | 
 | **`tone/`** | *none: storage only* | *none (word vectors are data, used by `VectorToneMatcher`)* | 
 
@@ -211,7 +211,7 @@ challenges/
 
 ```
 
-Across apps, use cases only meet through interfaces. `CompleteChallenge` in `play/` needs a challenge's answers, which belong to `challenges/`. So `play/` asks for the `ChallengeRepository` interface and never imports the Django `Challenge` model; `config/container.py` plugs in the real class. Each app can then change how it stores data without breaking the others.
+Across apps, use cases only meet through interfaces. `CompleteChallenge` in `attempt/` needs a challenge's answers, which belong to `challenges/`. So `attempt/` asks for the `ChallengeRepository` interface and never imports the Django `Challenge` model; `config/container.py` plugs in the real class. Each app can then change how it stores data without breaking the others.
 
 > **In one sentence:** Each use case owns its controller, interactor, and presenter; use cases in the same app share entities and repositories; different apps talk only through interfaces.
 
@@ -220,11 +220,11 @@ Across apps, use cases only meet through interfaces. `CompleteChallenge` in `pla
 | Currently | Would move to | 
 | ----- | ----- | 
 | Rules inside `views.py` (stars, idempotency, best score) | `domain/` + `use_cases/` | 
-| Tone similarity in `tone/views.py` | `play/domain/` + a tone-matcher adapter | 
+| Tone similarity in `tone/views.py` | `attempt/domain/` + a tone-matcher adapter | 
 | `Model.objects...` calls inside views | `adapters/repositories.py` | 
 | `MEDIA_ROOT` paths in `importer.py` | `adapters/media_store.py` | 
 | `_challenge_detail`, `_profile_data` helpers | `adapters/presenters.py` | 
-| Grading logic previously handled on the client | Server `play/domain/` | 
+| Grading logic previously handled on the client | Server `attempt/domain/` | 
 
 ## Entities
 
@@ -234,9 +234,9 @@ Six entities hold every business rule in the app. Today these rules are scattere
 | ----- | ----- | ----- | ----- | 
 | **`Challenge`** | One simulated call: name, date, difficulty, category, the right tone, the required action, the conversation tree | Must have a valid tree; answers are never shown to players | `challenges/models.py` | 
 | **`ConversationNode`** | One turn in the call: customer or agent, plus its transcript and audio | Turns alternate customer $\leftrightarrow$ agent, starting with the customer; file names are safe | `validate_conversation_tree` in `challenges/models.py` | 
-| **`Attempt`** | One finished play of a challenge by a user | The same submission ID can't be counted twice or reused for a different result | `save_challenge_score` in `users/views.py` | 
+| **`Attempt`** | One finished attempt of a challenge by a user | The same submission ID can't be counted twice or reused for a different result | `save_challenge_score` in `users/views.py` | 
 | **`Profile`** | A player's progress: avatar, team, best score per challenge, login days | Keep only the best score; `total` = sum of best scores; `streak` = consecutive login days | `users/models.py` + `users/views.py` | 
-| **`StarRules`** | How a play is scored | 1 star each for: correct tone, answering within 10 seconds, correct action; 0–3 total | `users/views.py` (and duplicated on the client) | 
+| **`StarRules`** | How a attempt is scored | 1 star each for: correct tone, answering within 10 seconds, correct action; 0–3 total | `users/views.py` (and duplicated on the client) | 
 | **`AnswerMatching`** | How answers are judged | Tone is correct at cosine similarity $\ge 0.65$; action is correct when every keyword appears | `tone/views.py` (and client logic) | 
 
 > *Note: The login account itself (username, password, session) stays with Django's built-in auth; `Profile` is the part the business cares about.*
@@ -249,8 +249,8 @@ The app has **15 use cases**. The team's view that *"each endpoint is a use case
 | ----- | ----- | ----- | ----- | 
 | **Challenges** | `BrowseChallenges` | See and search the calendar of challenges | `GET /api/challenges/` | 
 | **Challenges** | `GetChallengeForPlay` | Load a challenge, without its answers | `GET /api/challenges/<slug>/` | 
-| **Play** | `GradeTone` | Get instant feedback on the tone word | `GET /api/tone/<slug>/` | 
-| **Play** | `CompleteChallenge` | Submit answers, get stars, save the attempt | Score endpoint + client-side grading | 
+| **Attempt** | `GradeTone` | Get instant feedback on the tone word | `GET /api/tone/<slug>/` | 
+| **Attempt** | `CompleteChallenge` | Submit answers, get stars, save the attempt | Score endpoint + client-side grading | 
 | **Accounts** | `SignUp` | Create an account | `auth/signup/` | 
 | **Accounts** | `LogIn` | Start a session | `auth/login/` | 
 | **Accounts** | `LogOut` | End the session | `auth/logout/` | 
@@ -288,7 +288,7 @@ The migration is split into **two separate tracks**—**Track A (Backend)** and 
 
 #### Wave A0: Backend Foundation (1–2 days, one person)
 
-1. Create the backend folder skeleton (`domain/`, `use_cases/`, `adapters/` across apps, plus the new `play/` app).
+1. Create the backend folder skeleton (`domain/`, `use_cases/`, `adapters/` across apps, plus the new `attempt/` app).
 
 2. Write the six entities as plain Python classes with no Django imports.
 
@@ -312,7 +312,7 @@ Once a backend slice's API endpoints are migrated and verified, the correspondin
 
 #### Wave B0: Frontend Foundation (1 day, one person)
 
-1. Create the feature-based folder skeleton (`features/play/`, `features/home/`, `features/accounts/`, `features/profile/`, `shared/`).
+1. Create the feature-based folder skeleton (`features/attempt/`, `features/home/`, `features/accounts/`, `features/profile/`, `shared/`).
 
 2. Split shared frontend files that cause merge conflicts (`ChallengePage.tsx`, `challenges.ts`, `App.tsx`).
 

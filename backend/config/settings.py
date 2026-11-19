@@ -33,7 +33,7 @@ ALLOWED_HOSTS = []
 INSTALLED_APPS = [
     "corsheaders",
     "challenges",
-    "play",
+    "attempt",
     "tone",
     "users",
     "django.contrib.admin",

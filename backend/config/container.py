@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 
 from challenges.use_cases.ports import ChallengeRepository, MediaStore
-from play.use_cases.ports import AttemptRepository, ToneMatcher
+from attempt.use_cases.ports import AttemptRepository, ToneMatcher
 from tone.use_cases.ports import ToneVectorRepository
 from users.use_cases.ports import AuthGateway, GroupRepository, ProfileRepository
 
