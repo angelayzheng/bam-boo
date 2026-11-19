@@ -1,6 +1,5 @@
 import json
 from math import isfinite
-from uuid import UUID
 
 from django.contrib.auth.models import Group
 from django.core.exceptions import ValidationError
@@ -8,16 +7,16 @@ from django.core.validators import validate_email
 from django.db import transaction
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
-from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 from django.utils.text import slugify
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_GET, require_http_methods, require_POST
 
-from challenges.models import Challenge
+from play.adapters.record_challenge_attempt.record_challenge_attempt_factory import (
+    build_record_challenge_attempt_use_case,
+)
 from users.models import (
     AvatarChoices,
-    ChallengeAttempt,
     UserProfile,
     validate_login_days,
     validate_scores,
@@ -58,92 +57,27 @@ def save_challenge_score(request, challenge_slug):
         return JsonResponse({"detail": "Expected a valid JSON object."}, status=400)
     if not isinstance(payload, dict):
         return JsonResponse({"detail": "Expected a JSON object."}, status=400)
-    if not all(
-        isinstance(payload.get(key), bool) for key in ("tone_correct", "action_correct")
-    ):
-        return JsonResponse(
-            {"detail": "tone_correct and action_correct must be booleans."}, status=400
-        )
-    tone_time = payload.get("tone_time")
-    if (
-        isinstance(tone_time, bool)
-        or not isinstance(tone_time, (int, float))
-        or (isinstance(tone_time, float) and not isfinite(tone_time))
-        or tone_time < 0
-    ):
-        return JsonResponse(
-            {"detail": "tone_time must be a finite, non-negative number of seconds."},
-            status=400,
-        )
-    try:
-        if not isinstance(payload.get("attempt_id"), str):
-            raise ValueError
-        attempt_id = str(UUID(payload["attempt_id"]))
-        if not isinstance(payload.get("completed_at"), str):
-            raise ValueError
-        completed_at = parse_datetime(payload["completed_at"])
-        if completed_at is None or timezone.is_naive(completed_at):
-            raise ValueError
-    except ValueError, TypeError:
-        return JsonResponse(
-            {
-                "detail": "A valid attempt_id UUID and timezone-aware completed_at timestamp are required."
-            },
-            status=400,
-        )
-    challenge = Challenge.objects.filter(slug=challenge_slug).first()
-    if challenge is None:
-        return JsonResponse({"detail": "Challenge not found."}, status=404)
 
-    score = (
-        int(payload["tone_correct"])
-        + int(tone_time <= 10)
-        + int(payload["action_correct"])
+    completed_at = None
+    completed_at_raw = payload.get("completed_at")
+    if isinstance(completed_at_raw, str):
+        try:
+            completed_at = parse_datetime(completed_at_raw)
+        except TypeError, ValueError, OverflowError:
+            completed_at = None
+
+    use_case = build_record_challenge_attempt_use_case()
+    use_case.controller.execute(
+        user_id=request.user.pk,
+        challenge_slug=challenge_slug,
+        attempt_id=payload.get("attempt_id"),
+        tone_correct=payload.get("tone_correct"),
+        action_correct=payload.get("action_correct"),
+        tone_time=payload.get("tone_time"),
+        completed_at=completed_at,
     )
-    with transaction.atomic():
-        profile = (
-            UserProfile.objects.select_for_update()
-            .select_related("user")
-            .get(user=request.user)
-        )
-        attempt, created = ChallengeAttempt.objects.get_or_create(
-            submission_id=attempt_id,
-            defaults={
-                "profile": profile,
-                "challenge": challenge,
-                "score": score,
-                "completed_at": completed_at,
-            },
-        )
-        if (
-            attempt.profile_id != profile.pk
-            or attempt.challenge_id != challenge.slug
-            or attempt.score != score
-            or attempt.completed_at != completed_at
-        ):
-            return JsonResponse(
-                {
-                    "detail": "This attempt ID has already been used for a different completion."
-                },
-                status=409,
-            )
-        profile.add_score(
-            challenge.slug, max(profile.scores.get(challenge.slug, 0), score)
-        )
-        profile.save(update_fields=["scores", "total_score", "updated_at"])
     return JsonResponse(
-        {
-            **_profile_data(profile),
-            "attempt": {
-                "id": attempt.pk,
-                "attempt_id": attempt.submission_id,
-                "challenge_slug": attempt.challenge_id,
-                "score": attempt.score,
-                "completed_at": attempt.completed_at.isoformat(),
-                "received_at": attempt.received_at.isoformat(),
-            },
-        },
-        status=201 if created else 200,
+        use_case.presenter.response_body, status=use_case.presenter.status_code
     )
 
 
