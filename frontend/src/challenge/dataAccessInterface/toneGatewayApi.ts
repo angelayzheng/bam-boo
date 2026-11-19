@@ -1,3 +1,5 @@
+import type { ToneGateway } from '../boundaries/dataAccessInterfaces'
+
 export async function scoreTone(
   answer: string,
   challengeSlug: string,
@@ -26,4 +28,8 @@ export async function scoreTone(
     throw new Error('Tone scoring returned an invalid score. Please try again.')
   }
   return result.correct
+}
+
+export const toneApi: ToneGateway = {
+  score: scoreTone,
 }

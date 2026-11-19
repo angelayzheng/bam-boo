@@ -1,6 +1,10 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { matchesAnswer, respond, responseOptions } from '../src/conversation.ts'
+import {
+  matchesAnswer,
+  respond,
+  responseOptions,
+} from '../src/entities/conversationRules.ts'
 
 const turn = (key, type, children = []) => ({
   node_key: key,

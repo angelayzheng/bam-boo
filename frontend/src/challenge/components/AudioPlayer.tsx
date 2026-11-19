@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
-import type { ConversationNode } from '../types'
+import type { ChallengeAudioTurnViewModel } from '../viewModels/challengeViewModel'
 
 interface AudioPlayerProps {
-  node: ConversationNode
+  node: ChallengeAudioTurnViewModel
   label: string
   autoPlay?: boolean
   onEnded?: () => void
@@ -39,7 +39,7 @@ export default function AudioPlayer({
         ref={audio}
         controls
         preload="metadata"
-        src={node.audio_url}
+        src={node.audioUrl}
         aria-label={`${label} recording`}
         className="h-10 w-full"
         onPlay={() => {
