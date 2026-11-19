@@ -46,11 +46,22 @@ During local development, Vite serves the frontend and Django runs the backend s
 
 backend/
 	challenges/       SQLite-backed challenges, tree validation, JSON API, imports, admin upload, production validation
-	users/            User profiles and progress API
+		domain/         Framework-free Challenge and ConversationNode entities
+		use_cases/      Challenge repository and media-store ports
+		adapters/       Challenge interface-adapter foundation
+	play/             Challenge-play domain and use-case port foundation
+	users/            User profiles, progress API, and session authentication
+		domain/         Framework-free Profile entity
+		use_cases/      Profile, auth, and group ports
+		adapters/       Split authentication and progress endpoint adapters
 	tone/             Numberbatch vector import and cosine-similarity API
+		domain/         Tone domain foundation
+		use_cases/      Tone-vector repository port
+		adapters/       Tone interface-adapter foundation
 	media/challenges/ Imported challenge packages grouped by slug (local, not committed)
 	challenges/source_data/challenges/  Authored local challenge packages and manifests
 	config/
+		container.py    Composition boundary for injected adapters
 		settings.py     Django settings, middleware, CORS, and database configuration
 		urls.py         Root, health, and admin routes
 		asgi.py         ASGI entry point
@@ -151,12 +162,15 @@ Vite enables polling for file watching so source changes in mounted Windows work
 
 ## Backend
 
+The backend foundation is being migrated toward Clean Architecture. The framework-free entities live in `challenges/domain/`, `play/domain/`, and `users/domain/`; use-case port protocols are in each feature's `use_cases/` package, while Django endpoints remain at their existing URLs. User authentication and progress endpoints are separated into `users/adapters/auth_views.py` and `users/adapters/progress_views.py`, with `users/views.py` retained as a compatibility export. The new `play/` Django app owns challenge-play and scoring domain types. `config/container.py` is the composition boundary for injecting adapter implementations; it defines no production adapters yet, so current endpoints continue using their existing Django code until later migration waves.
+
 The Django project is configured in `backend/config`:
 
 - `settings.py` enables Django’s built-in apps, `django-cors-headers`, and SQLite.
 - `challenges/` owns dated challenges, their alternating question/response JSON trees, API serialization, package validation/installation, the `import_challenges` and `validate_challenges` commands, the compatibility `seed_kale_demo` command, and the staff-only admin ZIP import. Package loading lives in `challenges/package.py`, FFprobe checks in `challenges/audio.py`, serialization in `challenges/serialization.py`, and production-readiness checks in `challenges/validation.py`. The CLI reads `backend/challenges/source_data/challenges/<slug>/`, while the admin upload extracts and validates a ZIP in a temporary directory before installing. The admin import is disabled as a normal add form because a valid challenge requires a complete media package, and imported challenge fields are read-only so changes go through Replace and keep source and media synchronized. Each challenge has a unique, stable slug, a unique name, and an internal numeric database key that is not exposed by the API. Changing the name or schedule date does not change the slug. SQLite stores metadata and per-turn filenames; UTF-8 transcripts and MP3s remain local files. Authored packages live in `backend/challenges/source_data/challenges/<slug>/`, with `<slug>.json`, flat `audio/`, and flat `transcripts/` folders. The folder name must match the challenge slug. The importer validates selected packages and stages each complete package under both `backend/media/challenges/<slug>/` and `backend/challenges/source_data/challenges/<slug>/`; CLI imports skip the source copy because the package already lives there. Replacement preserves database IDs and restores old files if saving fails. Every imported MP3 must pass `ffprobe` with an MP3 audio stream and positive duration. See [CHALLENGES.md](CHALLENGES.md) for the manifest and publishing workflow.
 - `tone/` owns ConceptNet Numberbatch word embeddings stored as word/vector rows in SQLite. The `load_vectors` management command reads a compressed vector file from `data/numberbatch-en-19.08.txt.gz` or a `--file` path, downloading it if missing. It skips downloading and loading when any vectors already exist unless `--clear` is supplied to replace them. Its tone-similarity endpoint decodes the stored little-endian float vectors and returns cosine similarity in [-1, 1] plus a server-calculated `correct` boolean for the selected challenge. Inputs are case-folded and punctuation/whitespace normalized to Numberbatch underscore phrases. An exact phrase embedding takes precedence; otherwise all component words must exist and their vectors are averaged before scoring. Negative cosine values are preserved. Missing challenges or unknown answer words return JSON `404`, invalid/empty or over-200-character answers return `400`, and an unloaded database, missing reference embedding, or invalid/zero/mismatched vectors returns `503`. The backend owns the correctness threshold and obtains the reference tone exclusively from `Challenge.tone`; client-supplied reference values are ignored. Only `GET` is supported. No tone-specific dependencies or migrations are needed.
-- `users/` owns user profiles, progress endpoints, and session authentication. `forms.py` extends Django's `UserCreationForm` to validate signup credentials, optional email, and an optional existing group; `views.py` uses Django's `authenticate`, `login`, and `logout` functions with the existing database session backend.
+- `users/` owns user profiles, progress endpoints, and session authentication. `forms.py` extends Django's `UserCreationForm` to validate signup credentials, optional email, and an optional existing group; the auth adapter uses Django's `authenticate`, `login`, and `logout` functions with the existing database session backend.
+- `play/` owns framework-free play entities (`Attempt`, `StarRules`, and `AnswerMatching`) and the ports for challenge completion and tone matching. The current score and tone endpoints are not yet wired to these entities.
 - `urls.py` currently defines the following routes:
   - `/`: backend service status JSON.
   - `/api/health/`: health status JSON.
