@@ -4,8 +4,7 @@ from difflib import SequenceMatcher
 from django.http import JsonResponse
 from django.views.decorators.http import require_GET
 
-from .models import Challenge, ChallengeCategory
-from .serialization import tree_with_urls
+from challenges.models import Challenge, ChallengeCategory
 
 NAME_MATCH_THRESHOLD = 0.6
 
@@ -18,19 +17,6 @@ def _challenge_summary(challenge):
         "difficulty": challenge.difficulty,
         "category": challenge.category,
     }
-
-
-def _challenge_detail(challenge):
-    payload = _challenge_summary(challenge)
-    tree = challenge.conversation_tree or {}
-    payload.update(
-        {
-            "tone": challenge.tone,
-            "required_action": challenge.required_action,
-            "conversation_tree": tree_with_urls(tree) if tree else {},
-        }
-    )
-    return payload
 
 
 def _filter_challenges(request):
@@ -95,7 +81,7 @@ def _fuzzy_match_by_name(challenges, name):
 
 @require_GET
 def challenge_list(request):
-    """GET /api/challenges/?category=...&name=...&date=...&difficulty=..."""
+    """GET /api/challenges/?category={}&name={}&...: list challenges with optional filters."""
     challenges, error = _filter_challenges(request)
     if error is not None:
         return error
@@ -107,8 +93,8 @@ def challenge_list(request):
 
 @require_GET
 def challenge_detail(request, slug):
-    """GET /api/challenges/<slug>/: return one challenge by slug."""
+    """GET /api/challenges/<slug>/: return public challenge metadata."""
     challenge = Challenge.objects.filter(slug=slug).first()
     if challenge is None:
         return JsonResponse({"detail": "Challenge not found."}, status=404)
-    return JsonResponse(_challenge_detail(challenge))
+    return JsonResponse(_challenge_summary(challenge))

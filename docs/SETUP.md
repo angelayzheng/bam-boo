@@ -69,7 +69,7 @@ The command downloads the vector file to `data/numberbatch-en-19.08.txt.gz` if n
 
 ```bash
 backend/.venv/bin/python backend/manage.py load_vectors --clear
-backend/.venv/bin/python backend/manage.py load_vectors --file /path/to/numberbatch-en-19.08.txt.gz
+backend/.venv/bin/python backend/manage.py load_vectors --file /play/to/numberbatch-en-19.08.txt.gz
 ```
 
 Combine `--file` with `--clear` to load a different file when vectors are already present.

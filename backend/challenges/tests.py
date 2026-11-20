@@ -110,21 +110,16 @@ class ChallengeModelTests(TestCase):
         detail = self.client.get("/api/challenges/morning-greeting/")
         self.assertEqual(detail.status_code, 200)
         payload = detail.json()
-        self.assertEqual(payload["tone"], challenge.tone)
+        self.assertEqual(
+            set(payload),
+            {"name", "slug", "challenge_date", "difficulty", "category"},
+        )
+        self.assertNotIn("tone", payload)
+        self.assertNotIn("required_action", payload)
+        self.assertNotIn("conversation_tree", payload)
         self.assertEqual(payload["slug"], "morning-greeting")
         self.assertEqual(payload["name"], "Morning Greeting")
         self.assertEqual(payload["challenge_date"], "2026-10-14")
-        self.assertEqual(payload["required_action"], "Greet the customer warmly.")
-        self.assertNotIn("id", payload)
-        self.assertNotIn("created_at", payload)
-        self.assertNotIn("updated_at", payload)
-        tree = payload["conversation_tree"]
-        self.assertEqual(tree["node_key"], "q1")
-        self.assertEqual(tree["transcript_url"], "/media/challenges/greeting/q1.txt")
-        self.assertEqual(tree["audio_url"], "/media/challenges/greeting/q1.mp3")
-        self.assertEqual(tree["children"][0]["node_key"], "r1")
-        self.assertNotIn("text_file", tree)
-        self.assertNotIn("audio_file", tree)
 
     def test_challenge_list_category_filter(self):
         make_challenge()
