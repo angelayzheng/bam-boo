@@ -15,6 +15,8 @@ interface HomeDashboardProps {
   calendar: CalendarViewModel
   leaderboard: LeaderboardViewModel
   onStart: () => void
+  onPreviousMonth: () => void
+  onNextMonth: () => void
 }
 
 export default function HomeDashboard({
@@ -23,6 +25,8 @@ export default function HomeDashboard({
   calendar,
   leaderboard,
   onStart,
+  onPreviousMonth,
+  onNextMonth,
 }: HomeDashboardProps) {
   return (
     <main className="mx-auto grid max-w-7xl min-w-0 gap-10 px-5 py-8 sm:px-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.6fr)]">
@@ -39,6 +43,8 @@ export default function HomeDashboard({
           viewModel={calendar}
           todayChallengeName={challenge.name}
           onStart={onStart}
+          onPreviousMonth={onPreviousMonth}
+          onNextMonth={onNextMonth}
         />
       </div>
     </main>

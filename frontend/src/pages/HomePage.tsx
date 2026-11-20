@@ -27,13 +27,18 @@ export default function HomePage({
   onAccount,
   notice,
 }: HomePageProps) {
-  const { challengeViewModel, calendarViewModel, leaderboardViewModel } =
-    useHomeFlow({
-      challenge,
-      summaries,
-      user,
-      progressVersion,
-    })
+  const {
+    challengeViewModel,
+    calendarViewModel,
+    leaderboardViewModel,
+    previousMonth,
+    nextMonth,
+  } = useHomeFlow({
+    challenge,
+    summaries,
+    user,
+    progressVersion,
+  })
 
   return (
     <div className="bg-beige min-h-screen text-black">
@@ -50,6 +55,8 @@ export default function HomePage({
         calendar={calendarViewModel}
         leaderboard={leaderboardViewModel}
         onStart={onStart}
+        onPreviousMonth={previousMonth}
+        onNextMonth={nextMonth}
       />
     </div>
   )

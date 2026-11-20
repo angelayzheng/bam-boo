@@ -6,19 +6,38 @@ interface CalendarGridProps {
   viewModel: CalendarViewModel
   todayChallengeName: string | null
   onStart: () => void
+  onPreviousMonth: () => void
+  onNextMonth: () => void
 }
 
 export default function CalendarGrid({
   viewModel,
   todayChallengeName,
   onStart,
+  onPreviousMonth,
+  onNextMonth,
 }: CalendarGridProps) {
   return (
     <section className="min-w-0">
       <div className="mb-3 flex items-center justify-between">
         <h2 className="flex items-center gap-3 text-3xl font-bold">
-          <span aria-hidden="true">‹</span>
+          <button
+            type="button"
+            onClick={onPreviousMonth}
+            aria-label="Previous month"
+            className="cursor-pointer"
+          >
+            ‹
+          </button>
           {viewModel.monthLabel}
+          <button
+            type="button"
+            onClick={onNextMonth}
+            aria-label="Next month"
+            className="cursor-pointer"
+          >
+            ›
+          </button>
         </h2>
         <p className="text-orange flex items-center gap-1 text-lg font-bold">
           {viewModel.streak}-day streak
