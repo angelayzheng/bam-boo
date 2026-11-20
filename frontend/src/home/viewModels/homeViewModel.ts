@@ -12,6 +12,7 @@ import {
   challengeDateLabel,
 } from '../../viewModels/challengeDatePresenter.ts'
 import type { LeaderboardEntry } from '../boundaries/dataAccessInterfaces'
+import type { CalendarEntry, CalendarMonth } from '../../entities/calendarEntry'
 
 export const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
@@ -76,6 +77,60 @@ export function toCalendarViewModel(
     weekdays: [...WEEKDAYS],
     days: calendar.days,
     streak: calendar.streak,
+    message,
+  }
+}
+
+export function toCalendarViewModelFromEntries(
+  { year, month }: CalendarMonth,
+  entries: CalendarEntry[],
+  streak: number,
+  status: 'ready' | 'error' = 'ready',
+  message = '',
+): CalendarViewModel {
+  const monthIndex = month - 1
+  const startWeekday = new Date(year, monthIndex, 1).getDay()
+  const cellCount = Math.ceil((startWeekday + entries.length) / 7) * 7
+  const todayIso = localIsoDate(new Date())
+
+  const days: CalendarDay[] = Array.from({ length: cellCount }, (_, index) => {
+    const entry = entries[index - startWeekday]
+    const weekend = index % 7 === 0 || index % 7 === 6
+    if (!entry) {
+      return {
+        key: `blank-${index}`,
+        day: null,
+        date: null,
+        inMonth: false,
+        isToday: false,
+        isWeekend: weekend,
+        hasChallenge: false,
+        score: null,
+        missed: false,
+      }
+    }
+    return {
+      key: entry.date,
+      day: Number(entry.date.slice(8, 10)),
+      date: entry.date,
+      inMonth: true,
+      isToday: entry.date === todayIso,
+      isWeekend: weekend,
+      hasChallenge: entry.challenge !== null,
+      score: entry.stars,
+      missed: entry.status === 'missed',
+    }
+  })
+
+  return {
+    status,
+    monthLabel: new Intl.DateTimeFormat('en-CA', {
+      month: 'long',
+      year: 'numeric',
+    }).format(new Date(year, monthIndex, 1)),
+    weekdays: [...WEEKDAYS],
+    days,
+    streak,
     message,
   }
 }
