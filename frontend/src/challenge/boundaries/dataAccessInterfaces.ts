@@ -6,7 +6,6 @@ export interface ToneGateway {
 
 export interface ChallengeGateway {
   loadSummaries(signal: AbortSignal): Promise<ChallengeSummary[]>
-  loadByDate(date: string, signal: AbortSignal): Promise<Challenge>
   loadDetail(slug: string, signal: AbortSignal): Promise<Challenge>
 }
 

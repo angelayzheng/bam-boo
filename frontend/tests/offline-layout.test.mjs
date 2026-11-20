@@ -97,6 +97,11 @@ test('a direct profile visit shows the login form while the account is unknown',
   assert.doesNotMatch(html, /Account unavailable/)
 })
 
+test('a direct slug URL starts the challenge before summaries load', (t) => {
+  const html = renderPage(t, '/challenges/charged-twice')
+  assert.match(html, /Checking your account before starting the challenge/)
+})
+
 test('results distinguish saving, saved, retryable failure, guests, and another account', () => {
   const props = {
     challenge: {
@@ -105,6 +110,7 @@ test('results distinguish saving, saved, retryable failure, guests, and another 
       challenge_date: '2026-10-15',
       required_action: 'reset password',
     },
+    slug: 'test-recording',
     result: {
       challengeSlug: 'test-recording',
       attemptId: '627e5d91-c343-44ae-b6ab-532b2ed41b8e',
