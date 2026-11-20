@@ -37,12 +37,12 @@ function make(gateway, clock = { now: () => 1000 }) {
   return { output, store, interactor }
 }
 
-test('loads the challenge for the date and starts a session at the current time', async () => {
+test('loads the challenge by slug and starts a session at the current time', async () => {
   const { output, store, interactor } = make({
-    loadByDate: async () => demo,
+    loadDetail: async () => demo,
   })
   await interactor.execute({
-    date: '2026-10-15',
+    slug: 'forgot-password-x3',
     signal: new AbortController().signal,
   })
   assert.deepEqual(
@@ -57,14 +57,14 @@ test('loads the challenge for the date and starts a session at the current time'
 
 test('an empty database gives an actionable error', async () => {
   const { output, interactor } = make({
-    loadByDate: async () => {
+    loadDetail: async () => {
       throw new Error(
         'No recordings are available. Run the demo seed command in the setup guide.',
       )
     },
   })
   await interactor.execute({
-    date: '2026-10-15',
+    slug: 'forgot-password-x3',
     signal: new AbortController().signal,
   })
   assert.deepEqual(
@@ -76,12 +76,12 @@ test('an empty database gives an actionable error', async () => {
 
 test('a backend failure surfaces as an error output', async () => {
   const { output, interactor } = make({
-    loadByDate: async () => {
+    loadDetail: async () => {
       throw new Error('Could not load the recording.')
     },
   })
   await interactor.execute({
-    date: '2026-10-15',
+    slug: 'forgot-password-x3',
     signal: new AbortController().signal,
   })
   assert.equal(output.outputs.at(-1).status, 'error')
@@ -91,12 +91,15 @@ test('a backend failure surfaces as an error output', async () => {
 test('a cancelled request does not present beyond loading', async () => {
   const controller = new AbortController()
   const { output, interactor } = make({
-    loadByDate: async () => {
+    loadDetail: async () => {
       controller.abort()
       throw new Error('aborted')
     },
   })
-  await interactor.execute({ date: '2026-10-15', signal: controller.signal })
+  await interactor.execute({
+    slug: 'forgot-password-x3',
+    signal: controller.signal,
+  })
   assert.deepEqual(
     output.outputs.map(({ status }) => status),
     ['loading'],

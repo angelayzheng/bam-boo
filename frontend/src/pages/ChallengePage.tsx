@@ -14,17 +14,17 @@ import ResponseStage from '../challenge/components/ResponseStage'
 import ActionStage from '../challenge/components/ActionStage'
 
 interface ChallengePageProps {
-  date: string
+  slug: string
   onExit: () => void
   onComplete: (result: ResultData, challenge: Challenge) => void
 }
 
 export default function ChallengePage({
-  date,
+  slug,
   onExit,
   onComplete,
 }: ChallengePageProps) {
-  const { viewModel, completion, controller, retry } = useChallengeFlow(date)
+  const { viewModel, completion, controller, retry } = useChallengeFlow(slug)
   const toneRequest = useRef<AbortController | null>(null)
   const endRef = useRef<HTMLDivElement>(null)
   const lastSeen = useRef({ length: 0, stage: '' })

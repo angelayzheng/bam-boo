@@ -31,7 +31,7 @@ export class StartChallengeInteractor implements StartChallengeInputBoundary {
   async execute(input: StartChallengeInputData): Promise<void> {
     this.output.present({ status: 'loading' })
     try {
-      const challenge = await this.gateway.loadByDate(input.date, input.signal)
+      const challenge = await this.gateway.loadDetail(input.slug, input.signal)
       if (input.signal.aborted) return
       const session = new ChallengeSession(challenge, this.clock.now())
       this.store.set(session)

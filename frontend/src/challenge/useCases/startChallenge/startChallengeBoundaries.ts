@@ -1,5 +1,5 @@
 export interface StartChallengeInputData {
-  date: string
+  slug: string
   signal: AbortSignal
 }
 
