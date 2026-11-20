@@ -12,7 +12,12 @@ import { RestoreSessionPresenter } from './auth/useCases/restoreSession/restoreS
 import type { AuthUser } from './entities/types'
 import { loadChallengeSummaries } from './challenge/dataAccessInterface/challengeGatewayApi'
 import { selectHomeChallenge } from './entities/dailyChallenge'
-import { challengePath, getRoute, resultsPath } from './routes'
+import {
+  challengePath,
+  getRoute,
+  parseChallengePath,
+  resultsPath,
+} from './routes'
 import type { Challenge, ChallengeSummary, ResultData } from './entities/types'
 import type { ScoreSaveState } from './types'
 
@@ -151,7 +156,7 @@ function App() {
   const startChallenge = () => {
     if (!todayChallenge) return
     // Keep the last completion available while its score saves in the background.
-    navigate(challengePath(todayChallenge.challenge_date))
+    navigate(challengePath(todayChallenge.slug))
   }
 
   const completeChallenge = (
@@ -166,10 +171,11 @@ function App() {
       RESULT_STORAGE_KEY,
       JSON.stringify(ownedResult),
     )
-    navigate(resultsPath(completedChallenge.challenge_date))
+    navigate(resultsPath(completedChallenge.slug))
   }
 
-  const route = getRoute(pathname, todayChallenge?.challenge_date)
+  const route = getRoute(pathname)
+  const challengeRoute = parseChallengePath(pathname)
   const openAccount = () => navigate(user ? '/profile' : '/login')
 
   const connecting = authLoading || (!todayChallenge && !error)
@@ -251,11 +257,7 @@ function App() {
               RESULT_STORAGE_KEY,
               JSON.stringify(ownedResult),
             )
-            navigate(
-              todayChallenge
-                ? resultsPath(todayChallenge.challenge_date)
-                : '/profile',
-            )
+            navigate(resultsPath(result.challengeSlug))
           } else {
             navigate('/profile')
           }
@@ -264,7 +266,7 @@ function App() {
     )
   }
 
-  if (todayChallenge && route === 'challenge') {
+  if (challengeRoute && !challengeRoute.results) {
     if (authLoading) {
       return (
         <div className="min-h-screen bg-[#f7f8f5] text-slate-900">
@@ -281,23 +283,23 @@ function App() {
     }
     return (
       <ChallengePage
-        date={todayChallenge.challenge_date}
+        slug={challengeRoute.slug}
         onExit={() => navigate('/')}
         onComplete={completeChallenge}
       />
     )
   }
 
-  if (todayChallenge && route === 'results' && result) {
+  if (challengeRoute?.results && result) {
     const resultsChallenge =
       challenge && challenge.slug === result.challengeSlug ? challenge : null
     return (
       <ResultsPage
         challenge={resultsChallenge}
-        date={todayChallenge.challenge_date}
+        slug={challengeRoute.slug}
         result={result}
         onHome={() => navigate('/')}
-        onRetry={startChallenge}
+        onRetry={() => navigate(challengePath(challengeRoute.slug))}
         user={user}
         sessionLoading={authLoading}
         saveState={scoreSave}
