@@ -1,7 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import {
-  loadByDate,
   loadChallengeSummaries,
   loadDetail,
 } from '../src/challenge/dataAccessInterface/challengeGatewayApi.ts'
@@ -75,33 +74,10 @@ test('detail loads and hydrates transcript and media URLs from any page route', 
   assert.equal(challenge.conversation_tree.children[0].text, 'Agent reply')
 })
 
-test('loading by date finds the summary and hydrates its detail', async (t) => {
-  mockBackend(t, async (url) => {
-    if (url === '/api/challenges/') return Response.json({ challenges: [demo] })
-    if (url === '/api/challenges/forgot-password-x3/')
-      return Response.json(demo)
-    if (url === 'http://localhost:5173/media/c1.txt')
-      return new Response('Customer opening\n')
-    if (url === 'http://localhost:5173/media/a1.txt')
-      return new Response('Agent reply\n')
-    throw new Error(`Unexpected request: ${url}`)
-  })
-  const challenge = await loadByDate('2026-10-15', new AbortController().signal)
-  assert.equal(challenge.slug, 'forgot-password-x3')
-})
-
-test('an unknown date gives an actionable error', async (t) => {
-  mockBackend(t, async () => Response.json({ challenges: [] }))
-  await assert.rejects(
-    loadByDate('2026-10-15', new AbortController().signal),
-    /No recordings are available/,
-  )
-})
-
 test('a backend error does not render a fake scenario', async (t) => {
   mockBackend(t, async () => new Response('Error', { status: 500 }))
   await assert.rejects(
-    loadByDate('2026-10-15', new AbortController().signal),
+    loadDetail('forgot-password-x3', new AbortController().signal),
     /Django backend/,
   )
 })

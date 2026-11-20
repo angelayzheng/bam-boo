@@ -1,0 +1,220 @@
+{
+  "name": "Charged Twice",
+  "slug": "charged-twice",
+  "challenge_date": "2026-11-19",
+  "difficulty": 2,
+  "category": "account",
+  "tone": "anxious",
+  "required_action": "Send email confirming duplicate refund",
+  "conversation_tree": {
+    "type": "question",
+    "node_key": "c1",
+    "text_file": "transcripts/c1.txt",
+    "audio_file": "audio/c1.mp3",
+    "children": [
+      {
+        "type": "response",
+        "node_key": "a1",
+        "text_file": "transcripts/a1.txt",
+        "audio_file": "audio/a1.mp3",
+        "children": [
+          {
+            "type": "question",
+            "node_key": "c2",
+            "text_file": "transcripts/c2.txt",
+            "audio_file": "audio/c2.mp3",
+            "children": [
+              {
+                "type": "response",
+                "node_key": "a4",
+                "text_file": "transcripts/a4.txt",
+                "audio_file": "audio/a4.mp3",
+                "children": [
+                  {
+                    "type": "question",
+                    "node_key": "c5",
+                    "text_file": "transcripts/c5.txt",
+                    "audio_file": "audio/c5.mp3",
+                    "children": [
+                      {
+                        "type": "response",
+                        "node_key": "a7",
+                        "text_file": "transcripts/a7.txt",
+                        "audio_file": "audio/a7.mp3",
+                        "children": [
+                          {
+                            "type": "question",
+                            "node_key": "c7",
+                            "text_file": "transcripts/c7.txt",
+                            "audio_file": "audio/c7.mp3",
+                            "children": []
+                          }
+                        ]
+                      },
+                      {
+                        "type": "response",
+                        "node_key": "a8",
+                        "text_file": "transcripts/a8.txt",
+                        "audio_file": "audio/a8.mp3",
+                        "children": [
+                          {
+                            "type": "question",
+                            "node_key": "c8",
+                            "text_file": "transcripts/c8.txt",
+                            "audio_file": "audio/c8.mp3",
+                            "children": [
+                              {
+                                "type": "response",
+                                "node_key": "a9",
+                                "text_file": "transcripts/a9.txt",
+                                "audio_file": "audio/a9.mp3",
+                                "children": [
+                                  {
+                                    "type": "question",
+                                    "node_key": "c9",
+                                    "text_file": "transcripts/c9.txt",
+                                    "audio_file": "audio/c9.mp3",
+                                    "children": []
+                                  }
+                                ]
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "type": "response",
+        "node_key": "a2",
+        "text_file": "transcripts/a2.txt",
+        "audio_file": "audio/a2.mp3",
+        "children": [
+          {
+            "type": "question",
+            "node_key": "c3",
+            "text_file": "transcripts/c3.txt",
+            "audio_file": "audio/c3.mp3",
+            "children": [
+              {
+                "type": "response",
+                "node_key": "a5",
+                "text_file": "transcripts/a5.txt",
+                "audio_file": "audio/a5.mp3",
+                "children": [
+                  {
+                    "type": "question",
+                    "node_key": "c2b",
+                    "text_file": "transcripts/c2b.txt",
+                    "audio_file": "audio/c2b.mp3",
+                    "children": [
+                      {
+                        "type": "response",
+                        "node_key": "a4b",
+                        "text_file": "transcripts/a4b.txt",
+                        "audio_file": "audio/a4b.mp3",
+                        "children": [
+                          {
+                            "type": "question",
+                            "node_key": "c5b",
+                            "text_file": "transcripts/c5b.txt",
+                            "audio_file": "audio/c5b.mp3",
+                            "children": [
+                              {
+                                "type": "response",
+                                "node_key": "a7b",
+                                "text_file": "transcripts/a7b.txt",
+                                "audio_file": "audio/a7b.mp3",
+                                "children": [
+                                  {
+                                    "type": "question",
+                                    "node_key": "c7b",
+                                    "text_file": "transcripts/c7b.txt",
+                                    "audio_file": "audio/c7b.mp3",
+                                    "children": []
+                                  }
+                                ]
+                              },
+                              {
+                                "type": "response",
+                                "node_key": "a8b",
+                                "text_file": "transcripts/a8b.txt",
+                                "audio_file": "audio/a8b.mp3",
+                                "children": [
+                                  {
+                                    "type": "question",
+                                    "node_key": "c8b",
+                                    "text_file": "transcripts/c8b.txt",
+                                    "audio_file": "audio/c8b.mp3",
+                                    "children": [
+                                      {
+                                        "type": "response",
+                                        "node_key": "a9b",
+                                        "text_file": "transcripts/a9b.txt",
+                                        "audio_file": "audio/a9b.mp3",
+                                        "children": [
+                                          {
+                                            "type": "question",
+                                            "node_key": "c9b",
+                                            "text_file": "transcripts/c9b.txt",
+                                            "audio_file": "audio/c9b.mp3",
+                                            "children": []
+                                          }
+                                        ]
+                                      }
+                                    ]
+                                  }
+                                ]
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "type": "response",
+        "node_key": "a3",
+        "text_file": "transcripts/a3.txt",
+        "audio_file": "audio/a3.mp3",
+        "children": [
+          {
+            "type": "question",
+            "node_key": "c4",
+            "text_file": "transcripts/c4.txt",
+            "audio_file": "audio/c4.mp3",
+            "children": [
+              {
+                "type": "response",
+                "node_key": "a6",
+                "text_file": "transcripts/a6.txt",
+                "audio_file": "audio/a6.mp3",
+                "children": [
+                  {
+                    "type": "question",
+                    "node_key": "c6",
+                    "text_file": "transcripts/c6.txt",
+                    "audio_file": "audio/c6.mp3",
+                    "children": []
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -77,24 +77,7 @@ export async function loadDetail(
   }
 }
 
-export async function loadByDate(
-  date: string,
-  signal: AbortSignal,
-): Promise<Challenge> {
-  const summaries = await loadChallengeSummaries(signal)
-  const summary = summaries.find(
-    ({ challenge_date }) => challenge_date === date,
-  )
-  if (!summary) {
-    throw new Error(
-      'No recordings are available. Run the demo seed command in the setup guide.',
-    )
-  }
-  return loadDetail(summary.slug, signal)
-}
-
 export const challengeApi: ChallengeGateway = {
   loadSummaries: loadChallengeSummaries,
-  loadByDate,
   loadDetail,
 }
