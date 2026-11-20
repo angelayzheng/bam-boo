@@ -45,7 +45,7 @@ interface ChallengeUseCasePorts {
   complete: CompleteChallengeInputBoundary
 }
 
-export function useChallengeFlow(date: string): {
+export function useChallengeFlow(slug: string): {
   viewModel: ChallengeViewModel
   completion: ChallengeCompletion | null
   controller: ChallengeController
@@ -90,9 +90,9 @@ export function useChallengeFlow(date: string): {
 
   useEffect(() => {
     const controller = new AbortController()
-    void flow.start.execute({ date, signal: controller.signal })
+    void flow.start.execute({ slug, signal: controller.signal })
     return () => controller.abort()
-  }, [flow, date, attempt])
+  }, [flow, slug, attempt])
 
   const controller = useMemo<ChallengeController>(
     () => ({

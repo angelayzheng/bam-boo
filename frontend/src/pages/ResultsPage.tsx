@@ -17,7 +17,7 @@ import type { AuthUser } from '../entities/types'
 
 interface ResultsPageProps {
   challenge: Challenge | null
-  date: string
+  slug: string
   result: ResultData
   onHome: () => void
   onRetry: () => void
@@ -193,7 +193,7 @@ function ResultsView({
 
 export default function ResultsPage({
   challenge: seed,
-  date,
+  slug,
   result,
   onHome,
   ...rest
@@ -219,12 +219,12 @@ export default function ResultsPage({
         browserClock,
         store,
       )
-    void interactor.execute({ date, signal: controller.signal }).then(() => {
+    void interactor.execute({ slug, signal: controller.signal }).then(() => {
       const session = store.get()
       if (session) setChallenge(session.challenge)
     })
     return () => controller.abort()
-  }, [challenge, date, attempt])
+  }, [challenge, slug, attempt])
 
   const retryLoad = () => {
     setError('')
