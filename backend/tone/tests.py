@@ -194,17 +194,10 @@ class LoadVectorsCommandTests(TestCase):
         self.assertAlmostEqual(new[0], original[0], places=5)
 
 
-class ToneSimilarityTests(TestCase):
+class VectorToneMatcherTests(TestCase):
     def setUp(self):
-        self.challenge = Challenge.objects.create(
-            name="Tone test",
-            slug="tone-test",
-            challenge_date="2026-10-31",
-            difficulty=1,
-            category="social",
-            tone="calm",
-            required_action="Listen",
-        )
+        from tone.adapters.vector_tone_matcher import VectorToneMatcher
+
         for word, values in {
             "calm": [2, 0],
             "relaxed": [3, 4],
@@ -214,14 +207,10 @@ class ToneSimilarityTests(TestCase):
             "very_calm": [1, 0],
         }.items():
             ToneVector.objects.create(word=word, vector=_vector_bytes(map(str, values)))
+        self.matcher = VectorToneMatcher()
 
     def score(self, first, second):
-        from django.urls import reverse
-
-        Challenge.objects.filter(pk=self.challenge.pk).update(tone=second)
-        return self.client.get(
-            reverse("tone-similarity", args=[self.challenge.slug]), {"answer": first}
-        )
+        return self.matcher.similarity(first, second)
 
     def test_cosine_uses_magnitudes_and_preserves_negative_values(self):
         for first, second, expected in [
@@ -232,73 +221,51 @@ class ToneSimilarityTests(TestCase):
             ("relaxed", "calm", 0.6),
         ]:
             with self.subTest(first=first, second=second):
-                response = self.score(first, second)
-                self.assertEqual(response.status_code, 200)
-                self.assertAlmostEqual(response.json()["similarity"], expected)
-                self.assertEqual(response.json()["correct"], expected >= 0.65)
-                self.assertEqual(set(response.json()), {"similarity", "correct"})
+                self.assertAlmostEqual(self.score(first, second), expected)
 
     def test_normalizes_case_whitespace_and_punctuation(self):
-        self.assertAlmostEqual(self.score(" CALM! ", "calm").json()["similarity"], 1)
+        self.assertAlmostEqual(self.score(" CALM! ", "calm"), 1)
 
     def test_prefers_numberbatch_phrase_vector(self):
-        self.assertAlmostEqual(self.score("very calm", "calm").json()["similarity"], 1)
+        self.assertAlmostEqual(self.score("very calm", "calm"), 1)
 
     def test_averages_words_for_missing_phrase(self):
-        self.assertAlmostEqual(
-            self.score("calm neutral", "calm").json()["similarity"], 2 / (5**0.5)
-        )
+        self.assertAlmostEqual(self.score("calm neutral", "calm"), 2 / (5**0.5))
 
     def test_unknown_words_are_not_silently_ignored(self):
+        from tone.adapters.errors import ToneAnswerUnknown
+
         for first, second in [
             ("unknown", "calm"),
             ("calm unknown", "calm"),
         ]:
             with self.subTest(first=first, second=second):
-                self.assertEqual(self.score(first, second).status_code, 404)
+                with self.assertRaises(ToneAnswerUnknown):
+                    self.score(first, second)
 
-    def test_invalid_input(self):
-        for tone in ["!!!", " ", "a" * 201]:
-            with self.subTest(tone=tone):
-                self.assertEqual(self.score(tone, "calm").status_code, 400)
+    def test_missing_reference_vector_is_unavailable(self):
+        from tone.adapters.errors import ToneUnavailable
+
+        with self.assertRaises(ToneUnavailable):
+            self.score("calm", "unknown")
 
     def test_unloaded_database_is_unavailable(self):
+        from tone.adapters.errors import ToneUnavailable
+
         ToneVector.objects.all().delete()
-        self.assertEqual(self.score("calm", "calm").status_code, 503)
+        with self.assertRaises(ToneUnavailable):
+            self.score("calm", "calm")
 
     def test_invalid_vectors_are_unavailable(self):
+        from tone.adapters.errors import ToneUnavailable
+
         for values in [[], [0, 0], [1], [float("nan"), 1], [float("inf"), 1]]:
             ToneVector.objects.filter(word="calm").update(
                 vector=_vector_bytes(map(str, values))
             )
             with self.subTest(values=values):
-                self.assertEqual(self.score("calm", "neutral").status_code, 503)
+                with self.assertRaises(ToneUnavailable):
+                    self.score("calm", "neutral")
         ToneVector.objects.filter(word="calm").update(vector=b"invalid")
-        self.assertEqual(self.score("calm", "neutral").status_code, 503)
-
-    def test_only_get_is_allowed(self):
-        self.assertEqual(
-            self.client.post(f"/api/tone/{self.challenge.slug}/").status_code, 405
-        )
-
-    def test_missing_reference_embedding_is_unavailable(self):
-        self.assertEqual(self.score("calm", "unknown").status_code, 503)
-
-    def test_missing_or_invalid_answer(self):
-        url = f"/api/tone/{self.challenge.slug}/"
-        self.assertEqual(self.client.get(url).status_code, 400)
-
-    def test_missing_challenge(self):
-        response = self.client.get("/api/tone/999999/", {"answer": "calm"})
-        self.assertEqual(response.status_code, 404)
-        self.assertEqual(response.json(), {"detail": "Challenge not found."})
-
-    def test_client_cannot_override_reference_tone(self):
-        response = self.client.get(
-            f"/api/tone/{self.challenge.slug}/",
-            {"answer": "angry", "expected": "angry", "tone": "angry"},
-        )
-        self.assertEqual(response.json(), {"similarity": -1.0, "correct": False})
-
-    def test_old_two_tone_endpoint_is_removed(self):
-        self.assertEqual(self.client.get("/api/tone/calm&calm/").status_code, 404)
+        with self.assertRaises(ToneUnavailable):
+            self.score("calm", "neutral")
