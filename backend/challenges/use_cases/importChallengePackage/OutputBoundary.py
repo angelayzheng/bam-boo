@@ -1,6 +1,6 @@
 from typing import Protocol
 
-from .import_challenge_package_output_data import (
+from .OutputData import (
     ImportChallengePackageFailureData,
     ImportChallengePackageOutputData,
 )

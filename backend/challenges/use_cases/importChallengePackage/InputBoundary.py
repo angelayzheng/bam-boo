@@ -1,6 +1,6 @@
 from typing import Protocol
 
-from .import_challenge_package_input_data import ImportChallengePackageInputData
+from .InputData import ImportChallengePackageInputData
 
 
 class ImportChallengePackageInputBoundary(Protocol):

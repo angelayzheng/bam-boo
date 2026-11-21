@@ -2,10 +2,10 @@ from collections.abc import Sequence
 from pathlib import Path
 from typing import BinaryIO
 
-from challenges.use_cases.importChallengePackage.import_challenge_package_input_boundary import (
+from challenges.use_cases.importChallengePackage.InputBoundary import (
     ImportChallengePackageInputBoundary,
 )
-from challenges.use_cases.importChallengePackage.import_challenge_package_input_data import (
+from challenges.use_cases.importChallengePackage.InputData import (
     ImportChallengePackageInputData,
     PackageLocation,
 )

@@ -17,14 +17,14 @@ from challenges.use_cases.ports import (
 )
 from play.use_cases.ports import UnitOfWork
 
-from .import_challenge_package_input_boundary import (
+from .InputBoundary import (
     ImportChallengePackageInputBoundary,
 )
-from .import_challenge_package_input_data import ImportChallengePackageInputData
-from .import_challenge_package_output_boundary import (
+from .InputData import ImportChallengePackageInputData
+from .OutputBoundary import (
     ImportChallengePackageOutputBoundary,
 )
-from .import_challenge_package_output_data import (
+from .OutputData import (
     ImportChallengePackageFailureData,
     ImportChallengePackageFailureReason,
     ImportChallengePackageOutputData,

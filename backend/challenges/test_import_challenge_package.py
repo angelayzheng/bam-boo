@@ -17,14 +17,14 @@ from challenges.domain.challenge_package import (
 from challenges.adapters.importChallengePackage.import_challenge_package_controller import (
     ImportChallengePackageController,
 )
-from challenges.use_cases.importChallengePackage.import_challenge_package_input_data import (
+from challenges.use_cases.importChallengePackage.InputData import (
     ImportChallengePackageInputData,
     PackageLocation,
 )
-from challenges.use_cases.importChallengePackage.import_challenge_package_interactor import (
+from challenges.use_cases.importChallengePackage.Interactor import (
     ImportChallengePackageInteractor,
 )
-from challenges.use_cases.importChallengePackage.import_challenge_package_output_data import (
+from challenges.use_cases.importChallengePackage.OutputData import (
     ImportChallengePackageFailureData,
     ImportChallengePackageFailureReason,
     ImportChallengePackageOutputData,

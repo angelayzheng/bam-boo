@@ -13,7 +13,7 @@ from challenges.use_cases.ports import (
     PackageArchiveExtractor,
     PackageSource,
 )
-from challenges.use_cases.importChallengePackage.import_challenge_package_interactor import (
+from challenges.use_cases.importChallengePackage.Interactor import (
     ImportChallengePackageInteractor,
 )
 from play.adapters.record_challenge_attempt.record_challenge_attempt_controller import (
