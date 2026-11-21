@@ -80,7 +80,7 @@ frontend/
 		App.tsx         Top-level training flow, summaries loading, and page navigation
 		pages/          Home, challenge, results, authentication, and profile pages plus the challenge, home, profile, and auth composition hooks
 		components/     Shared interface components and icons
-		entities/      Challenge session, conversation rules, daily-challenge selection, training calendar, user profile progress, auth credentials, and domain types (framework-free)
+		entities/      Challenge session, conversation rules, daily-challenge selection, training calendar, user profile progress, auth credentials, calendar entries (calendarEntry.ts, including month stepping), and domain types (framework-free)
 		challenge/      Challenge route application code; future routes follow the same layout
 			boundaries/    Output boundary and challenge data access interfaces
 			components/    Challenge stage views and audio player
@@ -88,11 +88,11 @@ frontend/
 			viewModels/    Challenge view-model mapper (framework-free)
 			useCases/      One folder per challenge use case with its interactor, boundaries, and presenter
 		home/          Home route application code
-			boundaries/    Profile and leaderboard gateway interfaces
+			boundaries/    Profile, leaderboard, and challenge (calendar) gateway interfaces
 			components/    Daily challenge card, calendar grid, leaderboard
-			dataAccessInterface/  Profile and leaderboard gateways
+			dataAccessInterface/  Profile and leaderboard gateways, and the challenge gateway (challengeApi.ts)
 			viewModels/    Home view models and display formatting
-			useCases/      loadTodayChallenge, loadCalendar, loadLeaderboard (interactor, boundaries, presenter)
+			useCases/      loadTodayChallenge, browseChallenges, loadLeaderboard (interactor, boundaries, presenter)
 		profile/       Profile route application code
 			boundaries/    Profile gateway interface
 			components/    Account details, profile stats, score table
@@ -126,7 +126,7 @@ docs/
 
 ## Frontend
 
-The frontend is written in TypeScript. Its entry point is `frontend/src/main.tsx`; it mounts the root `App` component into the page and loads `frontend/src/index.css`. Training content comes from the Django challenge API and SQLite. `App.tsx` loads the challenge summaries on mount and selects the `forgot-password-x3` demo when present (otherwise the first challenge) for the calendar and route date. Entering the challenge route hands the selected date to the challenge page, whose Start Challenge use case loads that challenge's detail and transcripts in parallel through `challenge/dataAccessInterface/challengeGatewayApi.ts`. Media URLs resolve from the origin root so direct visits to nested challenge routes work. Summary and account failures use a compact inline notice in `App.tsx` with retry, while challenge-detail failures surface inside the challenge and results pages with their own retry action; there is no static-scenario fallback. Without challenge summaries, the home page shows the current local month, an empty leaderboard/progress state, disabled calendar actions, and an empty recording card. Retrying failed requests restores real challenge/account data without reloading the page. The interface is styled with Tailwind CSS utility classes in React components. `frontend/src/index.css` imports Tailwind, defines the design tokens (brand colors, font, radius, shadow, and animation) in an @theme block, and contains global CSS rules. Use the token-based classes (for example bg-beige, text-orange, bg-green-light) instead of arbitrary hex values.
+The frontend is written in TypeScript. Its entry point is `frontend/src/main.tsx`; it mounts the root `App` component into the page and loads `frontend/src/index.css`. Training content comes from the Django challenge API and SQLite. `App.tsx` loads the challenge summaries on mount and selects the `forgot-password-x3` demo when present (otherwise the first challenge) for the route date; the calendar grid itself comes from the calendar endpoint. Entering the challenge route hands the selected date to the challenge page, whose Start Challenge use case loads that challenge's detail and transcripts in parallel through `challenge/dataAccessInterface/challengeGatewayApi.ts`. Media URLs resolve from the origin root so direct visits to nested challenge routes work. Summary and account failures use a compact inline notice in `App.tsx` with retry, while challenge-detail failures surface inside the challenge and results pages with their own retry action; there is no static-scenario fallback. Without challenge summaries, the home page shows the current local month, an empty leaderboard/progress state, disabled calendar actions, and an empty recording card. Retrying failed requests restores real challenge/account data without reloading the page. The interface is styled with Tailwind CSS utility classes in React components. `frontend/src/index.css` imports Tailwind, defines the design tokens (brand colors, font, radius, shadow, and animation) in an @theme block, and contains global CSS rules. Use the token-based classes (for example bg-beige, text-orange, bg-green-light) instead of arbitrary hex values.
 
 Use npm scripts from the `frontend` directory:
 
@@ -146,13 +146,13 @@ Python formatting is enforced with Black using `backend/pyproject.toml`. Fronten
 
 The frontend uses browser history for its routes: `/` renders the calendar, `/challenges/:slug` renders the challenge with that slug, and `/challenges/:slug/complete` renders that challenge's results. The slug comes from the URL and resolves through `GET /api/challenges/<slug>/`. Result feedback is retained in session storage with its challenge slug, per-completion submission token, and original completion timestamp to support a results-page reload during the same browser session. On a results reload the results page loads the challenge detail itself through the Start Challenge use case and returns home when the retained result belongs to a different challenge.
 
-`/login` and `/signup` render `AuthPage.tsx`; `/profile` renders `ProfilePage.tsx` for the signed-in user and the login form while the account is anonymous or unknown. Signed-in visitors to either authentication route see their profile. Account pages resolve independently of challenge loading, including when the database has no challenges or media is unavailable. `App.tsx` restores the account through `/api/users/auth/me/` on mount; session loading and connection failures keep the form visible with a small status notice and retry action. Authentication submission waits for the initial session check to finish, and fields remain editable. A failed session check permits a later login attempt. The home header links to login or the current user's profile instead of displaying a placeholder avatar and streak. Recordings remain available without signing in.
+`/login` and `/signup` render `AuthPage.tsx`; `/profile` renders `ProfilePage.tsx` for the signed-in user and the login form while the account is anonymous or unknown. Signed-in visitors to either authentication route see their profile. Account pages resolve independently of challenge loading, including when the database has no challenges or media is unavailable. `App.tsx` restores the account through `/api/users/auth/me/` on mount; session loading and connection failures keep the form visible with a small status notice and retry action. Authentication submission waits for the initial session check to finish, and fields remain editable. A failed session check permits a later login attempt. The home header links to login or the current user’s profile and shows the signed-in user’s streak, computed on the frontend from their login days; there is no placeholder avatar. Recordings remain available without signing in.
 
 The `auth/` slice owns same-origin, cookie-based authentication. `pages/useAuthFlow.ts` composes `loadSignupGroups` and `authenticateUser` for `AuthPage`; `App.tsx` uses `restoreSession` on mount, and `pages/useProfileFlow.ts` uses `logoutUser` for profile logout. `auth/dataAccessInterface/authGatewayApi.ts` fetches a fresh CSRF token before each signup, login, or logout, so token rotation after login or a change in another tab does not leave a cached token; `httpClient.ts` centralizes response parsing and `ApiError`. Credentials, session identifiers, and CSRF tokens are not written to browser storage. Authentication errors and Django signup validation messages appear in the form; pending submissions disable inputs and the submit button. Requests made by page effects and sign-in forms are cancelled on unmount. Signup checks password confirmation through `entities/authCredentials.ts` before submitting. The score POST remains in `auth/dataAccessInterface/scoreGatewayApi.ts` until the results migration moves it behind its own use case.
 
 The `profile/` slice loads the account through `profile/useCases/loadUserProfile/`, joins saved scores with seeded summaries in `entities/userProfileProgress.ts`, and formats the avatar and score rows in `profile/viewModels/profileViewModel.ts`; `pages/ProfilePage.tsx` is a thin controller. The profile displays the current account's username and email plus its stored avatar, total score, completed challenge count, and per-challenge scores from `/api/users/<id>/profile/`. Profile loading and logout failures have separate error states; profile reads can be retried and a failed logout retains the signed-in account. Successful logout clears the frontend account and locally retained challenge result, then opens login. Profile fields are read-only in the interface, while challenge completion automatically saves scores through the authenticated current-user score endpoint. Results retain their completing account's ID (or `null` for a guest), a unique submission token, and the original completion timestamp alongside feedback in browser session storage. The results page shows saving, saved, and retryable failure states; a session expiry prompts login again. A guest can sign in or sign up to claim their pending result, but a result already assigned to one account is not submitted for another. Saving continues when navigating from results to the calendar or profile, and the profile reloads progress when a save finishes. Starting a retry keeps the previous result until another completion or logout, so beginning an attempt does not cancel an in-flight save. Reloading a retained result reuses its submission token and completion time, so retrying a save does not duplicate attempt history. A newly completed replay receives a new token and is always recorded, even when its score is lower. The profile displays only best scores, while Django admin exposes every attempt with its completion and receipt timestamps. Results saved before completion timestamps were introduced are display-only and require replay to create an attempt; the app does not invent historical completion times. API-client and route tests cover session restoration, authentication requests, fresh CSRF tokens, validation failures, HTML errors, cancellation, profile reads, and account routing without challenge data. Offline-layout regression tests bundle the app in memory with Vite and render it using React's server renderer to check that the calendar and authentication forms render without waiting for backend requests; these checks add no dependencies and do not start a server.
 
-The home route follows the same Clean Architecture pattern. `pages/useHomeFlow.ts` composes three use cases: `loadTodayChallenge` selects the seeded summary through `entities/dailyChallenge.ts`, `loadCalendar` loads the signed-in user's progress through the profile gateway and builds the month grid and streak with `entities/trainingCalendar.ts`, and `loadLeaderboard` loads ranked users through the leaderboard gateway. Each use case has its own presenter and view-model mapper in `home/viewModels/homeViewModel.ts`; `pages/HomePage.tsx` wires them into `home/components/` and renders the calendar grid immediately from an empty training calendar before progress arrives.
+The home route follows the same Clean Architecture pattern. `pages/useHomeFlow.ts` composes three use cases: `loadTodayChallenge` selects the seeded summary through `entities/dailyChallenge.ts`, `browseChallenges` loads one month of the calendar, and `loadLeaderboard` loads ranked users through the leaderboard gateway. `browseChallenges` takes a year and month, asks the `HomeChallengeGateway` (`home/dataAccessInterface/challengeApi.ts`) for that month through `GET /api/calendar/`, and returns one `CalendarEntry` per day (`entities/calendarEntry.ts`) with the status and stars the server decided plus the challenge summary when the day has one. The frontend displays these values and does not compute statuses or stars. The interactor rejects months outside 1 to 12 without calling the gateway, reports gateway failures through its presenter, and presents nothing once its request is aborted. `shiftMonth` in `entities/calendarEntry.ts` is the pure helper behind the ‹ and › buttons, which change the displayed month and trigger a new request. Each use case has its own presenter and view-model mapper in `home/viewModels/homeViewModel.ts`; `pages/HomePage.tsx` wires them into `home/components/` and renders the calendar grid immediately with disabled day cells before the month arrives, while the month buttons stay enabled. Interactor and shiftMonth tests use fakes and need no React, browser, or server.
 
 The challenge route follows Clean Architecture with source dependencies pointing inward only. `entities/` holds the framework-free business rules: `conversationRules.ts` (branch traversal and answer matching), the `ChallengeSession` entity in `challengeSession.ts`, which owns the tone/response/action stage state and exposes pure transitions, and the domain types in `types.ts`. `challenge/useCases/` holds the challenge application code and one folder per use case — `startChallenge/` (loads the challenge detail by date and starts the session), `submitTone/` (scores the answer with elapsed time and double-submit protection), `advanceConversation/` (reply selection, traversal, and audio chaining), and `completeChallenge/` (builds the completion result) — each containing its interactor, input boundary DTOs, and presenter. The shared output boundary lives in `challenge/boundaries/challengeOutputBoundary.ts`, and the `ToneGateway`, `ChallengeGateway`, `Clock`, and `IdGenerator` data access interfaces in `challenge/boundaries/dataAccessInterfaces.ts`; `challenge/dataAccessInterface/` implements them (`challengeGatewayApi.ts`, `toneGatewayApi.ts`, and `browserServices.ts` for time, IDs, and scrolling). `challenge/viewModels/challengeViewModel.ts` converts output data into display-ready view values (options, finished flag, step number, progress), and `pages/useChallengeFlow.ts` composes each use case's presenter, gateways, and interactors behind their input boundaries for the page. `viewModels/challengeDatePresenter.ts` is shared by challenge, home, results, and profile view models to format challenge dates. React components in `challenge/components/` render one view model per stage; `pages/ChallengePage.tsx` is a thin controller that owns only browser concerns (AbortControllers, scrolling, completion navigation). The interactors and entity are unit-tested with fakes in `tests/` without React or a browser.
 
@@ -166,6 +166,8 @@ The backend foundation is being migrated toward Clean Architecture. The framewor
 
 `RecordChallengeAttempt` is the first migrated backend use case. Its input/output data, boundaries, and interactor live in `play/use_cases/record_challenge_attempt/` and depend only on domain entities and the shared `ChallengeRepository`, `AttemptRepository`, and `ProfileRepository` ports plus a `UnitOfWork`. Failures carry a semantic reason and message; `play/adapters/record_challenge_attempt/record_challenge_attempt_presenter.py` maps those reasons to JSON status codes. `play/adapters/record_challenge_attempt/` contains only the controller and presenter. Django implementations of the shared ports live in `challenges/adapters/repositories.py`, `play/adapters/repositories.py`, `users/adapters/repositories.py`, and `play/adapters/unit_of_work.py`. `config/container.py` builds the use case from those adapters, and the score endpoint in `users/adapters/progress_views.py` asks the container for it, parses the request, and returns the presenter's JSON body and status. The ORM models and migrations stay in `users/` and `challenges/`, so the public API and schema are unchanged.
 
+`BrowseChallenges` is the second migrated backend use case. Its input and output data, boundaries, interactor, and data access interface live in `challenges/use_cases/BrowseChallenges/` and depend only on domain types; the interactor imports no Django. For a requested year and month it returns one calendar day for each day of the month and decides each day’s status: `completed` when the user has a best score for that day’s challenge (with stars from 0 to 3), `available` when the day’s challenge is today’s and not completed, `upcoming` for a future challenge, `missed` for a past challenge with no score, and `none` for a day without a challenge. Today’s date comes from an injected clock so tests do not depend on the real date, and months outside 1 to 12 fail through the output boundary. The Django data access and presenter in `challenges/adapters/` read the month’s challenges and the signed-in user’s best scores and shape the JSON, and `config/container.py` builds the use case like the others. 
+
 The Django project is configured in `backend/config`:
 
 - `settings.py` enables Django’s built-in apps, `django-cors-headers`, and SQLite.
@@ -178,6 +180,7 @@ The Django project is configured in `backend/config`:
   - `/api/health/`: health status JSON.
   - `/api/challenges/`: list challenges by `slug`, `name`, `challenge_date`, `difficulty`, and `category`. `category`, `date`, and `difficulty` filters are strict; `name` uses ranked fuzzy matching; malformed filters return JSON `400`.
   - `/api/challenges/<slug>/`: challenge detail with tone, required action, and the full conversation tree. Tree nodes expose transcript/audio URLs only; stored file paths remain internal.
+  - `/api/calendar/?year=<YYYY>&month=<1-12>`: one entry per day of the month with its status, stars, and the day’s challenge fields when it has one. Uses the session user’s best scores when signed in.
   - `/api/users/<id>/profile/`: existing user profile endpoint.
   - `/api/users/<username>/`: public `GET` of a user's profile; authenticated, owner-only `POST` to update profile details.
   - `/api/users/leaderboard/`: top ten users by total score.
@@ -219,6 +222,48 @@ Backend dependencies are pinned in `backend/requirements.txt`. Run Django comman
   }
 }
 ```
+
+### Calendar API
+
+`GET /api/calendar/?year=2026&month=10` returns the month's days in date order:
+
+```json
+{
+  "year": 2026,
+  "month": 10,
+  "days": [
+    {
+      "date": "2026-10-01",
+      "status": "none",
+      "stars": null,
+      "slug": null,
+      "name": null,
+      "difficulty": null,
+      "category": null
+    },
+    {
+      "date": "2026-10-02",
+      "status": "none",
+      "stars": null,
+      "slug": null,
+      "name": null,
+      "difficulty": null,
+      "category": null
+    },
+	...
+	{
+      "date": "2026-10-15",
+      "status": "missed",
+      "stars": null,
+      "slug": "forgot-password-x3",
+      "name": "Forgot Password x3",
+      "difficulty": 1,
+      "category": "account"
+    },
+	...
+```
+
+Statuses: `completed` (the user has a best score for that day's challenge; `stars` is 0 to 3), `available` (today's challenge, not yet completed), `upcoming` (a future challenge), `missed` (a past challenge with no score), and `none` (no challenge that day). `stars` is `null` unless the day is `completed`. The session cookie identifies the user, so the frontend sends no username. The server's date decides "today", which can differ from the user's timezone near midnight. Challenges need real schedule dates for the available day to match the current day.
 
 Story nodes expose `type`, optional `node_key`, `transcript_url`, `audio_url`, and `children`. The stored `text_file` and `audio_file` paths remain internal. Detail responses include the challenge tone; list responses do not.
 
