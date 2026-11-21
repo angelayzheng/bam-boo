@@ -7,14 +7,14 @@ from types import SimpleNamespace
 
 from django.test import SimpleTestCase
 
-from challenges.adapters.importChallengePackage.import_challenge_package_presenter import (
+from challenges.adapters.importChallengePackage.Presenter import (
     ImportChallengePackagePresenter,
 )
 from challenges.domain.challenge import Challenge
 from challenges.domain.challenge_package import (
     ChallengePackageError,
 )
-from challenges.adapters.importChallengePackage.import_challenge_package_controller import (
+from challenges.adapters.importChallengePackage.Controller import (
     ImportChallengePackageController,
 )
 from challenges.use_cases.importChallengePackage.InputData import (

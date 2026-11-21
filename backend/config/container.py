@@ -1,9 +1,9 @@
 from dataclasses import dataclass
 
-from challenges.adapters.importChallengePackage.import_challenge_package_controller import (
+from challenges.adapters.importChallengePackage.Controller import (
     ImportChallengePackageController,
 )
-from challenges.adapters.importChallengePackage.import_challenge_package_presenter import (
+from challenges.adapters.importChallengePackage.Presenter import (
     ImportChallengePackagePresenter,
 )
 from challenges.use_cases.ports import (
@@ -125,9 +125,9 @@ _container: ApplicationContainer | None = None
 
 def build_django_container() -> ApplicationContainer:
     from challenges.adapters.archives import ZipPackageArchiveExtractor
-    from challenges.adapters.audio_validator import FfprobeAudioValidator
-    from challenges.adapters.media_store import FileSystemMediaStore
-    from challenges.adapters.package_source import FileSystemPackageSource
+    from challenges.adapters.AudioValidator import FfprobeAudioValidator
+    from challenges.adapters.MediaStore import FileSystemMediaStore
+    from challenges.adapters.PackageSource import FileSystemPackageSource
     from challenges.adapters.repositories import DjangoChallengeRepository
     from play.adapters.repositories import DjangoAttemptRepository
     from play.adapters.unit_of_work import DjangoUnitOfWork
