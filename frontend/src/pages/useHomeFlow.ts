@@ -65,7 +65,14 @@ export function useHomeFlow({
     month: Number(referenceDate.slice(5, 7)),
   }))
   const [browseResult, setBrowseResult] = useState<BrowseResult | null>(null)
-  const [streak, setStreak] = useState(0)
+  const username = user?.username ?? null
+  const [streakState, setStreakState] = useState<{
+    username: string | null
+    value: number
+  }>({ username: null, value: 0 })
+
+  // Derived: a streak loaded for someone else, or before logging out, never shows.
+  const streak = streakState.username === username ? streakState.value : 0
   const [leaderboardViewModel, setLeaderboardViewModel] = useState(
     initialLeaderboardViewModel,
   )
@@ -114,21 +121,22 @@ export function useHomeFlow({
   }, [useCases, month, user?.username, progressVersion])
 
   useEffect(() => {
+    if (!username) return
     const controller = new AbortController()
-    if (!user) {
-      setStreak(0)
-      return () => controller.abort()
-    }
     profileApi
-      .loadProgress(user.username, controller.signal)
-      .then((progress) =>
-        setStreak(computeStreak(progress.loginDays, localIsoDate(new Date()))),
-      )
+      .loadProgress(username, controller.signal)
+      .then((progress) => {
+        if (controller.signal.aborted) return
+        setStreakState({
+          username,
+          value: computeStreak(progress.loginDays, localIsoDate(new Date())),
+        })
+      })
       .catch(() => {
-        if (!controller.signal.aborted) setStreak(0)
+        if (!controller.signal.aborted) setStreakState({ username, value: 0 })
       })
     return () => controller.abort()
-  }, [user?.username, progressVersion])
+  }, [username, progressVersion])
 
   useEffect(() => {
     const controller = new AbortController()
