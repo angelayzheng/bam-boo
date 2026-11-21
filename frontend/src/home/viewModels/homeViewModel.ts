@@ -1,17 +1,12 @@
 import type { ChallengeSummary } from '../../entities/types'
-import type {
-  CalendarDay,
-  TrainingCalendar,
-} from '../../entities/trainingCalendar'
-import {
-  buildTrainingCalendar,
-  localIsoDate,
-} from '../../entities/trainingCalendar.ts'
+import { localIsoDate } from '../../entities/loginStreak.ts'
+import { emptyCalendarEntries } from '../../entities/calendarEntry.ts'
 import {
   challengeDate,
   challengeDateLabel,
 } from '../../viewModels/challengeDatePresenter.ts'
 import type { LeaderboardEntry } from '../boundaries/dataAccessInterfaces'
+import type { CalendarEntry, CalendarMonth } from '../../entities/calendarEntry'
 
 export const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
@@ -19,6 +14,18 @@ export interface HomeChallengeViewModel {
   name: string | null
   dateLabel: string
   available: boolean
+}
+
+export interface CalendarDay {
+  key: string
+  day: number | null
+  date: string | null
+  inMonth: boolean
+  isToday: boolean
+  isWeekend: boolean
+  hasChallenge: boolean
+  score: number | null
+  missed: boolean
 }
 
 export function toHomeChallengeViewModel(
@@ -50,32 +57,63 @@ export interface CalendarViewModel {
 export function initialCalendarViewModel(
   referenceDate: string,
 ): CalendarViewModel {
-  return toCalendarViewModel(
-    buildTrainingCalendar({
-      summaries: [],
-      scores: {},
-      loginDays: [],
-      referenceDate,
-      progressKnown: false,
-    }),
-  )
+  const month = {
+    year: Number(referenceDate.slice(0, 4)),
+    month: Number(referenceDate.slice(5, 7)),
+  }
+  return toCalendarViewModelFromEntries(month, emptyCalendarEntries(month), 0)
 }
 
-export function toCalendarViewModel(
-  calendar: TrainingCalendar,
+export function toCalendarViewModelFromEntries(
+  { year, month }: CalendarMonth,
+  entries: CalendarEntry[],
+  streak: number,
   status: 'ready' | 'error' = 'ready',
   message = '',
 ): CalendarViewModel {
-  const month = new Date(calendar.year, calendar.monthIndex, 1)
+  const monthIndex = month - 1
+  const startWeekday = new Date(year, monthIndex, 1).getDay()
+  const cellCount = Math.ceil((startWeekday + entries.length) / 7) * 7
+  const todayIso = localIsoDate(new Date())
+
+  const days: CalendarDay[] = Array.from({ length: cellCount }, (_, index) => {
+    const entry = entries[index - startWeekday]
+    const weekend = index % 7 === 0 || index % 7 === 6
+    if (!entry) {
+      return {
+        key: `blank-${index}`,
+        day: null,
+        date: null,
+        inMonth: false,
+        isToday: false,
+        isWeekend: weekend,
+        hasChallenge: false,
+        score: null,
+        missed: false,
+      }
+    }
+    return {
+      key: entry.date,
+      day: Number(entry.date.slice(8, 10)),
+      date: entry.date,
+      inMonth: true,
+      isToday: entry.date === todayIso,
+      isWeekend: weekend,
+      hasChallenge: entry.challenge !== null,
+      score: entry.stars,
+      missed: entry.status === 'missed',
+    }
+  })
+
   return {
     status,
     monthLabel: new Intl.DateTimeFormat('en-CA', {
       month: 'long',
       year: 'numeric',
-    }).format(month),
+    }).format(new Date(year, monthIndex, 1)),
     weekdays: [...WEEKDAYS],
-    days: calendar.days,
-    streak: calendar.streak,
+    days,
+    streak,
     message,
   }
 }

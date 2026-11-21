@@ -68,8 +68,13 @@ test('home renders its calendar immediately without backend data', (t) => {
   assert.doesNotMatch(html, /Start challenge|Begin →|Recording unavailable/)
   // Calendar actions stay disabled until a real recording is available.
   const buttons = html.match(/<button\b[^>]*>/g) ?? []
-  assert.ok(buttons.length >= 28)
-  assert.ok(buttons.every((button) => button.includes('disabled')))
+  const isMonthNav = (button) =>
+    /aria-label="(Previous|Next) month"/.test(button)
+  const dayCells = buttons.filter((button) => !isMonthNav(button))
+  assert.ok(dayCells.length >= 28)
+  assert.ok(dayCells.every((button) => button.includes('disabled')))
+  // Month navigation is always available.
+  assert.equal(buttons.filter(isMonthNav).length, 2)
 })
 
 test('login and signup forms remain visible while the session request is pending', (t) => {
