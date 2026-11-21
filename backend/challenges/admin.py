@@ -9,9 +9,10 @@ from django.template.response import TemplateResponse
 from django.urls import path
 from django.utils.html import format_html
 
-from .importer import DEFAULT_MAX_ARCHIVE_BYTES, import_challenge_archive
+from config.container import get_container
+
+from .adapters.archives import DEFAULT_MAX_ARCHIVE_BYTES
 from .models import Challenge
-from .package import ChallengePackageError
 
 
 class ChallengePackageImportForm(forms.Form):
@@ -104,34 +105,32 @@ class ChallengeAdmin(admin.ModelAdmin):
         if request.method == "POST":
             form = ChallengePackageImportForm(request.POST, request.FILES)
             if form.is_valid():
-                try:
-                    result = import_challenge_archive(
-                        form.cleaned_data["package"],
-                        replace=form.cleaned_data["replace"],
-                    )
-                except ChallengePackageError as exc:
-                    form.add_error(None, str(exc))
+                use_case = get_container().build_import_challenge_package_use_case()
+                use_case.controller.execute(
+                    sources=[form.cleaned_data["package"]],
+                    replace=form.cleaned_data["replace"],
+                )
+                view_model = use_case.presenter.view_model
+                if not view_model.success:
+                    form.add_error(None, view_model.message)
                 else:
+                    result = view_model.results[0]
+                    challenge = Challenge.objects.get(slug=result.slug)
                     if result.replaced:
-                        action = "Replaced"
                         self.log_change(
                             request,
-                            result.challenge,
+                            challenge,
                             "Replaced from an uploaded ZIP package.",
                         )
                     else:
-                        action = "Imported"
                         self.log_addition(
                             request,
-                            result.challenge,
+                            challenge,
                             "Imported from an uploaded ZIP package.",
                         )
                     self.message_user(
                         request,
-                        f"{action} {result.challenge.name} "
-                        f"({result.challenge.slug}) for "
-                        f"{result.challenge.challenge_date}: "
-                        f"{result.turn_count} turns.",
+                        view_model.message,
                         level=messages.SUCCESS,
                     )
                     return redirect("admin:challenges_challenge_changelist")
