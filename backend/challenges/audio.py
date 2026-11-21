@@ -6,7 +6,7 @@ import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
-from challenges.domain.challenge_package import AudioValidationError
+from challenges.domain.ChallengePackage import AudioValidationError
 
 FFPROBE_TIMEOUT_SECONDS = 30
 

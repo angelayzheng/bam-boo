@@ -11,7 +11,7 @@ from challenges.adapters.importChallengePackage.Presenter import (
     ImportChallengePackagePresenter,
 )
 from challenges.domain.challenge import Challenge
-from challenges.domain.challenge_package import (
+from challenges.domain.ChallengePackage import (
     ChallengePackageError,
 )
 from challenges.adapters.importChallengePackage.Controller import (

@@ -15,7 +15,7 @@ from .adapters.archives import (
     DEFAULT_MAX_UNCOMPRESSED_BYTES,
     extract_challenge_archive,
 )
-from .domain.challenge_package import ChallengePackageError
+from .domain.ChallengePackage import ChallengePackageError
 from .models import Challenge
 
 
