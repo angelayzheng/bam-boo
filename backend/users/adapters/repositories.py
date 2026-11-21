@@ -12,6 +12,7 @@ def _to_domain(row: UserProfile) -> Profile:
     return Profile(
         user_id=row.user_id,
         username=row.user.username,
+        record_id=row.pk,
         avatar=row.avatar,
         team=slugify(row.group.name) if row.group_id else None,
         scores=dict(row.scores),

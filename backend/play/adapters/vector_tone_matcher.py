@@ -5,7 +5,10 @@ from array import array
 
 from tone.models import ToneVector
 
-from tone.adapters.errors import ToneAnswerUnknown, ToneUnavailable
+from play.use_cases.manage_challenge_run.errors import (
+    ToneAnswerUnknown,
+    ToneUnavailable,
+)
 
 
 def _normalized_words(text):

@@ -80,13 +80,6 @@ class RecordChallengeAttemptInteractor(RecordChallengeAttemptInputBoundary):
             if not isinstance(input_data.attempt_id, str):
                 raise ValueError
             submission_id = str(UUID(input_data.attempt_id))
-            attempt = Attempt(
-                submission_id=submission_id,
-                profile_id=input_data.user_id,
-                challenge_slug=input_data.challenge_slug,
-                score=score,
-                completed_at=completed_at,
-            )
         except TypeError, ValueError:
             self._fail(
                 RecordChallengeAttemptFailureReason.INVALID_INPUT,
@@ -96,13 +89,20 @@ class RecordChallengeAttemptInteractor(RecordChallengeAttemptInputBoundary):
             return
 
         with self._unit_of_work.atomic():
-            profile = self._profiles.get_by_user_id(attempt.profile_id, for_update=True)
+            profile = self._profiles.get_by_user_id(input_data.user_id, for_update=True)
             if profile is None:
                 self._fail(
                     RecordChallengeAttemptFailureReason.PROFILE_NOT_FOUND,
                     "Profile not found.",
                 )
                 return
+            attempt = Attempt(
+                submission_id=submission_id,
+                profile_id=profile.record_id or profile.user_id,
+                challenge_slug=input_data.challenge_slug,
+                score=score,
+                completed_at=completed_at,
+            )
             if self._challenges.get_by_slug(attempt.challenge_slug) is None:
                 self._fail(
                     RecordChallengeAttemptFailureReason.CHALLENGE_NOT_FOUND,

@@ -1,6 +1,6 @@
-class ToneAnswerUnknown(Exception):
-    """The submitted tone has no usable vector representation."""
+from play.use_cases.manage_challenge_run.errors import (
+    ToneAnswerUnknown,
+    ToneUnavailable,
+)
 
-
-class ToneUnavailable(Exception):
-    """Tone vectors cannot be used to grade this answer."""
+__all__ = ["ToneAnswerUnknown", "ToneUnavailable"]
