@@ -23,3 +23,17 @@ export function shiftMonth(
   const d = new Date(Date.UTC(year, month - 1 + delta, 1))
   return { year: d.getUTCFullYear(), month: d.getUTCMonth() + 1 }
 }
+
+export function emptyCalendarEntries({
+  year,
+  month,
+}: CalendarMonth): CalendarEntry[] {
+  const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate()
+  const mm = String(month).padStart(2, '0')
+  return Array.from({ length: daysInMonth }, (_, index): CalendarEntry => ({
+    date: `${year}-${mm}-${String(index + 1).padStart(2, '0')}`,
+    status: 'none',
+    stars: null,
+    challenge: null,
+  }))
+}

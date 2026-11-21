@@ -1,12 +1,6 @@
 import type { ChallengeSummary } from '../../entities/types'
-import type {
-  CalendarDay,
-  TrainingCalendar,
-} from '../../entities/trainingCalendar'
-import {
-  buildTrainingCalendar,
-  localIsoDate,
-} from '../../entities/trainingCalendar.ts'
+import { localIsoDate } from '../../entities/loginStreak.ts'
+import { emptyCalendarEntries } from '../../entities/calendarEntry.ts'
 import {
   challengeDate,
   challengeDateLabel,
@@ -20,6 +14,18 @@ export interface HomeChallengeViewModel {
   name: string | null
   dateLabel: string
   available: boolean
+}
+
+export interface CalendarDay {
+  key: string
+  day: number | null
+  date: string | null
+  inMonth: boolean
+  isToday: boolean
+  isWeekend: boolean
+  hasChallenge: boolean
+  score: number | null
+  missed: boolean
 }
 
 export function toHomeChallengeViewModel(
@@ -51,34 +57,11 @@ export interface CalendarViewModel {
 export function initialCalendarViewModel(
   referenceDate: string,
 ): CalendarViewModel {
-  return toCalendarViewModel(
-    buildTrainingCalendar({
-      summaries: [],
-      scores: {},
-      loginDays: [],
-      referenceDate,
-      progressKnown: false,
-    }),
-  )
-}
-
-export function toCalendarViewModel(
-  calendar: TrainingCalendar,
-  status: 'ready' | 'error' = 'ready',
-  message = '',
-): CalendarViewModel {
-  const month = new Date(calendar.year, calendar.monthIndex, 1)
-  return {
-    status,
-    monthLabel: new Intl.DateTimeFormat('en-CA', {
-      month: 'long',
-      year: 'numeric',
-    }).format(month),
-    weekdays: [...WEEKDAYS],
-    days: calendar.days,
-    streak: calendar.streak,
-    message,
+  const month = {
+    year: Number(referenceDate.slice(0, 4)),
+    month: Number(referenceDate.slice(5, 7)),
   }
+  return toCalendarViewModelFromEntries(month, emptyCalendarEntries(month), 0)
 }
 
 export function toCalendarViewModelFromEntries(
