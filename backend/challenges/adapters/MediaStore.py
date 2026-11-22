@@ -75,36 +75,47 @@ class FileSystemMediaStore(MediaStore):
         self, packages: Sequence[PreparedChallengePackage], *, replace: bool
     ) -> None:
         media_root = Path(settings.MEDIA_ROOT) / "challenges"
-        media_root.mkdir(parents=True, exist_ok=True)
         source_root = Path(package_module.CHALLENGES_DIR)
+
+        try:
+            media_root.mkdir(parents=True, exist_ok=True)
+        except OSError as exc:
+            raise ChallengePackageError(
+                f"Could not stage challenge files: {exc}"
+            ) from exc
 
         with ExitStack() as stack:
             staged = []
-            for item in packages:
-                source = item.source
-                media_temporary, media_staged = _stage_package(
-                    source, media_root, item.challenge.slug
-                )
-                stack.callback(media_temporary.cleanup)
+            try:
+                for item in packages:
+                    source = item.source
+                    media_temporary, media_staged = _stage_package(
+                        source, media_root, item.challenge.slug
+                    )
+                    stack.callback(media_temporary.cleanup)
 
-                install_source = _needs_source_install(source)
-                source_temporary = None
-                source_staged = None
-                if install_source:
-                    source_root.mkdir(parents=True, exist_ok=True)
-                    source_temporary, source_staged = _stage_package(
-                        source, source_root, item.challenge.slug
+                    install_source = _needs_source_install(source)
+                    source_temporary = None
+                    source_staged = None
+                    if install_source:
+                        source_root.mkdir(parents=True, exist_ok=True)
+                        source_temporary, source_staged = _stage_package(
+                            source, source_root, item.challenge.slug
+                        )
+                        stack.callback(source_temporary.cleanup)
+                    staged.append(
+                        (
+                            item,
+                            media_temporary,
+                            media_staged,
+                            source_temporary,
+                            source_staged,
+                        )
                     )
-                    stack.callback(source_temporary.cleanup)
-                staged.append(
-                    (
-                        item,
-                        media_temporary,
-                        media_staged,
-                        source_temporary,
-                        source_staged,
-                    )
-                )
+            except OSError as exc:
+                raise ChallengePackageError(
+                    f"Could not stage challenge files: {exc}"
+                ) from exc
 
             with _import_lock(media_root):
                 backups: list[tuple[Path, Path]] = []
@@ -128,7 +139,9 @@ class FileSystemMediaStore(MediaStore):
                         media_staged.rename(media_destination)
                         installed.append(media_destination)
                         if source_staged is not None:
-                            source_staged.rename(source_root / item.challenge.slug)
+                            source_destination = source_root / item.challenge.slug
+                            source_staged.rename(source_destination)
+                            installed.append(source_destination)
                 except Exception as exc:
                     for path in reversed(installed):
                         _remove_path(path)

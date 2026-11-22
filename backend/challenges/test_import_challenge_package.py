@@ -3,13 +3,20 @@ from dataclasses import dataclass
 from datetime import date
 from io import BytesIO
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from types import SimpleNamespace
+from unittest.mock import patch
 
-from django.test import SimpleTestCase
+from django.core.exceptions import ValidationError
+from django.test import SimpleTestCase, override_settings
 
+from challenges import package as package_module
+
+from challenges.adapters.MediaStore import FileSystemMediaStore
 from challenges.adapters.importChallengePackage.Presenter import (
     ImportChallengePackagePresenter,
 )
+from challenges.adapters.repositories import DjangoChallengeRepository
 from challenges.domain.challenge import Challenge
 from challenges.domain.ChallengePackage import (
     ChallengePackageError,
@@ -109,6 +116,16 @@ class InMemoryChallengeRepository:
 
     def get_by_slug(self, slug):
         return self.records.get(slug)
+
+    def get_by_name(self, name):
+        return next(
+            (
+                challenge
+                for challenge in self.records.values()
+                if challenge.name == name
+            ),
+            None,
+        )
 
     def save(self, challenge):
         self.records[challenge.slug] = challenge
@@ -247,6 +264,32 @@ class ImportChallengePackageInteractorTests(SimpleTestCase):
         self.assertEqual(media.installs, [])
         self.assertFalse(hasattr(presenter.failure, "status_code"))
 
+    def test_existing_name_on_another_challenge_fails_before_saving(self):
+        existing = Challenge(
+            name="Greeting",
+            slug="already-there",
+            challenge_date=date(2026, 10, 15),
+            difficulty=1,
+            category="social",
+            tone="friendly",
+            required_action="greet warmly",
+        )
+        challenges = InMemoryChallengeRepository([existing])
+        media = RecordingMediaStore()
+        interactor, presenter = self.build_interactor(
+            challenges=challenges, media=media
+        )
+
+        interactor.execute(self.input_data())
+
+        self.assertEqual(
+            presenter.failure.reason,
+            ImportChallengePackageFailureReason.INVALID_PACKAGE,
+        )
+        self.assertIn("already used", presenter.failure.message)
+        self.assertEqual(set(challenges.records), {"already-there"})
+        self.assertEqual(media.installs, [])
+
     def test_duplicate_names_fail_before_saving(self):
         packages = InMemoryPackageSource(
             [_loaded_package("greeting"), _loaded_package("farewell", "Greeting")]
@@ -299,6 +342,119 @@ class ImportChallengePackageInteractorTests(SimpleTestCase):
         self.assertTrue(archives.closed)
         self.assertEqual(packages.loaded_folders, [Path("/packages/greeting")])
         self.assertIsNotNone(presenter.success)
+
+
+class DjangoChallengeRepositoryTests(SimpleTestCase):
+    def test_save_translates_validation_error(self):
+        challenge = Challenge(
+            name="Greeting",
+            slug="greeting",
+            challenge_date=date(2026, 10, 15),
+            difficulty=1,
+            category="social",
+            tone="friendly",
+            required_action="greet warmly",
+        )
+        error = ValidationError({"name": ["already exists"]})
+
+        with patch(
+            "challenges.adapters.repositories.challenge_models.Challenge.objects.update_or_create",
+            side_effect=error,
+        ):
+            with self.assertRaisesMessage(
+                ChallengePackageError, "Could not save challenge"
+            ):
+                DjangoChallengeRepository().save(challenge)
+
+
+class FileSystemMediaStoreTests(SimpleTestCase):
+    def _prepared(self, slug, name, folder):
+        challenge = Challenge(
+            name=name,
+            slug=slug,
+            challenge_date=date(2026, 10, 15),
+            difficulty=1,
+            category="social",
+            tone="friendly",
+            required_action="greet warmly",
+        )
+        source = SimpleNamespace(
+            folder=folder,
+            slug=slug,
+            files=frozenset({"audio/q1.mp3"}),
+            turn_count=1,
+        )
+        return SimpleNamespace(challenge=challenge, source=source)
+
+    def _write_package(self, folder):
+        folder.mkdir()
+        (folder / f"{folder.name}.json").write_text("{}", encoding="utf-8")
+        (folder / "audio").mkdir()
+        (folder / "audio" / "q1.mp3").write_bytes(b"audio")
+
+    def test_staging_failure_becomes_package_error(self):
+        with TemporaryDirectory() as root:
+            item = self._prepared("greeting", "Greeting", Path(root) / "missing")
+
+            with override_settings(MEDIA_ROOT=root):
+                with self.assertRaisesMessage(
+                    ChallengePackageError, "Could not stage challenge files"
+                ):
+                    FileSystemMediaStore().install([item], replace=False)
+
+    def test_rollback_removes_installed_source_before_restoring_backup(self):
+        with TemporaryDirectory() as root:
+            root_path = Path(root)
+            media_root = root_path / "media"
+            source_root = root_path / "source"
+            media_root.mkdir()
+            source_root.mkdir()
+            published_media = media_root / "challenges" / "first"
+            published_source = source_root / "first"
+            published_media.mkdir(parents=True)
+            published_source.mkdir()
+            (published_media / "old.txt").write_text("old media", encoding="utf-8")
+            (published_source / "old.txt").write_text("old source", encoding="utf-8")
+
+            first_folder = root_path / "first-package"
+            second_folder = root_path / "second-package"
+            self._write_package(first_folder)
+            self._write_package(second_folder)
+            first = self._prepared("first", "First", first_folder)
+            second = self._prepared("second", "Second", second_folder)
+
+            original_rename = Path.rename
+
+            def fail_on_second_media(path, target):
+                if (
+                    path.name == "new"
+                    and Path(target).parent == media_root / "challenges"
+                    and Path(target).name == "second"
+                ):
+                    raise OSError("Simulated failure")
+                return original_rename(path, target)
+
+            with override_settings(MEDIA_ROOT=media_root):
+                with patch.object(package_module, "CHALLENGES_DIR", source_root):
+                    with patch.object(
+                        Path, "rename", autospec=True, side_effect=fail_on_second_media
+                    ):
+                        with self.assertRaisesMessage(
+                            ChallengePackageError, "Could not save challenge files"
+                        ):
+                            FileSystemMediaStore().install(
+                                [first, second], replace=False
+                            )
+
+            self.assertEqual(
+                (published_media / "old.txt").read_text(encoding="utf-8"), "old media"
+            )
+            self.assertEqual(
+                (published_source / "old.txt").read_text(encoding="utf-8"),
+                "old source",
+            )
+            self.assertFalse((media_root / "challenges" / "second").exists())
+            self.assertFalse((source_root / "second").exists())
 
 
 class ImportChallengePackageControllerTests(SimpleTestCase):

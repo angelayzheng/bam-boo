@@ -98,6 +98,18 @@ class ImportChallengePackageInteractor(ImportChallengePackageInputBoundary):
                         "select Replace to update it.",
                     )
                     return
+
+                existing_name = self._challenges.get_by_name(item.challenge.name)
+                if (
+                    existing_name is not None
+                    and existing_name.slug != item.challenge.slug
+                ):
+                    self._fail(
+                        ImportChallengePackageFailureReason.INVALID_PACKAGE,
+                        f"Challenge name {item.challenge.name!r} is already used "
+                        f"by {existing_name.slug!r}.",
+                    )
+                    return
                 selected.append(item)
 
             if selected:
