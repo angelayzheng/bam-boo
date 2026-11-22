@@ -96,7 +96,7 @@ def validate_conversation_tree(tree):
 class Challenge(models.Model):
     name = models.CharField(max_length=120, unique=True)
     slug = models.SlugField(max_length=120, unique=True)
-    challenge_date = models.DateField(db_index=True)
+    challenge_date = models.DateField(unique=True)
     difficulty = models.PositiveSmallIntegerField(
         validators=[MinValueValidator(1), MaxValueValidator(5)]
     )
