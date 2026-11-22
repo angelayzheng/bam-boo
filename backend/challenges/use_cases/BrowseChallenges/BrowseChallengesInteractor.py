@@ -18,6 +18,7 @@ from .BrowseChallengesInputBoundary import BrowseChallengesInputBoundary
 from .BrowseChallengesInputData import BrowseChallengesInputData
 from .BrowseChallengesOutputBoundary import BrowseChallengesOutputBoundary
 from .BrowseChallengesOutputData import BrowseChallengesOutputData, CalendarDay
+from challenges.domain.calendar_clock import calendar_today
 
 
 class BrowseChallengesInteractor(BrowseChallengesInputBoundary):
@@ -25,7 +26,7 @@ class BrowseChallengesInteractor(BrowseChallengesInputBoundary):
         self,
         data_access: BrowseChallengesDataAccessInterface,
         presenter: BrowseChallengesOutputBoundary,
-        today: Callable[[], date] = date.today,  # injectable so tests are stable
+        today: Callable[[], date] = calendar_today,
     ):
         self._data_access = data_access
         self._presenter = presenter
