@@ -37,6 +37,25 @@ class _PreparedPackage:
     challenge: Challenge
     source: LoadedChallengePackage
 
+    @property
+    def turn_count(self) -> int:
+        return self.source.turn_count
+
+
+@dataclass(frozen=True, slots=True)
+class _SkippedPackage:
+    challenge: Challenge
+    turn_count: int
+
+
+_ImportPackage = _PreparedPackage | _SkippedPackage
+
+
+def _turn_count(tree) -> int:
+    if tree is None:
+        return 0
+    return 1 + sum(_turn_count(child) for child in tree.children)
+
 
 class ImportChallengePackageInteractor(ImportChallengePackageInputBoundary):
     def __init__(
@@ -60,7 +79,7 @@ class ImportChallengePackageInteractor(ImportChallengePackageInputBoundary):
 
     def execute(self, input_data: ImportChallengePackageInputData) -> None:
         with ExitStack() as stack:
-            prepared: list[_PreparedPackage] = []
+            packages: list[_ImportPackage] = []
             for location in input_data.locations:
                 try:
                     folder = location.folder
@@ -68,13 +87,24 @@ class ImportChallengePackageInteractor(ImportChallengePackageInputBoundary):
                         folder = stack.enter_context(
                             self._archives.extract(location.archive)
                         )
-                    prepared.append(self._prepare(folder))
+                    if input_data.skip_existing and not input_data.replace:
+                        existing = self._challenges.get_by_slug(folder.name)
+                        if existing is not None:
+                            packages.append(
+                                _SkippedPackage(
+                                    challenge=existing,
+                                    turn_count=_turn_count(existing.conversation_tree),
+                                )
+                            )
+                            continue
+                    packages.append(self._prepare(folder))
                 except (ChallengePackageError, AudioValidationError) as exc:
                     self._fail(
                         ImportChallengePackageFailureReason.INVALID_PACKAGE, str(exc)
                     )
                     return
 
+            prepared = [item for item in packages if isinstance(item, _PreparedPackage)]
             duplicate = self._find_duplicate(prepared)
             if duplicate is not None:
                 self._fail(
@@ -83,21 +113,18 @@ class ImportChallengePackageInteractor(ImportChallengePackageInputBoundary):
                 return
 
             selected: list[_PreparedPackage] = []
-            skipped: set[int] = set()
-            replaced: dict[int, bool] = {}
-            for index, item in enumerate(prepared):
+            replaced_slugs: set[str] = set()
+            for item in prepared:
                 existing = self._challenges.get_by_slug(item.challenge.slug)
-                replaced[index] = existing is not None
                 if existing is not None and not input_data.replace:
-                    if input_data.skip_existing:
-                        skipped.add(index)
-                        continue
                     self._fail(
                         ImportChallengePackageFailureReason.ALREADY_EXISTS,
                         f"Challenge {item.challenge.slug!r} already exists; "
                         "select Replace to update it.",
                     )
                     return
+                if existing is not None:
+                    replaced_slugs.add(item.challenge.slug)
 
                 existing_name = self._challenges.get_by_name(item.challenge.name)
                 if (
@@ -129,11 +156,12 @@ class ImportChallengePackageInteractor(ImportChallengePackageInputBoundary):
                     slug=item.challenge.slug,
                     name=item.challenge.name,
                     challenge_date=item.challenge.challenge_date,
-                    turn_count=item.source.turn_count,
-                    replaced=replaced[index] and index not in skipped,
-                    skipped=index in skipped,
+                    turn_count=item.turn_count,
+                    replaced=isinstance(item, _PreparedPackage)
+                    and item.challenge.slug in replaced_slugs,
+                    skipped=isinstance(item, _SkippedPackage),
                 )
-                for index, item in enumerate(prepared)
+                for item in packages
             )
 
         self._presenter.prepare_success_view(ImportChallengePackageOutputData(results))

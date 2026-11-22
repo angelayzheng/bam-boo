@@ -19,6 +19,7 @@ from challenges.adapters.importChallengePackage.Presenter import (
 from challenges.adapters.repositories import DjangoChallengeRepository
 from challenges.domain.challenge import Challenge
 from challenges.domain.ChallengePackage import (
+    AudioValidationError,
     ChallengePackageError,
 )
 from challenges.adapters.importChallengePackage.Controller import (
@@ -238,6 +239,36 @@ class ImportChallengePackageInteractorTests(SimpleTestCase):
         interactor.execute(self.input_data(skip_existing=True))
 
         self.assertTrue(presenter.success.results[0].skipped)
+        self.assertEqual(media.installs, [])
+
+    def test_skipped_existing_package_is_not_loaded_or_audio_validated(self):
+        existing = Challenge(
+            name="Greeting",
+            slug="greeting",
+            challenge_date=date(2026, 10, 15),
+            difficulty=1,
+            category="social",
+            tone="friendly",
+            required_action="greet warmly",
+        )
+        packages = InMemoryPackageSource([_loaded_package()])
+        packages.error = ChallengePackageError("damaged package")
+        audio = RecordingAudioValidator(
+            error=AudioValidationError("ffprobe is unavailable")
+        )
+        media = RecordingMediaStore()
+        interactor, presenter = self.build_interactor(
+            challenges=InMemoryChallengeRepository([existing]),
+            packages=packages,
+            audio=audio,
+            media=media,
+        )
+
+        interactor.execute(self.input_data(skip_existing=True))
+
+        self.assertTrue(presenter.success.results[0].skipped)
+        self.assertEqual(packages.loaded_folders, [])
+        self.assertEqual(audio.calls, [])
         self.assertEqual(media.installs, [])
 
     def test_existing_challenge_fails_with_semantic_reason(self):
