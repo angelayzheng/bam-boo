@@ -1,6 +1,5 @@
 import type { ChallengeSummary } from '../../entities/types'
-import { localIsoDate } from '../../entities/loginStreak.ts'
-import { emptyCalendarEntries } from '../../entities/calendarEntry.ts'
+import { calendarToday, monthOfDate } from '../../entities/calendarEntry.ts'
 import {
   challengeDate,
   challengeDateLabel,
@@ -57,11 +56,7 @@ export interface CalendarViewModel {
 export function initialCalendarViewModel(
   referenceDate: string,
 ): CalendarViewModel {
-  const month = {
-    year: Number(referenceDate.slice(0, 4)),
-    month: Number(referenceDate.slice(5, 7)),
-  }
-  return toCalendarViewModelFromEntries(month, emptyCalendarEntries(month), 0)
+  return toCalendarViewModelFromEntries(monthOfDate(referenceDate), [], 0)
 }
 
 export function toCalendarViewModelFromEntries(
@@ -70,38 +65,44 @@ export function toCalendarViewModelFromEntries(
   streak: number,
   status: 'ready' | 'error' = 'ready',
   message = '',
+  todayIso: string = calendarToday(),
 ): CalendarViewModel {
   const monthIndex = month - 1
+  const daysInMonth = new Date(year, month, 0).getDate()
   const startWeekday = new Date(year, monthIndex, 1).getDay()
-  const cellCount = Math.ceil((startWeekday + entries.length) / 7) * 7
-  const todayIso = localIsoDate(new Date())
+  const cellCount = Math.ceil((startWeekday + daysInMonth) / 7) * 7
+  const byDate = new Map(entries.map((entry) => [entry.date, entry]))
+  const prefix = `${String(year).padStart(4, '0')}-${String(month).padStart(2, '0')}`
 
   const days: CalendarDay[] = Array.from({ length: cellCount }, (_, index) => {
-    const entry = entries[index - startWeekday]
-    const weekend = index % 7 === 0 || index % 7 === 6
-    if (!entry) {
+    const dayNumber = index - startWeekday + 1
+    const inMonth = dayNumber >= 1 && dayNumber <= daysInMonth
+    const isWeekend = index % 7 === 0 || index % 7 === 6
+    if (!inMonth) {
       return {
         key: `blank-${index}`,
         day: null,
         date: null,
         inMonth: false,
         isToday: false,
-        isWeekend: weekend,
+        isWeekend,
         hasChallenge: false,
         score: null,
         missed: false,
       }
     }
+    const date = `${prefix}-${String(dayNumber).padStart(2, '0')}`
+    const entry = byDate.get(date)
     return {
-      key: entry.date,
-      day: Number(entry.date.slice(8, 10)),
-      date: entry.date,
+      key: date,
+      day: dayNumber,
+      date,
       inMonth: true,
-      isToday: entry.date === todayIso,
-      isWeekend: weekend,
-      hasChallenge: entry.challenge !== null,
-      score: entry.stars,
-      missed: entry.status === 'missed',
+      isToday: date === todayIso,
+      isWeekend,
+      hasChallenge: Boolean(entry?.challenge),
+      score: entry?.stars ?? null,
+      missed: entry?.status === 'missed',
     }
   })
 
@@ -158,5 +159,5 @@ export function errorLeaderboardViewModel(
 }
 
 export function homeReferenceDate(challenge: ChallengeSummary | null): string {
-  return challenge?.challenge_date ?? localIsoDate(new Date())
+  return challenge?.challenge_date ?? calendarToday()
 }

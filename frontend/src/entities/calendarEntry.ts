@@ -24,20 +24,6 @@ export function shiftMonth(
   return { year: d.getUTCFullYear(), month: d.getUTCMonth() + 1 }
 }
 
-export function emptyCalendarEntries({
-  year,
-  month,
-}: CalendarMonth): CalendarEntry[] {
-  const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate()
-  const mm = String(month).padStart(2, '0')
-  return Array.from({ length: daysInMonth }, (_, index): CalendarEntry => ({
-    date: `${year}-${mm}-${String(index + 1).padStart(2, '0')}`,
-    status: 'none',
-    stars: null,
-    challenge: null,
-  }))
-}
-
 export function monthOfDate(isoDate: string): CalendarMonth {
   return {
     year: Number(isoDate.slice(0, 4)),
@@ -54,3 +40,14 @@ export function resolveCalendarMonth(
   return chosen ?? monthOfDate(referenceDate)
 }
 
+// Must match CALENDAR_TIME_ZONE in the backend (challenges/domain/calendar_clock.py).
+export const CALENDAR_TIME_ZONE = 'America/Toronto'
+
+export function calendarToday(now: Date = new Date()): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: CALENDAR_TIME_ZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(now) // en-CA formats as YYYY-MM-DD
+}

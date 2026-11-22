@@ -200,3 +200,7 @@ test('the calendar follows the challenge date until the user navigates', () => {
   )
 })
 
+test('calendarToday uses the calendar time zone, not the runtime one', () => {
+  // 03:30 UTC on Oct 16 is still 23:30 on Oct 15 in Toronto (EDT).
+  assert.equal(calendarToday(new Date('2026-10-16T03:30:00Z')), '2026-10-15')
+})

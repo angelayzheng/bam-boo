@@ -1,6 +1,5 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { emptyCalendarEntries } from '../src/entities/calendarEntry.ts'
 import {
   initialCalendarViewModel,
   toCalendarViewModelFromEntries,
@@ -14,29 +13,17 @@ const summary = {
   category: 'account',
 }
 
-test('emptyCalendarEntries covers every day of the month, leap years included', () => {
-  const entries = emptyCalendarEntries({ year: 2028, month: 2 })
-  assert.equal(entries.length, 29)
-  assert.equal(entries[0].date, '2028-02-01')
-  assert.equal(entries[28].date, '2028-02-29')
-  assert.ok(entries.every((e) => e.status === 'none' && e.challenge === null))
-})
-
 test('the calendar view model pads a Sunday-first grid and shows server values', () => {
   const month = { year: 2026, month: 10 }
-  const entries = emptyCalendarEntries(month)
-  entries[13] = {
-    date: '2026-10-14',
-    status: 'missed',
-    stars: null,
-    challenge: { ...summary, challenge_date: '2026-10-14' },
-  }
-  entries[14] = {
-    date: '2026-10-15',
-    status: 'completed',
-    stars: 2,
-    challenge: summary,
-  }
+  const entries = [
+    {
+      date: '2026-10-14',
+      status: 'missed',
+      stars: null,
+      challenge: { ...summary, challenge_date: '2026-10-14' },
+    },
+    { date: '2026-10-15', status: 'completed', stars: 2, challenge: summary },
+  ]
 
   const vm = toCalendarViewModelFromEntries(month, entries, 3)
 
@@ -62,4 +49,35 @@ test('the initial calendar view model is an empty month with no streak', () => {
       .filter((d) => d.inMonth)
       .every((d) => !d.hasChallenge && d.score === null),
   )
+})
+
+test('entries are placed by date even when unsorted', () => {
+  const month = { year: 2026, month: 10 }
+  const entries = [
+    { date: '2026-10-15', status: 'completed', stars: 3, challenge: summary },
+    {
+      date: '2026-10-02',
+      status: 'missed',
+      stars: null,
+      challenge: { ...summary, challenge_date: '2026-10-02' },
+    },
+  ]
+  const vm = toCalendarViewModelFromEntries(
+    month,
+    entries,
+    0,
+    'ready',
+    '',
+    '2026-10-15',
+  )
+  const day = (n) => vm.days.find((d) => d.day === n)
+  assert.equal(day(15).score, 3)
+  assert.equal(day(15).isToday, true)
+  assert.equal(day(2).missed, true)
+  assert.equal(day(3).hasChallenge, false)
+})
+
+test('a short or empty entry list still renders the whole month', () => {
+  const vm = toCalendarViewModelFromEntries({ year: 2026, month: 10 }, [], 0)
+  assert.equal(vm.days.filter((d) => d.inMonth).length, 31)
 })
