@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { AuthUser } from '../entities/types'
 import type { ChallengeSummary } from '../entities/types'
+import { resolveCalendarMonth, shiftMonth } from '../entities/calendarEntry'
 import type { CalendarMonth } from '../entities/calendarEntry'
-import { shiftMonth } from '../entities/calendarEntry'
 import { computeStreak, localIsoDate } from '../entities/loginStreak'
 import { leaderboardApi } from '../home/dataAccessInterface/leaderboardGatewayApi'
 import { profileApi } from '../home/dataAccessInterface/profileGatewayApi'
@@ -60,10 +60,11 @@ export function useHomeFlow({
   const [challengeViewModel, setChallengeViewModel] = useState(() =>
     toHomeChallengeViewModel(challenge),
   )
-  const [month, setMonth] = useState<CalendarMonth>(() => ({
-    year: Number(referenceDate.slice(0, 4)),
-    month: Number(referenceDate.slice(5, 7)),
-  }))
+  const [chosenMonth, setChosenMonth] = useState<CalendarMonth | null>(null)
+  const month = useMemo(
+    () => resolveCalendarMonth(referenceDate, chosenMonth),
+    [referenceDate, chosenMonth],
+  )
   const [browseResult, setBrowseResult] = useState<BrowseResult | null>(null)
   const username = user?.username ?? null
   const [streakState, setStreakState] = useState<{
@@ -151,7 +152,7 @@ export function useHomeFlow({
     challengeViewModel,
     calendarViewModel,
     leaderboardViewModel,
-    previousMonth: () => setMonth((m) => shiftMonth(m, -1)),
-    nextMonth: () => setMonth((m) => shiftMonth(m, 1)),
+    previousMonth: () => setChosenMonth(shiftMonth(month, -1)),
+    nextMonth: () => setChosenMonth(shiftMonth(month, 1)),
   }
 }

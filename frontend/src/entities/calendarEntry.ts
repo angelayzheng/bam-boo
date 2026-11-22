@@ -37,3 +37,20 @@ export function emptyCalendarEntries({
     challenge: null,
   }))
 }
+
+export function monthOfDate(isoDate: string): CalendarMonth {
+  return {
+    year: Number(isoDate.slice(0, 4)),
+    month: Number(isoDate.slice(5, 7)),
+  }
+}
+
+// The user's choice wins; otherwise follow the reference date, which changes
+// when the challenge finishes loading.
+export function resolveCalendarMonth(
+  referenceDate: string,
+  chosen: CalendarMonth | null,
+): CalendarMonth {
+  return chosen ?? monthOfDate(referenceDate)
+}
+

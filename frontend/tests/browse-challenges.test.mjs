@@ -1,6 +1,10 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { shiftMonth } from '../src/entities/calendarEntry.ts'
+import {
+  calendarToday,
+  resolveCalendarMonth,
+  shiftMonth,
+} from '../src/entities/calendarEntry.ts'
 import { BrowseChallengesInteractor } from '../src/home/useCases/browseChallenges/browseChallengesInteractor.ts'
 import { BrowseChallengesPresenter } from '../src/home/useCases/browseChallenges/browseChallengesPresenter.ts'
 
@@ -177,3 +181,22 @@ test('shiftMonth moves across year boundaries in both directions', () => {
     month: 5,
   })
 })
+
+test('the calendar follows the challenge date until the user navigates', () => {
+  // Before the challenge loads, the reference date is today.
+  assert.deepEqual(resolveCalendarMonth('2026-11-21', null), {
+    year: 2026,
+    month: 11,
+  })
+  // The challenge arrives with an October date.
+  assert.deepEqual(resolveCalendarMonth('2026-10-15', null), {
+    year: 2026,
+    month: 10,
+  })
+  // A manual choice is never overridden afterwards.
+  assert.deepEqual(
+    resolveCalendarMonth('2026-10-15', { year: 2026, month: 12 }),
+    { year: 2026, month: 12 },
+  )
+})
+
