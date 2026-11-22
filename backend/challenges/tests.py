@@ -1,3 +1,4 @@
+from datetime import date
 import io
 import json
 import stat
@@ -85,10 +86,15 @@ class ChallengeModelTests(TestCase):
         with self.assertRaises(ValidationError):
             make_challenge(name="Another Greeting", slug=challenge.slug)
 
-    def test_multiple_challenges_can_share_a_date(self):
+    def test_two_challenges_cannot_share_a_date(self):
         first = make_challenge()
-        second = make_challenge(name="Evening Greeting", slug="evening-greeting")
-        self.assertNotEqual(first.slug, second.slug)
+        with self.assertRaises(ValidationError):
+            make_challenge(
+                name="Evening Greeting",
+                slug="evening-greeting",
+                challenge_date=first.challenge_date,
+            )
+        self.assertEqual(Challenge.objects.count(), 1)
 
     def test_difficulty_bounds_enforced(self):
         with self.assertRaises(ValidationError):
@@ -132,6 +138,7 @@ class ChallengeModelTests(TestCase):
             name="Server Outage",
             slug="server-outage",
             category="emergency",
+            challenge_date=date(2026, 10, 20),
             difficulty=5,
         )
         filtered = self.client.get("/api/challenges/?category=emergency")
@@ -267,6 +274,14 @@ class MissingChallengeSourceTests(TestCase):
                         call_command("seed_kale_demo", **options)
 
 
+PACKAGE_DATES = {
+    "greeting": "2026-10-15",
+    "farewell": "2026-10-16",
+    "first": "2026-10-17",
+    "second": "2026-10-18",
+}
+
+
 class ImportChallengesTests(MediaTestCase):
     def _package(self, slug="greeting"):
         folder = self.source / slug
@@ -292,7 +307,7 @@ class ImportChallengesTests(MediaTestCase):
         manifest = {
             "name": slug.title(),
             "slug": slug,
-            "challenge_date": "2026-10-15",
+            "challenge_date": PACKAGE_DATES.get(slug, "2026-10-15"),
             "difficulty": 1,
             "category": "social",
             "tone": "friendly",
