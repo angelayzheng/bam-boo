@@ -1,4 +1,4 @@
-import type { AuthUser, ResultData } from '../../entities/types'
+import type { AuthUser } from '../../entities/types'
 import type { AuthCredentials } from '../../entities/authCredentials'
 
 export type { AuthCredentials }
@@ -36,18 +36,17 @@ export interface ScoreSaveResponse {
   completed_challenges: number
   scores: Record<string, number>
   attempt: {
-    id: number
     attempt_id: string
     challenge_slug: string
     score: number
     completed_at: string
-    received_at: string
   }
 }
 
 export interface ScoreGateway {
-  saveChallengeResult(
-    result: ResultData,
+  claimAttempt(
+    attemptId: string,
+    challengeSlug: string,
     signal: AbortSignal,
   ): Promise<ScoreSaveResponse>
 }

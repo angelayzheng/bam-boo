@@ -6,6 +6,10 @@ interface ResponseStageProps {
   toneTime: number
   conversationFinished: boolean
   options: ChallengeResponseOptionViewModel[]
+  choicePending: boolean
+  choiceError: string
+  continuePending: boolean
+  continueError: string
   onSelect: (optionKey: string) => void
   onSend: () => void
   onContinue: () => void
@@ -16,10 +20,15 @@ export default function ResponseStage({
   toneTime,
   conversationFinished,
   options,
+  choicePending,
+  choiceError,
+  continuePending,
+  continueError,
   onSelect,
   onSend,
   onContinue,
 }: ResponseStageProps) {
+  const pending = conversationFinished ? continuePending : choicePending
   return (
     <div className="animate-fade-in">
       <div className="bg-green-pale/50 mb-5 rounded-2xl px-4 py-3 text-base">
@@ -41,7 +50,7 @@ export default function ResponseStage({
             : 'Choose your reply. The customer will respond based on the path you take.'}
         </p>
         {!conversationFinished && (
-          <fieldset className="mt-6 grid gap-3">
+          <fieldset className="mt-6 grid gap-3" disabled={choicePending}>
             <legend className="sr-only">Your next response</legend>
             {options.map((response) => (
               <label
@@ -63,17 +72,29 @@ export default function ResponseStage({
             ))}
           </fieldset>
         )}
+        {(choiceError || continueError) && (
+          <p role="alert" className="mt-4 text-sm text-red-700">
+            {conversationFinished ? continueError : choiceError}
+          </p>
+        )}
         <div className="mt-6 flex justify-end">
           <button
             type="button"
             disabled={
-              !conversationFinished &&
-              !options.some((option) => option.selected)
+              pending ||
+              (!conversationFinished &&
+                !options.some((option) => option.selected))
             }
             onClick={conversationFinished ? onContinue : onSend}
             className={primaryButton}
           >
-            {conversationFinished ? 'Continue to next action' : 'Send response'}
+            {conversationFinished
+              ? continuePending
+                ? 'Continuing…'
+                : 'Continue to next action'
+              : choicePending
+                ? 'Sending response…'
+                : 'Send response'}
           </button>
         </div>
       </section>

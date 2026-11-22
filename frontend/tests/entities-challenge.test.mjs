@@ -5,38 +5,41 @@ import {
   normalizeToneInput,
 } from '../src/entities/challengeSession.ts'
 
-const turn = (key, type, children = []) => ({
-  node_key: key,
-  type,
-  transcript_url: `/media/${key}.txt`,
-  audio_url: `/media/${key}.mp3`,
-  text: key,
-  children,
-})
-
-const endings = ['c5', 'c6', 'c7'].map((key) => turn(key, 'question'))
-const followups = endings.map((ending, index) =>
-  turn(`a${index + 4}`, 'response', [ending]),
-)
-const customers = followups.map((followup, index) =>
-  turn(`c${index + 2}`, 'question', [followup]),
-)
-const replies = customers.map((customer, index) =>
-  turn(`a${index + 1}`, 'response', [customer]),
-)
-const root = turn('c1', 'question', replies)
-
 const challenge = {
   name: 'Forgot Password x3',
   slug: 'forgot-password-x3',
   challenge_date: '2026-10-15',
   difficulty: 1,
   category: 'account',
-  required_action: 'reset password',
-  conversation_tree: root,
 }
 
-const session = () => new ChallengeSession(challenge, 1000)
+const turn = (id, type, text = id) => ({
+  id,
+  type,
+  transcriptUrl: `/media/${id}.txt`,
+  audioUrl: `/media/${id}.mp3`,
+  text,
+})
+
+const baseSnapshot = (overrides = {}) => ({
+  attemptId: 'attempt-1',
+  stage: 'tone',
+  challenge,
+  opening: turn('c1', 'question', 'Customer opening'),
+  conversation: [],
+  choices: [],
+  toneCorrect: null,
+  toneTime: null,
+  toneSpeedCorrect: null,
+  toneSimilarity: null,
+  actionCorrect: null,
+  score: null,
+  requiredAction: null,
+  completedAt: null,
+  ...overrides,
+})
+
+const session = (overrides) => new ChallengeSession(baseSnapshot(overrides))
 
 test('tone input keeps at most two whitespace-separated words', () => {
   assert.equal(normalizeToneInput('very calm'), 'very calm')
@@ -48,112 +51,172 @@ test('tone input keeps at most two whitespace-separated words', () => {
   assert.equal(normalizeToneInput(''), '')
 })
 
-test('a session starts on the tone stage with the tree root', () => {
+test('a session starts from the server snapshot on the tone stage', () => {
   const state = session().snapshot()
   assert.equal(state.stage, 'tone')
-  assert.deepEqual(state.path, [root])
+  assert.equal(state.attemptId, 'attempt-1')
+  assert.deepEqual(state.conversation, [])
   assert.equal(state.tonePending, false)
   assert.equal(state.tone, '')
 })
 
-test('tone submission records the result and moves to the response stage', () => {
-  const s = session()
-  s.changeTone('very calm')
-  s.beginToneSubmission()
-  assert.equal(s.snapshot().tonePending, true)
-  s.recordToneResult(true, 9)
-  const state = s.snapshot()
+test('tone success applies the returned snapshot and clears pending state', () => {
+  const current = session()
+  const choice = { ...turn('a1', 'response'), choiceId: '0' }
+  current.changeTone('very calm')
+  current.beginToneSubmission()
+  assert.equal(current.snapshot().tonePending, true)
+  current.recordToneSuccess(
+    baseSnapshot({
+      stage: 'conversation',
+      conversation: [turn('c1', 'question', 'Customer opening')],
+      choices: [choice],
+      toneCorrect: true,
+      toneTime: 4.2,
+      toneSpeedCorrect: true,
+      toneSimilarity: 0.8,
+    }),
+  )
+  const state = current.snapshot()
   assert.equal(state.tonePending, false)
+  assert.equal(state.stage, 'conversation')
   assert.equal(state.toneCorrect, true)
-  assert.equal(state.toneTime, 9)
-  assert.equal(state.stage, 'response')
+  assert.equal(state.toneTime, 4.2)
+  assert.deepEqual(state.choices, [choice])
 })
 
 test('a tone failure stays on the tone stage and can be retried', () => {
-  const s = session()
-  s.beginToneSubmission()
-  s.recordToneError('Tone scoring is unavailable. Please try again.')
-  const state = s.snapshot()
+  const current = session()
+  current.beginToneSubmission()
+  current.recordToneError('Tone scoring is unavailable. Please try again.')
+  const state = current.snapshot()
   assert.equal(state.tonePending, false)
   assert.equal(state.stage, 'tone')
   assert.equal(
     state.toneError,
     'Tone scoring is unavailable. Please try again.',
   )
-  s.beginToneSubmission()
-  assert.equal(s.snapshot().tonePending, true)
+  current.beginToneSubmission()
+  assert.equal(current.snapshot().tonePending, true)
 })
 
-test('sending a response grows the path and chains the next audio', () => {
-  const s = session()
-  s.selectResponse(replies[0])
-  s.sendResponse()
+test('selecting a choice is validated against the current options', () => {
+  const choice = { ...turn('a1', 'response'), choiceId: '0' }
+  const current = session({
+    stage: 'conversation',
+    conversation: [turn('c1', 'question')],
+    choices: [choice],
+  })
+  assert.throws(() => current.selectChoice('9'), /current conversation turn/)
+  current.selectChoice('0')
+  assert.equal(current.snapshot().selectedChoiceId, '0')
+})
+
+test('a choice response appends the branch and chains the response audio', () => {
+  const choice = { ...turn('a1', 'response'), choiceId: '0' }
+  const current = session({
+    stage: 'conversation',
+    conversation: [turn('c1', 'question')],
+    choices: [choice],
+  })
+  current.selectChoice('0')
+  current.beginChoiceSubmission()
+  current.recordChoiceSuccess(
+    baseSnapshot({
+      stage: 'conversation',
+      conversation: [
+        turn('c1', 'question'),
+        turn('a1', 'response'),
+        turn('c2', 'question'),
+      ],
+      choices: [],
+    }),
+  )
+  const state = current.snapshot()
+  assert.equal(state.choicePending, false)
   assert.deepEqual(
-    s.snapshot().path.map(({ node_key }) => node_key),
+    state.conversation.map(({ id }) => id),
     ['c1', 'a1', 'c2'],
   )
-  assert.equal(s.snapshot().activeAudio, '/media/a1.txt')
-  assert.equal(s.snapshot().selectedResponse, null)
+  assert.equal(state.activeAudio, '/media/a1.txt')
+  assert.equal(state.selectedChoiceId, null)
 })
 
-test('sending without a selection does nothing', () => {
-  const s = session()
-  s.sendResponse()
-  assert.deepEqual(s.snapshot().path, [root])
+test('a choice failure stays on the conversation stage with an error', () => {
+  const current = session({
+    stage: 'conversation',
+    conversation: [turn('c1', 'question')],
+    choices: [{ ...turn('a1', 'response'), choiceId: '0' }],
+  })
+  current.beginChoiceSubmission()
+  current.recordChoiceError('Could not send your response.')
+  const state = current.snapshot()
+  assert.equal(state.choicePending, false)
+  assert.equal(state.choiceError, 'Could not send your response.')
 })
 
-test('audio chaining advances to the next turn and clears at the end', () => {
-  const s = session()
-  s.selectResponse(replies[0])
-  s.sendResponse()
-  s.advanceAudio('/media/a1.txt')
-  assert.equal(s.snapshot().activeAudio, '/media/c2.txt')
-  s.advanceAudio('/media/c2.txt')
-  assert.equal(s.snapshot().activeAudio, '')
-  s.advanceAudio('/media/unknown.txt')
-  assert.equal(s.snapshot().activeAudio, '')
+test('audio progress advances through the conversation and clears at the end', () => {
+  const current = session({
+    stage: 'conversation',
+    conversation: [turn('c1', 'question'), turn('a1', 'response')],
+  })
+  current.advanceAudio('/media/c1.txt')
+  assert.equal(current.snapshot().activeAudio, '/media/a1.txt')
+  current.advanceAudio('/media/a1.txt')
+  assert.equal(current.snapshot().activeAudio, '')
+  current.advanceAudio('/media/unknown.txt')
+  assert.equal(current.snapshot().activeAudio, '')
 })
 
-test('continuing from a finished conversation opens the action stage', () => {
-  const s = session()
-  s.selectResponse(replies[0])
-  s.sendResponse()
-  assert.throws(() => s.continueToAction(), /Finish the conversation/)
-  s.selectResponse(followups[0])
-  s.sendResponse()
-  s.continueToAction()
-  assert.equal(s.snapshot().stage, 'action')
-  assert.equal(s.snapshot().activeAudio, '')
-})
-
-test('a session rejects a conversation tree that does not start with a customer question', () => {
-  assert.throws(
-    () =>
-      new ChallengeSession(
-        { ...challenge, conversation_tree: turn('a1', 'response') },
-        1000,
-      ),
-    /no conversation tree/,
+test('continuing applies the action-stage snapshot and clears audio', () => {
+  const current = session({
+    stage: 'conversation',
+    conversation: [turn('c1', 'question')],
+  })
+  current.beginContinue()
+  current.recordContinueSuccess(
+    baseSnapshot({
+      stage: 'action',
+      conversation: [turn('c1', 'question')],
+    }),
   )
+  assert.equal(current.snapshot().stage, 'action')
+  assert.equal(current.snapshot().continuePending, false)
+  assert.equal(current.snapshot().activeAudio, '')
 })
 
-test('buildResult uses whole-word matching and injected identifiers', () => {
-  const s = session()
-  s.recordToneResult(false, 24)
-  s.changeAction('I will reset the customer’s password.')
-  const result = s.buildResult('attempt-1', '2026-11-11T12:00:00.000Z')
-  assert.deepEqual(result, {
-    challengeSlug: 'forgot-password-x3',
+test('a completed snapshot builds the result the results page uses', () => {
+  const current = session()
+  current.changeAction('I will reset the customer’s password.')
+  current.beginActionSubmission()
+  current.recordActionResult(
+    baseSnapshot({
+      stage: 'completed',
+      conversation: [turn('c1', 'question'), turn('a1', 'response')],
+      toneCorrect: true,
+      toneTime: 5.4,
+      toneSpeedCorrect: true,
+      toneSimilarity: 0.9,
+      actionCorrect: true,
+      score: 3,
+      requiredAction: 'reset password',
+      completedAt: '2026-11-11T12:00:00+00:00',
+    }),
+  )
+  assert.deepEqual(current.buildResult(), {
     attemptId: 'attempt-1',
-    completedAt: '2026-11-11T12:00:00.000Z',
-    toneCorrect: false,
-    toneTime: 24,
+    challenge,
+    completedAt: '2026-11-11T12:00:00+00:00',
+    toneCorrect: true,
+    toneTime: 5.4,
+    toneSpeedCorrect: true,
+    toneSimilarity: 0.9,
     actionCorrect: true,
+    score: 3,
+    requiredAction: 'reset password',
   })
 })
 
-test('buildResult rejects an action that does not match', () => {
-  const s = session()
-  s.changeAction('Freeze the card and open a fraud claim.')
-  assert.equal(s.buildResult('attempt-1', 'now').actionCorrect, false)
+test('an incomplete session cannot build a result', () => {
+  assert.throws(() => session().buildResult(), /not complete/)
 })

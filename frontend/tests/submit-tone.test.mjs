@@ -4,23 +4,39 @@ import { ChallengeSession } from '../src/entities/challengeSession.ts'
 import { SubmitToneInteractor } from '../src/challenge/useCases/submitTone/submitToneInteractor.ts'
 import { createSessionStore } from '../src/challenge/useCases/sessionStore.ts'
 
-const root = {
-  type: 'question',
-  node_key: 'c1',
-  transcript_url: 'media/c1.txt',
-  audio_url: 'media/c1.mp3',
-  text: 'Customer opening',
-  children: [],
-}
-const demo = {
+const challenge = {
   name: 'Forgot Password x3',
   slug: 'forgot-password-x3',
   challenge_date: '2026-10-15',
   difficulty: 1,
   category: 'account',
-  required_action: 'reset password',
-  conversation_tree: root,
 }
+
+const opening = {
+  id: 'c1',
+  type: 'question',
+  transcriptUrl: '/media/c1.txt',
+  audioUrl: '/media/c1.mp3',
+  text: 'Customer opening',
+}
+
+const snapshot = (overrides = {}) => ({
+  attemptId: 'attempt-1',
+  stage: 'tone',
+  challenge,
+  opening,
+  conversation: [],
+  choices: [],
+  toneCorrect: null,
+  toneTime: null,
+  toneSpeedCorrect: null,
+  toneSimilarity: null,
+  actionCorrect: null,
+  score: null,
+  requiredAction: null,
+  completedAt: null,
+  ...overrides,
+})
 
 class FakeOutputBoundary {
   constructor() {
@@ -31,26 +47,29 @@ class FakeOutputBoundary {
   }
 }
 
-function make({ gateway, clock }) {
+function make(gateway) {
   const output = new FakeOutputBoundary()
   const store = createSessionStore()
-  const session = new ChallengeSession(demo, 1000)
-  store.set(session)
-  const interactor = new SubmitToneInteractor(store, gateway, output, clock)
-  return { output, session, interactor }
+  store.set(new ChallengeSession(snapshot()))
+  const interactor = new SubmitToneInteractor(store, gateway, output)
+  return { output, store, interactor }
 }
 
-test('scores the tone, records elapsed time, and advances the stage', async () => {
-  const { output, session, interactor } = make({
-    gateway: {
-      score: async (answer, slug, signal) => {
-        assert.equal(answer, 'concerned')
-        assert.equal(slug, 'forgot-password-x3')
-        assert.ok(signal instanceof AbortSignal)
-        return true
-      },
+test('grades the tone through the attempt and applies the conversation snapshot', async () => {
+  const { output, store, interactor } = make({
+    submitTone: async (attemptId, answer, signal) => {
+      assert.equal(attemptId, 'attempt-1')
+      assert.equal(answer, 'concerned')
+      assert.ok(signal instanceof AbortSignal)
+      return snapshot({
+        stage: 'conversation',
+        conversation: [opening],
+        toneCorrect: true,
+        toneTime: 3.4,
+        toneSpeedCorrect: true,
+        toneSimilarity: 0.8,
+      })
     },
-    clock: { now: () => 4000 },
   })
   await interactor.execute({
     answer: 'concerned',
@@ -61,33 +80,18 @@ test('scores the tone, records elapsed time, and advances the stage', async () =
     [true, false],
   )
   const final = output.outputs.at(-1).session
-  assert.equal(final.stage, 'response')
+  assert.equal(final.stage, 'conversation')
   assert.equal(final.toneCorrect, true)
-  assert.equal(final.toneTime, 3)
-  assert.equal(session.snapshot().stage, 'response')
-})
-
-test('a slow answer still records at least one second', async () => {
-  const { output, interactor } = make({
-    gateway: { score: async () => false },
-    clock: { now: () => 1001 },
-  })
-  await interactor.execute({
-    answer: 'calm',
-    signal: new AbortController().signal,
-  })
-  assert.equal(output.outputs.at(-1).session.toneTime, 1)
-  assert.equal(output.outputs.at(-1).session.toneCorrect, false)
+  assert.equal(final.toneTime, 3.4)
+  assert.equal(final.toneSpeedCorrect, true)
+  assert.equal(store.get().snapshot().stage, 'conversation')
 })
 
 test('a scoring failure stays on the tone step with a retryable message', async () => {
   const { output, interactor } = make({
-    gateway: {
-      score: async () => {
-        throw new Error('Tone scoring is unavailable. Please try again.')
-      },
+    submitTone: async () => {
+      throw new Error('Tone scoring is unavailable. Please try again.')
     },
-    clock: { now: () => 5000 },
   })
   await interactor.execute({
     answer: 'calm',
@@ -104,12 +108,9 @@ test('a scoring failure stays on the tone step with a retryable message', async 
 
 test('unknown errors fall back to the generic tone message', async () => {
   const { output, interactor } = make({
-    gateway: {
-      score: async () => {
-        throw 'boom'
-      },
+    submitTone: async () => {
+      throw 'boom'
     },
-    clock: { now: () => 5000 },
   })
   await interactor.execute({
     answer: 'calm',
@@ -124,13 +125,10 @@ test('unknown errors fall back to the generic tone message', async () => {
 test('a cancelled request presents nothing beyond the pending state', async () => {
   const controller = new AbortController()
   const { output, interactor } = make({
-    gateway: {
-      score: async () => {
-        controller.abort()
-        throw new Error('aborted')
-      },
+    submitTone: async () => {
+      controller.abort()
+      throw new Error('aborted')
     },
-    clock: { now: () => 5000 },
   })
   await interactor.execute({ answer: 'calm', signal: controller.signal })
   assert.equal(output.outputs.length, 1)
@@ -139,8 +137,7 @@ test('a cancelled request presents nothing beyond the pending state', async () =
 
 test('setTone normalizes the answer through the entity', () => {
   const { output, interactor } = make({
-    gateway: { score: async () => true },
-    clock: { now: () => 5000 },
+    submitTone: async () => snapshot(),
   })
   interactor.setTone({ answer: 'frustrated and tired today' })
   assert.equal(output.outputs.at(-1).session.tone, 'frustrated and')
@@ -148,14 +145,16 @@ test('setTone normalizes the answer through the entity', () => {
 
 test('a pending submission cannot be started twice', async () => {
   let calls = 0
+  let release
+  const pending = new Promise((resolve) => {
+    release = resolve
+  })
   const { output, interactor } = make({
-    gateway: {
-      score: async () => {
-        calls += 1
-        return true
-      },
+    submitTone: async () => {
+      calls += 1
+      await pending
+      return snapshot({ stage: 'conversation', conversation: [opening] })
     },
-    clock: { now: () => 5000 },
   })
   const first = interactor.execute({
     answer: 'calm',
@@ -165,7 +164,35 @@ test('a pending submission cannot be started twice', async () => {
     answer: 'calm',
     signal: new AbortController().signal,
   })
+  release()
   await first
   assert.equal(calls, 1)
   assert.equal(output.outputs.length, 2)
+})
+
+test('a non-tone stage cannot submit another tone', async () => {
+  let calls = 0
+  const output = new FakeOutputBoundary()
+  const store = createSessionStore()
+  store.set(
+    new ChallengeSession(
+      snapshot({ stage: 'conversation', conversation: [opening] }),
+    ),
+  )
+  const interactor = new SubmitToneInteractor(
+    store,
+    {
+      submitTone: async () => {
+        calls += 1
+        return snapshot()
+      },
+    },
+    output,
+  )
+  await interactor.execute({
+    answer: 'calm',
+    signal: new AbortController().signal,
+  })
+  assert.equal(calls, 0)
+  assert.equal(output.outputs.length, 0)
 })

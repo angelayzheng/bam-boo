@@ -1,23 +1,10 @@
-import { useEffect, useState } from 'react'
 import Header from '../components/Header'
 import { CheckIcon, StarIcon } from '../components/icons'
 import { challengeDateLabel } from '../viewModels/challengeDatePresenter'
-import { browserClock } from '../challenge/dataAccessInterface/browserServices'
-import { challengeApi } from '../challenge/dataAccessInterface/challengeGatewayApi'
-import type { StartChallengeInputBoundary } from '../challenge/useCases/startChallenge/startChallengeBoundaries'
-import { StartChallengeInteractor } from '../challenge/useCases/startChallenge/startChallengeInteractor'
-import { createSessionStore } from '../challenge/useCases/sessionStore'
-import {
-  ChallengeLoadError,
-  ChallengeLoading,
-} from '../challenge/components/ChallengeLoading'
-import type { Challenge, ResultData } from '../entities/types'
+import type { ResultData, AuthUser } from '../entities/types'
 import type { ScoreSaveState } from '../types'
-import type { AuthUser } from '../entities/types'
 
 interface ResultsPageProps {
-  challenge: Challenge | null
-  slug: string
   result: ResultData
   onHome: () => void
   onRetry: () => void
@@ -32,21 +19,7 @@ interface ResultsPageProps {
 const statusLink =
   'text-green-dark font-semibold underline underline-offset-4 transition hover:text-black'
 
-interface ResultsViewProps {
-  challenge: Challenge
-  result: ResultData
-  onHome: () => void
-  onRetry: () => void
-  user: AuthUser | null
-  sessionLoading: boolean
-  saveState: ScoreSaveState
-  onSaveRetry: () => void
-  onLogin: () => void
-  onProfile: () => void
-}
-
-function ResultsView({
-  challenge,
+export default function ResultsPage({
   result,
   onHome,
   onRetry,
@@ -56,7 +29,9 @@ function ResultsView({
   onSaveRetry,
   onLogin,
   onProfile,
-}: ResultsViewProps) {
+}: ResultsPageProps) {
+  const challenge = result.challenge
+  const toneTime = Math.round(result.toneTime)
   const achievements = [
     {
       earned: result.toneCorrect,
@@ -66,20 +41,18 @@ function ResultsView({
         : 'Your answer did not match the customer’s emotional tone.',
     },
     {
-      earned: result.toneTime <= 10,
+      earned: result.toneSpeedCorrect,
       title: 'Quick instinct',
-      detail:
-        result.toneTime <= 10
-          ? `Tone identified in ${result.toneTime} seconds.`
-          : `Tone identified in ${result.toneTime} seconds. Aim for 10.`,
+      detail: result.toneSpeedCorrect
+        ? `Tone identified in ${toneTime} seconds.`
+        : `Tone identified in ${toneTime} seconds. Aim for 10.`,
     },
     {
       earned: result.actionCorrect,
       title: 'Correct next step',
-      detail: `${result.actionCorrect ? 'You identified the next step' : 'Expected next step'}: ${challenge.required_action}.`,
+      detail: `${result.actionCorrect ? 'You identified the next step' : 'Expected next step'}: ${result.requiredAction}.`,
     },
   ]
-  const stars = achievements.filter(({ earned }) => earned).length
 
   return (
     <div className="bg-beige min-h-screen text-black">
@@ -92,7 +65,9 @@ function ResultsView({
           Challenge complete
         </p>
         <h1 className="text-orange mt-3 text-4xl font-extrabold sm:text-5xl">
-          {stars === 3 ? 'Beautifully handled.' : 'Good work. Keep listening.'}
+          {result.score === 3
+            ? 'Beautifully handled.'
+            : 'Good work. Keep listening.'}
         </h1>
         <p className="mt-4 max-w-lg text-lg leading-7 text-black/70">
           “{challenge.name}” · {challengeDateLabel(challenge)}
@@ -100,12 +75,12 @@ function ResultsView({
 
         <div
           className="my-9 flex gap-3"
-          aria-label={`${stars} out of 3 stars earned`}
+          aria-label={`${result.score} out of 3 stars earned`}
         >
           {[0, 1, 2].map((index) => (
             <StarIcon
               key={index}
-              className={`size-13 drop-shadow-md sm:size-16 ${index < stars ? 'text-green-light' : 'text-green-pale'}`}
+              className={`size-13 drop-shadow-md sm:size-16 ${index < result.score ? 'text-green-light' : 'text-green-pale'}`}
             />
           ))}
         </div>
@@ -143,10 +118,10 @@ function ResultsView({
                 Log in to save your score
               </button>
             </>
-          ) : result.userId !== user.id ? (
+          ) : result.userId !== null && result.userId !== user.id ? (
             'This result belongs to another session. Retry the challenge to save a score to this account.'
           ) : !result.attemptId || !result.completedAt ? (
-            'This older result has no completion timestamp. Retry the challenge to record a new completion.'
+            'This result has no completion details. Retry the challenge to record a new completion.'
           ) : saveState.status === 'saving' ? (
             'Saving your score…'
           ) : saveState.status === 'saved' ? (
@@ -188,74 +163,5 @@ function ResultsView({
         </div>
       </main>
     </div>
-  )
-}
-
-export default function ResultsPage({
-  challenge: seed,
-  slug,
-  result,
-  onHome,
-  ...rest
-}: ResultsPageProps) {
-  const [challenge, setChallenge] = useState<Challenge | null>(seed)
-  const [error, setError] = useState('')
-  const [attempt, setAttempt] = useState(0)
-
-  useEffect(() => {
-    if (challenge) return
-    const controller = new AbortController()
-    const store = createSessionStore()
-    const interactor: StartChallengeInputBoundary =
-      new StartChallengeInteractor(
-        challengeApi,
-        {
-          present: (output) => {
-            if (output.status === 'error' && !controller.signal.aborted) {
-              setError(output.message)
-            }
-          },
-        },
-        browserClock,
-        store,
-      )
-    void interactor.execute({ slug, signal: controller.signal }).then(() => {
-      const session = store.get()
-      if (session) setChallenge(session.challenge)
-    })
-    return () => controller.abort()
-  }, [challenge, slug, attempt])
-
-  const retryLoad = () => {
-    setError('')
-    setAttempt((value) => value + 1)
-  }
-
-  useEffect(() => {
-    if (challenge && challenge.slug !== result.challengeSlug) onHome()
-  }, [challenge, result.challengeSlug, onHome])
-
-  if (!challenge) {
-    return (
-      <div className="bg-beige min-h-screen text-black">
-        <Header compact onHome={onHome} />
-        <main className="mx-auto max-w-3xl px-5 py-6 sm:px-8 sm:py-10">
-          {error ? (
-            <ChallengeLoadError message={error} onRetry={retryLoad} />
-          ) : (
-            <ChallengeLoading />
-          )}
-        </main>
-      </div>
-    )
-  }
-
-  return (
-    <ResultsView
-      challenge={challenge}
-      result={result}
-      onHome={onHome}
-      {...rest}
-    />
   )
 }

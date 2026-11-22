@@ -10,7 +10,7 @@
 
 This plan standardizes the entire frontend around **Clean Architecture** (Martin, *Clean Architecture*, Ch. 22) — **Entities**, **Use Cases**, **Boundaries**, **Data Access Interfaces / Presenters**, and **Views / Controllers** — governed by one rule: **source code dependencies point inward only**.
 
-- **Pilot Validated (Phase A):** The **Challenge Flow** (`ChallengePage`, conversation traversal, tone scoring, challenge loading) has been migrated as the reference slice, expanding the test suite to **63 deterministic Node tests** with zero new dependencies and zero behavioral regressions.
+- **Pilot Validated (Phase A):** The **Challenge Flow** (`ChallengePage`, attempt snapshots, server-owned tone/action grading, challenge loading, and attempt resume) has been migrated as the reference slice, expanding the deterministic Node test suite with zero new dependencies and zero behavioral regressions.
 - **Generalized Rollout (Phases B–E):** Apply the pilot's architecture, naming conventions, and lessons learned across the remaining frontend surfaces: **Results & Score Persistence**, **Authentication**, **Profile**, and **Home / Calendar**.
 
 ---
@@ -49,10 +49,10 @@ Each product route has an application slice under `src/<feature>/` (for example 
 
 | Layer | Directory | Naming Convention | Dependency Rule (May Import) |
 |---|---|---|---|
-| **Entities** | `src/entities/` | camelCase noun (`challengeSession.ts`, `conversationRules.ts`) + `types.ts` | Shared `types.ts` only |
+| **Entities** | `src/entities/` | camelCase noun (`challengeSession.ts`, `userProfileProgress.ts`) + `types.ts` | Shared `types.ts` only |
 | **Use Cases** | `src/<feature>/useCases/<useCase>/` | One folder per use case: `<useCase>Interactor.ts` + `<useCase>Boundaries.ts` + `<useCase>Presenter.ts`; feature-level shared store (e.g. `challenge/useCases/sessionStore.ts`) | `src/entities/`, `<feature>/boundaries/`, `types.ts` |
 | **Shared Boundaries** | `src/<feature>/boundaries/` | camelCase (`challengeOutputBoundary.ts`, `dataAccessInterfaces.ts`) | `src/entities/`, `types.ts` |
-| **Data Access** | `src/<feature>/dataAccessInterface/` | camelCase role (`challengeGatewayApi.ts`, `toneGatewayApi.ts`, `browserServices.ts`) | `<feature>/boundaries/`, `src/entities/`, `types.ts` |
+| **Data Access** | `src/<feature>/dataAccessInterface/` | camelCase role (`challengeGatewayApi.ts`, `attemptGatewayApi.ts`, `attemptStorage.ts`, `browserServices.ts`) | `<feature>/boundaries/`, `src/entities/`, `types.ts`, shared `src/dataAccessInterface/` |
 | **View Models / Presenters** | `src/<feature>/useCases/<useCase>/` + `src/<feature>/viewModels/` | `<useCase>Presenter.ts` (class) co-located with its use case; shared view-model mappers and formatters in `<feature>/viewModels/` | `<feature>/boundaries/`, `src/entities/`, `types.ts`, promoted `src/viewModels/` helpers |
 | **Controllers & Views** | `src/pages/`, `src/<feature>/components/` | `*Page.tsx`, `use*Flow.ts`, PascalCase view components + `styles.ts` | All inward layers |
 
@@ -64,7 +64,7 @@ These six lessons from Phase A govern all remaining frontend migrations:
 
 | # | Lesson Learned | Standard Practice for Phases B–E |
 |---|---|---|
-| **1** | **Use-case-first folders beat monolithic page interactors.** A single 8-method interactor becomes a bottleneck; splitting by intent (`startChallenge/`, `submitTone/`, …) gives each file one reason to change (SRP) and makes reuse across pages trivial (e.g., `ResultsPage` reusing `StartChallengeInteractor` on reload). | Create one folder per use case under `src/<feature>/useCases/<useCase>/` containing its `*Interactor.ts`, `*Boundaries.ts`, and `*Presenter.ts`. |
+| **1** | **Use-case-first folders beat monolithic page interactors.** A single 8-method interactor becomes a bottleneck; splitting by intent (`startChallenge/`, `submitTone/`, …) gives each file one reason to change (SRP) and makes each server transition independently testable. Results now render their retained completed snapshot instead of invoking the start use case and creating another run. | Create one folder per use case under `src/<feature>/useCases/<useCase>/` containing its `*Interactor.ts`, `*Boundaries.ts`, and `*Presenter.ts`. |
 | **2** | **Share entities across interactors via a plain-TS `SessionStore`, not React refs.** Passing `useRef.current` getters or mutating `useState` objects inside `useMemo` triggers React Compiler / Oxlint (`react/refs`, `react/immutability`) warnings. | Use a lightweight closure store (`createSessionStore()`) in `src/<feature>/useCases/` when multiple interactors read/mutate the same active entity. |
 | **3** | **Page-owned data loading decouples `App.tsx` (with seed handoff).** Moving detail fetching into a page's `Start*` use case localizes loading/error/retry UX. Passing an already-loaded entity as an optional seed avoids duplicate fetches on route transitions while keeping direct URL reloads self-sufficient. | Each page loads its own detail data via a `Start*` / `Load*` use case; pass in-memory seeds across immediate transitions where appropriate. |
 | **4** | **All display formatting belongs in `Presenter.toViewModel()`.** Having view components call formatter helpers directly leaks presentation logic into JSX. | Derive all display strings (`dateLabel`), percentages (`progressPercent`), and flags (`conversationFinished`) inside the presenter so components are pure props-to-JSX templates. |
@@ -77,7 +77,7 @@ These six lessons from Phase A govern all remaining frontend migrations:
 
 | Phase | Surface & Current Bottleneck | Entities (`src/entities/`) | Use Cases (`src/<feature>/useCases/`) | Gateways (`src/<feature>/dataAccessInterface/`) | Presenter, Hook & Views |
 |---|---|---|---|---|---|
-| **Phase A** *(Complete)* | **Challenge Flow:** 374-line `ChallengePage.tsx`; mixed `challenges.ts` | `challengeSession.ts`, `conversationRules.ts` | `challenge/useCases/startChallenge/`, `challenge/useCases/submitTone/`, `challenge/useCases/advanceConversation/`, `challenge/useCases/completeChallenge/` | `challengeGatewayApi.ts`, `toneGatewayApi.ts`, `browserServices.ts` | Per-use-case presenters + `challenge/viewModels/challengeViewModel.ts`, `challenge/useCases/sessionStore.ts`, `pages/ChallengePage.tsx`, `pages/useChallengeFlow.ts`, `challenge/components/*` (8 files) |
+| **Phase A** *(Complete)* | **Challenge Flow:** 374-line `ChallengePage.tsx`; mixed `challenges.ts`; now server-owned attempt snapshots | `challengeSession.ts` (attempt snapshot state) | `challenge/useCases/startChallenge/`, `challenge/useCases/submitTone/`, `challenge/useCases/advanceConversation/`, `challenge/useCases/completeChallenge/` | `challengeGatewayApi.ts`, `attemptGatewayApi.ts`, `attemptStorage.ts`, `browserServices.ts` | Per-use-case presenters + `challenge/viewModels/challengeViewModel.ts`, `challenge/useCases/sessionStore.ts`, `pages/ChallengePage.tsx`, `pages/useChallengeFlow.ts`, `challenge/components/*` (8 files) |
 | **Phase B** *(Next)* | **Results & Score Persistence:** Score saving + `sessionStorage` in `App.tsx`; star rules inline in `ResultsPage.tsx` | `challengeResultSummary.ts` (3-star achievement rules, guest-claim eligibility) | `results/useCases/saveChallengeScore/`, `results/useCases/claimGuestResult/` | `scoreGatewayApi.ts`, `resultStorageService.ts` (`sessionStorage`) | Per-use-case presenters + `results/viewModels/resultsViewModel.ts`, `pages/useResultsFlow.ts`, `results/components/*` (achievements, save banner) |
 | **Phase C** *(Complete)* | **Authentication Flow:** 294-line `AuthPage.tsx` mixes password matching, group loading, and form UI; `auth.ts` mixes 4 concerns | `authCredentials.ts` (signup validation, password match, payload normalization) | `auth/useCases/restoreSession/`, `auth/useCases/authenticateUser/`, `auth/useCases/logoutUser/`, `auth/useCases/loadSignupGroups/` | `authGatewayApi.ts` (CSRF rotation + session endpoints), `scoreGatewayApi.ts` | Per-use-case presenters + `auth/viewModels/authViewModel.ts`, `pages/useAuthFlow.ts`, `auth/components/*` (login/signup form, group selector) |
 | **Phase D** *(Complete)* | **Profile Flow:** 233-line `ProfilePage.tsx` manages parallel profile + summary fetches, logout state, and avatar lookup inline | `userProfileProgress.ts` (joins per-slug scores with challenge metadata) | `profile/useCases/loadUserProfile/` | `profileGatewayApi.ts` | Per-use-case presenters + `profile/viewModels/profileViewModel.ts`, `pages/useProfileFlow.ts`, `profile/components/*` |
@@ -109,13 +109,13 @@ Every phase (B through E) executes in five small, independently verified gates:
 
 ## 7. Backend Migration Readiness (Why This Pays Off)
 
-Because interactors depend only on boundary interfaces, moving client-side rules to the Django backend in the future is a localized gateway + entity swap rather than a UI rewrite:
+Because interactors depend only on boundary interfaces, the now server-owned challenge rules required only gateway and entity changes while the React views and page controller stayed stable:
 
-| Capability | Today (Frontend) | If Migrated to Backend Later | Frontend Diff Required |
-|---|---|---|---|
-| **Tone Grading** | `SubmitToneInteractor` calls `ToneGateway.score()` (already server-graded) | Optional server-side elapsed-time capture | 1–2 files (`ToneGateway` contract + interactor) |
-| **Action Grading & Stars** | `ChallengeSession.buildResult` runs `matchesAnswer`; `ResultsPage` computes 3 stars | `CompleteChallengeInteractor` POSTs raw action text; server grades and returns stars | Delete `matchesAnswer` from `entities/`; update `scoreGatewayApi.ts` payload |
-| **Conversation Traversal** | `respond()` / `responseOptions()` traverse tree in `entities/conversationRules.ts` | Server returns next-turn options per reply | Replace entity traversal with gateway call in `AdvanceConversationInteractor` |
+| Capability | Current Implementation | Frontend Responsibility |
+|---|---|---|
+| **Tone Grading** | `SubmitToneInteractor` posts the answer through `AttemptGateway`; Django computes similarity, elapsed time, and correctness | Display tone feedback and retryable errors |
+| **Action Grading & Stars** | `CompleteChallengeInteractor` posts the action answer; Django grades it and returns `score`, `action_correct`, and `required_action` | Build `ResultData` from the completed snapshot |
+| **Conversation Traversal** | The server returns the opening, conversation history, and current choices for each request | Render returned turns, select a `choice_id`, and chain audio |
 
 **Untouched in all cases:** React View components (`<feature>/components/*`), Page Controllers (`src/pages/*`), routing, and the per-use-case presenters/view-model mappers.
 

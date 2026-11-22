@@ -23,17 +23,9 @@ test('signup loads existing group choices with cancellation and no caching', asy
   assert.deepEqual(await authApi.loadGroups(signal), groups)
 })
 
-test('completion sends result metrics with session cookies and CSRF to the current-user score endpoint', async (t) => {
+test('claiming a completion sends only its attempt id with session cookies and CSRF', async (t) => {
   const signal = new AbortController().signal
-  const result = {
-    challengeSlug: 'forgot-password-x3',
-    attemptId: '627e5d91-c343-44ae-b6ab-532b2ed41b8e',
-    completedAt: '2026-10-29T01:23:45.000Z',
-    toneCorrect: true,
-    toneTime: 8,
-    actionCorrect: true,
-    userId: 7,
-  }
+  const attemptId = '627e5d91-c343-44ae-b6ab-532b2ed41b8e'
   const profile = {
     user_id: 7,
     username: 'ada',
@@ -41,6 +33,12 @@ test('completion sends result metrics with session cookies and CSRF to the curre
     scores: { 'forgot-password-x3': 3 },
     total_score: 3,
     completed_challenges: 1,
+    attempt: {
+      attempt_id: attemptId,
+      challenge_slug: 'forgot-password-x3',
+      score: 3,
+      completed_at: '2026-10-29T01:23:45+00:00',
+    },
   }
   const requests = []
   t.mock.method(globalThis, 'fetch', async (url, options) => {
@@ -52,31 +50,21 @@ test('completion sends result metrics with session cookies and CSRF to the curre
     assert.equal(url, '/api/users/me/scores/forgot-password-x3/')
     assert.equal(options.method, 'POST')
     assert.equal(options.headers['X-CSRFToken'], 'fresh-token')
-    assert.deepEqual(JSON.parse(options.body), {
-      tone_correct: true,
-      tone_time: 8,
-      action_correct: true,
-      attempt_id: '627e5d91-c343-44ae-b6ab-532b2ed41b8e',
-      completed_at: '2026-10-29T01:23:45.000Z',
-    })
+    assert.deepEqual(JSON.parse(options.body), { attempt_id: attemptId })
     return Response.json(profile)
   })
-  assert.deepEqual(await scoreApi.saveChallengeResult(result, signal), profile)
+  assert.deepEqual(
+    await scoreApi.claimAttempt(attemptId, 'forgot-password-x3', signal),
+    profile,
+  )
   assert.deepEqual(requests, [
     `${basePath}csrf/`,
     '/api/users/me/scores/forgot-password-x3/',
   ])
 })
 
-test('saving reports an expired login or backend failure and can be retried', async (t) => {
-  const result = {
-    challengeSlug: 'forgot-password-x3',
-    attemptId: '627e5d91-c343-44ae-b6ab-532b2ed41b8e',
-    completedAt: '2026-10-29T01:23:45.000Z',
-    toneCorrect: false,
-    toneTime: 20,
-    actionCorrect: true,
-  }
+test('claiming reports an expired login or backend failure and can be retried', async (t) => {
+  const attemptId = '627e5d91-c343-44ae-b6ab-532b2ed41b8e'
   let response = Response.json(
     { detail: 'Authentication required.' },
     { status: 401 },
@@ -88,12 +76,20 @@ test('saving reports an expired login or backend failure and can be retried', as
     return response
   })
   await assert.rejects(
-    scoreApi.saveChallengeResult(result, new AbortController().signal),
+    scoreApi.claimAttempt(
+      attemptId,
+      'forgot-password-x3',
+      new AbortController().signal,
+    ),
     /Authentication required/,
   )
   response = new Response('Unavailable', { status: 503 })
   await assert.rejects(
-    scoreApi.saveChallengeResult(result, new AbortController().signal),
+    scoreApi.claimAttempt(
+      attemptId,
+      'forgot-password-x3',
+      new AbortController().signal,
+    ),
     /Could not connect/,
   )
   response = Response.json({
@@ -101,8 +97,13 @@ test('saving reports an expired login or backend failure and can be retried', as
     total_score: 1,
   })
   assert.equal(
-    (await scoreApi.saveChallengeResult(result, new AbortController().signal))
-      .total_score,
+    (
+      await scoreApi.claimAttempt(
+        attemptId,
+        'forgot-password-x3',
+        new AbortController().signal,
+      )
+    ).total_score,
     1,
   )
   assert.equal(attempts, 3)

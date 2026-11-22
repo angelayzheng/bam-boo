@@ -1,12 +1,3 @@
-export interface ConversationNode {
-  type: 'question' | 'response'
-  node_key?: string
-  transcript_url: string
-  audio_url: string
-  text: string
-  children: ConversationNode[]
-}
-
 export interface ChallengeSummary {
   name: string
   slug: string
@@ -15,19 +6,50 @@ export interface ChallengeSummary {
   category: string
 }
 
-export interface Challenge extends ChallengeSummary {
-  required_action: string
-  conversation_tree: ConversationNode
+export type AttemptStatus = 'tone' | 'conversation' | 'action' | 'completed'
+
+export interface AttemptTurn {
+  id: string
+  type: 'question' | 'response'
+  transcriptUrl: string
+  audioUrl: string
+  text: string
+}
+
+export interface AttemptChoice extends AttemptTurn {
+  choiceId: string
+}
+
+export interface AttemptSnapshot {
+  attemptId: string
+  stage: AttemptStatus
+  challenge: ChallengeSummary
+  opening: AttemptTurn
+  conversation: AttemptTurn[]
+  choices: AttemptChoice[]
+  toneCorrect: boolean | null
+  toneTime: number | null
+  toneSpeedCorrect: boolean | null
+  toneSimilarity: number | null
+  actionCorrect: boolean | null
+  score: number | null
+  requiredAction: string | null
+  completedAt: string | null
 }
 
 export interface ResultData {
-  challengeSlug: string
   attemptId: string
+  challenge: ChallengeSummary
   completedAt: string
   toneCorrect: boolean
   toneTime: number
+  toneSpeedCorrect: boolean
+  toneSimilarity: number | null
   actionCorrect: boolean
+  score: number
+  requiredAction: string
   userId?: number | null
+  saved?: boolean
 }
 
 export interface AuthUser {

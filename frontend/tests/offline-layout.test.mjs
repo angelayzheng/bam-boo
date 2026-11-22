@@ -99,21 +99,25 @@ test('a direct slug URL starts the challenge before summaries load', (t) => {
 
 test('results distinguish saving, saved, retryable failure, guests, and another account', () => {
   const props = {
-    challenge: {
-      slug: 'test-recording',
-      name: 'Test recording',
-      challenge_date: '2026-10-15',
-      required_action: 'reset password',
-    },
-    slug: 'test-recording',
     result: {
-      challengeSlug: 'test-recording',
       attemptId: '627e5d91-c343-44ae-b6ab-532b2ed41b8e',
+      challenge: {
+        slug: 'test-recording',
+        name: 'Test recording',
+        challenge_date: '2026-10-15',
+        difficulty: 1,
+        category: 'account',
+      },
       completedAt: '2026-10-29T01:23:45.000Z',
       toneCorrect: true,
       toneTime: 8,
+      toneSpeedCorrect: true,
+      toneSimilarity: 0.8,
       actionCorrect: true,
+      score: 3,
+      requiredAction: 'reset password',
       userId: 7,
+      saved: false,
     },
     user: { id: 7, username: 'ada', email: '' },
     sessionLoading: false,

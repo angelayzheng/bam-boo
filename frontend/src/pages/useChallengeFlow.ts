@@ -1,11 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
-import type { Challenge, ResultData } from '../entities/types'
-import {
-  browserClock,
-  browserIds,
-} from '../challenge/dataAccessInterface/browserServices'
-import { challengeApi } from '../challenge/dataAccessInterface/challengeGatewayApi'
-import { toneApi } from '../challenge/dataAccessInterface/toneGatewayApi'
+import type { ResultData } from '../entities/types'
+import { attemptApi } from '../challenge/dataAccessInterface/attemptGatewayApi'
+import { attemptStorage } from '../challenge/dataAccessInterface/attemptStorage'
 import { createSessionStore } from '../challenge/useCases/sessionStore'
 import { initialChallengeViewModel } from '../challenge/viewModels/challengeViewModel'
 import type { ChallengeViewModel } from '../challenge/viewModels/challengeViewModel'
@@ -22,20 +18,15 @@ import type { CompleteChallengeInputBoundary } from '../challenge/useCases/compl
 import { CompleteChallengeInteractor } from '../challenge/useCases/completeChallenge/completeChallengeInteractor'
 import { CompleteChallengePresenter } from '../challenge/useCases/completeChallenge/completeChallengePresenter'
 
-export interface ChallengeCompletion {
-  result: ResultData
-  challenge: Challenge
-}
-
 export interface ChallengeController {
   setTone: (answer: string) => void
   submitTone: (answer: string, signal: AbortSignal) => Promise<void>
-  selectResponse: (responseKey: string) => void
-  sendResponse: () => void
-  continueToAction: () => void
+  selectChoice: (choiceId: string) => void
+  sendChoice: (signal: AbortSignal) => Promise<void>
+  continueToAction: (signal: AbortSignal) => Promise<void>
   audioEnded: (transcriptUrl: string) => void
   setAction: (action: string) => void
-  finish: () => void
+  finish: (signal: AbortSignal) => Promise<void>
 }
 
 interface ChallengeUseCasePorts {
@@ -47,43 +38,43 @@ interface ChallengeUseCasePorts {
 
 export function useChallengeFlow(slug: string): {
   viewModel: ChallengeViewModel
-  completion: ChallengeCompletion | null
+  completion: ResultData | null
   controller: ChallengeController
   retry: () => void
 } {
   const [viewModel, setViewModel] = useState<ChallengeViewModel>(
     initialChallengeViewModel,
   )
-  const [completion, setCompletion] = useState<ChallengeCompletion | null>(null)
+  const [completion, setCompletion] = useState<ResultData | null>(null)
   const [attempt, setAttempt] = useState(0)
 
   const flow = useMemo<ChallengeUseCasePorts>(() => {
     const store = createSessionStore()
     const start: StartChallengeInputBoundary = new StartChallengeInteractor(
-      challengeApi,
+      attemptApi,
+      attemptStorage,
       new StartChallengePresenter(setViewModel),
-      browserClock,
       store,
     )
     const submitTone: SubmitToneInputBoundary = new SubmitToneInteractor(
       store,
-      toneApi,
+      attemptApi,
       new SubmitTonePresenter(setViewModel),
-      browserClock,
     )
     const advance: AdvanceConversationInputBoundary =
       new AdvanceConversationInteractor(
         store,
+        attemptApi,
         new AdvanceConversationPresenter(setViewModel),
       )
     const complete: CompleteChallengeInputBoundary =
       new CompleteChallengeInteractor(
         store,
-        new CompleteChallengePresenter(setViewModel, (result, challenge) => {
-          setCompletion({ result, challenge })
+        attemptApi,
+        new CompleteChallengePresenter(setViewModel, (result) => {
+          setCompletion(result)
         }),
-        browserIds,
-        browserClock,
+        attemptStorage,
       )
     return { start, submitTone, advance, complete }
   }, [])
@@ -99,13 +90,12 @@ export function useChallengeFlow(slug: string): {
       setTone: (answer) => flow.submitTone.setTone({ answer }),
       submitTone: (answer, signal) =>
         flow.submitTone.execute({ answer, signal }),
-      selectResponse: (responseKey) =>
-        flow.advance.selectResponse({ responseKey }),
-      sendResponse: () => flow.advance.sendResponse(),
-      continueToAction: () => flow.advance.continueToAction(),
+      selectChoice: (choiceId) => flow.advance.selectChoice({ choiceId }),
+      sendChoice: (signal) => flow.advance.sendChoice({ signal }),
+      continueToAction: (signal) => flow.advance.continueToAction({ signal }),
       audioEnded: (transcriptUrl) => flow.advance.audioEnded({ transcriptUrl }),
       setAction: (action) => flow.complete.setAction({ action }),
-      finish: () => flow.complete.execute(),
+      finish: (signal) => flow.complete.execute({ signal }),
     }),
     [flow],
   )
