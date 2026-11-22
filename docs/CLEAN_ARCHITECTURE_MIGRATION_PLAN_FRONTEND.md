@@ -1,6 +1,6 @@
 # Frontend Clean Architecture Migration Plan
 
-**Status:** In Progress (Phase A Pilot Complete) · **Scope:** `frontend/src` · **New dependencies:** none · **Backend changes:** none
+**Status:** Complete (Phases A–E) · **Scope:** `frontend/src` · **New dependencies:** none · **Backend changes:** none
 
 ---
 
@@ -11,7 +11,7 @@
 This plan standardizes the entire frontend around **Clean Architecture** (Martin, *Clean Architecture*, Ch. 22) — **Entities**, **Use Cases**, **Boundaries**, **Data Access Interfaces / Presenters**, and **Views / Controllers** — governed by one rule: **source code dependencies point inward only**.
 
 - **Pilot Validated (Phase A):** The **Challenge Flow** (`ChallengePage`, attempt snapshots, server-owned tone/action grading, challenge loading, and attempt resume) has been migrated as the reference slice, expanding the deterministic Node test suite with zero new dependencies and zero behavioral regressions.
-- **Generalized Rollout (Phases B–E):** Apply the pilot's architecture, naming conventions, and lessons learned across the remaining frontend surfaces: **Results & Score Persistence**, **Authentication**, **Profile**, and **Home / Calendar**.
+- **Generalized Rollout (Phases B–E Complete):** The pilot's architecture, naming conventions, and lessons learned now cover **Results & Claim Persistence**, **Authentication**, **Profile**, and **Home / Calendar**. Results use `restoreChallengeResult` and `claimChallengeResult`, with the composition hook held by `App` so claims survive navigation.
 
 ---
 
@@ -45,7 +45,7 @@ flowchart TD
 
 ## 3. Standardized Directory & Naming Conventions
 
-Each product route has an application slice under `src/<feature>/` (for example `src/challenge/`) containing its `boundaries/`, `dataAccessInterface/`, `viewModels/`, `useCases/`, and route-specific `components/`. The enterprise layer stays in `src/entities/`, and page controllers stay in `src/pages/`, because they belong to different Clean Architecture layers. Shared shell code stays in `src/components/`, `src/routes.ts`, and `src/types.ts`. The remaining slice is `results/`; `challenge/`, `home/`, `profile/`, and `auth/` already follow this layout.
+Each product route has an application slice under `src/<feature>/` (for example `src/challenge/`) containing its `boundaries/`, `dataAccessInterface/`, `viewModels/`, `useCases/`, and route-specific `components/`. The enterprise layer stays in `src/entities/`, and page controllers stay in `src/pages/`, because they belong to different Clean Architecture layers. Shared shell code stays in `src/components/` and `src/routes.ts`; the shared JSON/CSRF client stays in `src/dataAccessInterface/`. `challenge/`, `results/`, `home/`, `profile/`, and `auth/` follow this layout.
 
 | Layer | Directory | Naming Convention | Dependency Rule (May Import) |
 |---|---|---|---|
@@ -78,10 +78,19 @@ These six lessons from Phase A govern all remaining frontend migrations:
 | Phase | Surface & Current Bottleneck | Entities (`src/entities/`) | Use Cases (`src/<feature>/useCases/`) | Gateways (`src/<feature>/dataAccessInterface/`) | Presenter, Hook & Views |
 |---|---|---|---|---|---|
 | **Phase A** *(Complete)* | **Challenge Flow:** 374-line `ChallengePage.tsx`; mixed `challenges.ts`; now server-owned attempt snapshots | `challengeSession.ts` (attempt snapshot state) | `challenge/useCases/startChallenge/`, `challenge/useCases/submitTone/`, `challenge/useCases/advanceConversation/`, `challenge/useCases/completeChallenge/` | `challengeGatewayApi.ts`, `attemptGatewayApi.ts`, `attemptStorage.ts`, `browserServices.ts` | Per-use-case presenters + `challenge/viewModels/challengeViewModel.ts`, `challenge/useCases/sessionStore.ts`, `pages/ChallengePage.tsx`, `pages/useChallengeFlow.ts`, `challenge/components/*` (8 files) |
-| **Phase B** *(Next)* | **Results & Score Persistence:** Score saving + `sessionStorage` in `App.tsx`; star rules inline in `ResultsPage.tsx` | `challengeResultSummary.ts` (3-star achievement rules, guest-claim eligibility) | `results/useCases/saveChallengeScore/`, `results/useCases/claimGuestResult/` | `scoreGatewayApi.ts`, `resultStorageService.ts` (`sessionStorage`) | Per-use-case presenters + `results/viewModels/resultsViewModel.ts`, `pages/useResultsFlow.ts`, `results/components/*` (achievements, save banner) |
-| **Phase C** *(Complete)* | **Authentication Flow:** 294-line `AuthPage.tsx` mixes password matching, group loading, and form UI; `auth.ts` mixes 4 concerns | `authCredentials.ts` (signup validation, password match, payload normalization) | `auth/useCases/restoreSession/`, `auth/useCases/authenticateUser/`, `auth/useCases/logoutUser/`, `auth/useCases/loadSignupGroups/` | `authGatewayApi.ts` (CSRF rotation + session endpoints), `scoreGatewayApi.ts` | Per-use-case presenters + `auth/viewModels/authViewModel.ts`, `pages/useAuthFlow.ts`, `auth/components/*` (login/signup form, group selector) |
+| **Phase B** *(Complete)* | **Results & Claim Persistence:** Result restore + claim saving + `sessionStorage` in `App.tsx`; achievement/status text inline in `ResultsPage.tsx` | `challengeResultSummary.ts` (result validation, claim eligibility, server-graded outcomes) | `results/useCases/restoreChallengeResult/`, `results/useCases/claimChallengeResult/` | `resultClaimGatewayApi.ts`, `resultStorageService.ts` (`sessionStorage`) | Per-use-case presenters + `results/viewModels/resultsViewModel.ts`, `pages/useResultsFlow.ts` (composed by `App`), `pages/ResultsPage.tsx`, `results/components/*` (summary, achievements, save status, actions) |
+| **Phase C** *(Complete)* | **Authentication Flow:** 294-line `AuthPage.tsx` mixes password matching, group loading, and form UI; `auth.ts` mixes 4 concerns | `authCredentials.ts` (signup validation, password match, payload normalization) | `auth/useCases/restoreSession/`, `auth/useCases/authenticateUser/`, `auth/useCases/logoutUser/`, `auth/useCases/loadSignupGroups/` | `authGatewayApi.ts` (CSRF rotation + session endpoints) | Per-use-case presenters + `auth/viewModels/authViewModel.ts`, `pages/useAuthFlow.ts`, `auth/components/*` (login/signup form, group selector) |
 | **Phase D** *(Complete)* | **Profile Flow:** 233-line `ProfilePage.tsx` manages parallel profile + summary fetches, logout state, and avatar lookup inline | `userProfileProgress.ts` (joins per-slug scores with challenge metadata) | `profile/useCases/loadUserProfile/` | `profileGatewayApi.ts` | Per-use-case presenters + `profile/viewModels/profileViewModel.ts`, `pages/useProfileFlow.ts`, `profile/components/*` |
 | **Phase E** *(Complete)* | **Home & Calendar Flow:** 268-line `HomePage.tsx` computes calendar grid math inline and holds mock leaderboard/score constants | `dailyChallenge.ts` (summary selection), `trainingCalendar.ts` (month grid, weekday alignment, day states, `computeStreak`) | `home/useCases/loadTodayChallenge/`, `home/useCases/loadCalendar/`, `home/useCases/loadLeaderboard/` | `profileGatewayApi.ts`, `leaderboardGatewayApi.ts` | Per-use-case presenters + `home/viewModels/homeViewModel.ts`, `pages/useHomeFlow.ts`, `home/components/*` (daily card, calendar grid, leaderboard) |
+
+### Phase B Use-Case Split (SRP)
+
+| Use case | Single responsibility | Notes |
+|---|---|---|
+| `restoreChallengeResult` | Resolve, validate, and persist the completed result for display | Uses an optional in-memory completion seed, then falls back to `ResultStorage`. Checks the route slug and clears malformed storage. |
+| `claimChallengeResult` | Attach a completed attempt to the signed-in account | Uses `challengeResultSummary.ts` for eligibility. Skips guests, already-saved results, invalid results, and other-account results. Persists the claimed result. |
+
+**Not use cases:** claim-state message text and achievement copy (presenters/view models), clearing the retained result on logout (controller storage concern), account session restoration (auth), and route navigation.
 
 ### Phase E Use-Case Split (SRP)
 

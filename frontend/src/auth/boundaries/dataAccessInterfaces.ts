@@ -27,26 +27,3 @@ export interface LogoutGateway {
 export interface SignupGroupGateway {
   loadGroups(signal: AbortSignal): Promise<SignupGroup[]>
 }
-
-export interface ScoreSaveResponse {
-  user_id: number
-  username: string
-  avatar: string
-  total_score: number
-  completed_challenges: number
-  scores: Record<string, number>
-  attempt: {
-    attempt_id: string
-    challenge_slug: string
-    score: number
-    completed_at: string
-  }
-}
-
-export interface ScoreGateway {
-  claimAttempt(
-    attemptId: string,
-    challengeSlug: string,
-    signal: AbortSignal,
-  ): Promise<ScoreSaveResponse>
-}
