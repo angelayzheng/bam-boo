@@ -20,6 +20,9 @@ from .BrowseChallengesOutputBoundary import BrowseChallengesOutputBoundary
 from .BrowseChallengesOutputData import BrowseChallengesOutputData, CalendarDay
 from challenges.domain.calendar_clock import calendar_today
 
+MIN_YEAR = 1
+MAX_YEAR = 9999
+
 
 class BrowseChallengesInteractor(BrowseChallengesInputBoundary):
     def __init__(
@@ -33,6 +36,12 @@ class BrowseChallengesInteractor(BrowseChallengesInputBoundary):
         self._today = today
 
     def execute(self, input_data: BrowseChallengesInputData) -> None:
+        if not MIN_YEAR <= input_data.year <= MAX_YEAR:
+            self._presenter.prepare_fail_view(
+                f"Year must be between {MIN_YEAR} and {MAX_YEAR}."
+            )
+            return
+
         if not 1 <= input_data.month <= 12:
             self._presenter.prepare_fail_view("Month must be between 1 and 12.")
             return
