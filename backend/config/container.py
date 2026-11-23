@@ -6,15 +6,25 @@ from challenges.adapters.importChallengePackage.Controller import (
 from challenges.adapters.importChallengePackage.Presenter import (
     ImportChallengePackagePresenter,
 )
+from challenges.adapters.validateChallenges.Controller import (
+    ValidateChallengesController,
+)
+from challenges.adapters.validateChallenges.Presenter import (
+    ValidateChallengesPresenter,
+)
 from challenges.use_cases.ports import (
     AudioValidator,
     ChallengeRepository,
+    ChallengeValidationGateway,
     MediaStore,
     PackageArchiveExtractor,
     PackageSource,
 )
 from challenges.use_cases.importChallengePackage.Interactor import (
     ImportChallengePackageInteractor,
+)
+from challenges.use_cases.validateChallenges.Interactor import (
+    ValidateChallengesInteractor,
 )
 from play.adapters.record_challenge_attempt.record_challenge_attempt_controller import (
     RecordChallengeAttemptController,
@@ -43,6 +53,12 @@ class ImportChallengePackageUseCase:
 
 
 @dataclass(frozen=True, slots=True)
+class ValidateChallengesUseCase:
+    controller: ValidateChallengesController
+    presenter: ValidateChallengesPresenter
+
+
+@dataclass(frozen=True, slots=True)
 class ApplicationContainer:
     challenges: ChallengeRepository
     attempts: AttemptRepository
@@ -52,6 +68,7 @@ class ApplicationContainer:
     archives: PackageArchiveExtractor
     audio: AudioValidator
     media: MediaStore
+    validation: ChallengeValidationGateway
     tone_matcher: ToneMatcher | None = None
     tone_vectors: ToneVectorRepository | None = None
     auth: AuthGateway | None = None
@@ -87,6 +104,18 @@ class ApplicationContainer:
             presenter=presenter,
         )
 
+    def build_validate_challenges_use_case(self) -> ValidateChallengesUseCase:
+        presenter = ValidateChallengesPresenter()
+        interactor = ValidateChallengesInteractor(
+            challenges=self.challenges,
+            validation=self.validation,
+            presenter=presenter,
+        )
+        return ValidateChallengesUseCase(
+            controller=ValidateChallengesController(interactor),
+            presenter=presenter,
+        )
+
 
 def build_container(
     *,
@@ -98,6 +127,7 @@ def build_container(
     archives: PackageArchiveExtractor,
     audio: AudioValidator,
     media: MediaStore,
+    validation: ChallengeValidationGateway,
     tone_matcher: ToneMatcher | None = None,
     tone_vectors: ToneVectorRepository | None = None,
     auth: AuthGateway | None = None,
@@ -113,6 +143,7 @@ def build_container(
         archives=archives,
         audio=audio,
         media=media,
+        validation=validation,
         tone_matcher=tone_matcher,
         tone_vectors=tone_vectors,
         auth=auth,
@@ -126,6 +157,7 @@ _container: ApplicationContainer | None = None
 def build_django_container() -> ApplicationContainer:
     from challenges.adapters.archives import ZipPackageArchiveExtractor
     from challenges.adapters.AudioValidator import FfprobeAudioValidator
+    from challenges.adapters.ChallengeValidator import DjangoChallengeValidator
     from challenges.adapters.MediaStore import FileSystemMediaStore
     from challenges.adapters.PackageSource import FileSystemPackageSource
     from challenges.adapters.repositories import DjangoChallengeRepository
@@ -142,6 +174,7 @@ def build_django_container() -> ApplicationContainer:
         archives=ZipPackageArchiveExtractor(),
         audio=FfprobeAudioValidator(),
         media=FileSystemMediaStore(),
+        validation=DjangoChallengeValidator(),
     )
 
 
