@@ -347,6 +347,32 @@ class ImportChallengePackageInteractorTests(SimpleTestCase):
         self.assertIn("duplicate name", presenter.failure.message)
         self.assertEqual(challenges.records, {})
 
+    def test_duplicate_dates_fail_before_saving(self):
+        packages = InMemoryPackageSource(
+            [_loaded_package("greeting"), _loaded_package("farewell", "Farewell")]
+        )
+        challenges = InMemoryChallengeRepository()
+        media = RecordingMediaStore()
+        interactor, presenter = self.build_interactor(
+            packages=packages,
+            challenges=challenges,
+            media=media,
+        )
+        locations = tuple(
+            PackageLocation(folder=Path("/packages") / slug)
+            for slug in ("greeting", "farewell")
+        )
+
+        interactor.execute(self.input_data(sources=locations))
+
+        self.assertEqual(
+            presenter.failure.reason,
+            ImportChallengePackageFailureReason.INVALID_PACKAGE,
+        )
+        self.assertIn("duplicate challenge_date", presenter.failure.message)
+        self.assertEqual(challenges.records, {})
+        self.assertEqual(media.installs, [])
+
     def test_invalid_package_becomes_a_semantic_failure(self):
         packages = InMemoryPackageSource([_loaded_package()])
         packages.error = ChallengePackageError("Invalid challenge package greeting")
@@ -543,29 +569,3 @@ class ImportChallengePackagePresenterTests(SimpleTestCase):
         self.assertFalse(presenter.view_model.success)
         self.assertEqual(presenter.view_model.message, "Upload a valid .zip archive.")
         self.assertEqual(presenter.view_model.results, ())
-
-    def test_duplicate_dates_fail_before_saving(self):
-        packages = InMemoryPackageSource(
-            [_loaded_package("greeting"), _loaded_package("farewell", "Farewell")]
-        )
-        challenges = InMemoryChallengeRepository()
-        media = RecordingMediaStore()
-        interactor, presenter = self.build_interactor(
-            packages=packages,
-            challenges=challenges,
-            media=media,
-        )
-        locations = tuple(
-            PackageLocation(folder=Path("/packages") / slug)
-            for slug in ("greeting", "farewell")
-        )
-
-        interactor.execute(self.input_data(sources=locations))
-
-        self.assertEqual(
-            presenter.failure.reason,
-            ImportChallengePackageFailureReason.INVALID_PACKAGE,
-        )
-        self.assertIn("duplicate challenge_date", presenter.failure.message)
-        self.assertEqual(challenges.records, {})
-        self.assertEqual(media.installs, [])
