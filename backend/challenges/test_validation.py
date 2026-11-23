@@ -2,6 +2,7 @@ import json
 import shutil
 from copy import deepcopy
 from io import StringIO
+from unittest.mock import patch
 
 from django.core.management import call_command
 from django.core.management.base import CommandError
@@ -148,3 +149,17 @@ class ChallengeValidationTests(MediaTestCase):
             )
         self.assertEqual(stdout.getvalue(), "")
         self.assertIn("ERROR:", stderr.getvalue())
+
+    def test_command_reports_validator_failures(self):
+        stdout = StringIO()
+        stderr = StringIO()
+        with patch(
+            "challenges.adapters.ChallengeValidator.DjangoChallengeValidator.database_errors",
+            side_effect=RuntimeError("boom"),
+        ):
+            with self.assertRaises(CommandError) as error:
+                call_command("validate_challenges", stdout=stdout, stderr=stderr)
+
+        self.assertEqual(str(error.exception), "Could not validate challenges: boom")
+        self.assertEqual(stdout.getvalue(), "")
+        self.assertEqual(stderr.getvalue(), "")
