@@ -19,7 +19,6 @@ from .test_support import (
     make_zip_from_folder,
     write_package,
 )
-from .validation import ChallengeDatabaseValidator
 
 
 class ChallengeValidationTests(MediaTestCase):
@@ -44,21 +43,41 @@ class ChallengeValidationTests(MediaTestCase):
             conversation_tree=loaded.conversation_tree,
         )
 
+    def run_validation(self):
+        stdout = StringIO()
+        stderr = StringIO()
+        try:
+            call_command("validate_challenges", stdout=stdout, stderr=stderr)
+        except CommandError as error:
+            return str(error), stdout.getvalue(), stderr.getvalue()
+        return None, stdout.getvalue(), stderr.getvalue()
+
+    def assert_validation_passes(self):
+        message, stdout, stderr = self.run_validation()
+        self.assertIsNone(message)
+        self.assertEqual(stdout.strip(), "OK")
+        self.assertEqual(stderr, "")
+
+    def validation_errors(self):
+        message, _, stderr = self.run_validation()
+        self.assertEqual(message, "Challenge validation failed.")
+        return [line.removeprefix("ERROR: ") for line in stderr.splitlines()]
+
     def test_clean_database_passes(self):
         self.create_challenge()
-        self.assertEqual(ChallengeDatabaseValidator().validate(), [])
+        self.assert_validation_passes()
 
     def test_missing_published_transcript_fails(self):
         challenge = self.create_challenge()
         transcript = self.media / challenge.conversation_tree["text_file"]
         transcript.unlink()
-        errors = ChallengeDatabaseValidator().validate()
+        errors = self.validation_errors()
         self.assertTrue(any("media file is missing" in error for error in errors))
 
     def test_missing_source_package_fails(self):
         self.create_challenge()
         shutil.rmtree(self.source / "greeting")
-        errors = ChallengeDatabaseValidator().validate()
+        errors = self.validation_errors()
         self.assertTrue(
             any("source package folder is missing" in error for error in errors)
         )
@@ -70,7 +89,7 @@ class ChallengeValidationTests(MediaTestCase):
             json.dumps(manifest),
             encoding="utf-8",
         )
-        errors = ChallengeDatabaseValidator().validate()
+        errors = self.validation_errors()
         self.assertTrue(
             any("source metadata 'name' differs" in error for error in errors)
         )
@@ -79,7 +98,7 @@ class ChallengeValidationTests(MediaTestCase):
         challenge = self.create_challenge()
         media_transcript = self.media / challenge.conversation_tree["text_file"]
         media_transcript.write_text("Changed transcript\n", encoding="utf-8")
-        errors = ChallengeDatabaseValidator().validate()
+        errors = self.validation_errors()
         self.assertTrue(
             any("source and published media differ" in error for error in errors)
         )
@@ -88,7 +107,7 @@ class ChallengeValidationTests(MediaTestCase):
         challenge = self.create_challenge()
         media_transcript = self.media / challenge.conversation_tree["text_file"]
         media_transcript.write_bytes(b"invalid \x92 text")
-        errors = ChallengeDatabaseValidator().validate()
+        errors = self.validation_errors()
         self.assertTrue(
             any("transcript is not valid UTF-8" in error for error in errors)
         )
@@ -104,7 +123,7 @@ class ChallengeValidationTests(MediaTestCase):
             required_action="do nothing",
             conversation_tree={},
         )
-        errors = ChallengeDatabaseValidator().validate()
+        errors = self.validation_errors()
         self.assertIn("empty: conversation tree is empty.", errors)
 
     def test_wrong_published_path_fails(self):
@@ -113,24 +132,24 @@ class ChallengeValidationTests(MediaTestCase):
         tree["text_file"] = "challenges/greeting/other/q1.txt"
         challenge.conversation_tree = tree
         challenge.save()
-        errors = ChallengeDatabaseValidator().validate()
+        errors = self.validation_errors()
         self.assertTrue(any("stored path must be" in error for error in errors))
 
     @override_settings(ROOT_URLCONF="challenges.test_urls")
     def test_media_urls_are_retrievable(self):
         self.create_challenge()
-        self.assertEqual(ChallengeDatabaseValidator().validate(), [])
+        self.assert_validation_passes()
 
     def test_bundled_demo_imports_and_passes_validation(self):
         import_challenge_archive(
             make_zip_from_folder(CHALLENGES_DIR / "forgot-password-x3")
         )
-        self.assertEqual(ChallengeDatabaseValidator().validate(), [])
+        self.assert_validation_passes()
 
     def test_imported_string_difficulty_passes_validation(self):
         result = import_challenge_archive(make_zip(challenge_manifest(difficulty="1")))
         self.assertEqual(result.challenge.difficulty, 1)
-        self.assertEqual(ChallengeDatabaseValidator().validate(), [])
+        self.assert_validation_passes()
 
     def test_command_prints_ok(self):
         self.create_challenge()

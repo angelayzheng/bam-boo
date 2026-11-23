@@ -14,7 +14,6 @@ from django.test import RequestFactory
 from django.urls import Resolver404, resolve
 
 from . import package
-from .models import Challenge
 from .serialization import media_url
 
 DEFAULT_MIME_TYPES = {
@@ -29,15 +28,6 @@ class ChallengeDatabaseValidator:
     def __init__(self, *, media_root=None, source_root=None):
         self.media_root = Path(media_root or settings.MEDIA_ROOT)
         self.source_root = Path(source_root or package.CHALLENGES_DIR)
-
-    def validate(self):
-        errors = self.database_errors()
-        errors.extend(self.environment_errors())
-        if errors:
-            return errors
-        for challenge in Challenge.objects.all().order_by("slug"):
-            errors.extend(self.challenge_errors(challenge))
-        return errors
 
     def database_errors(self):
         errors = []
