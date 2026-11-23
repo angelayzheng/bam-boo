@@ -1,5 +1,4 @@
-import type { ConversationNode } from '../../entities/types'
-import { responseOptions } from '../../entities/conversationRules.ts'
+import type { AttemptTurn } from '../../entities/types'
 import { challengeDateLabel } from '../../viewModels/challengeDatePresenter.ts'
 import type { ChallengeOutputData } from '../boundaries/challengeOutputBoundary'
 
@@ -29,15 +28,23 @@ export interface ChallengeViewModel {
   tone: string
   tonePending: boolean
   toneError: string
+  toneCorrect: boolean | null
   toneTime: number
+  toneSpeedCorrect: boolean | null
   opening: ChallengeAudioTurnViewModel | null
   path: ChallengeAudioTurnViewModel[]
   activeAudio: string
   options: ChallengeResponseOptionViewModel[]
+  choicePending: boolean
+  choiceError: string
+  continuePending: boolean
+  continueError: string
   conversationFinished: boolean
   stepNumber: number
   progressPercent: number
   nextAction: string
+  actionPending: boolean
+  actionError: string
 }
 
 const loadingViewModel = (): ChallengeViewModel => ({
@@ -50,15 +57,23 @@ const loadingViewModel = (): ChallengeViewModel => ({
   tone: '',
   tonePending: false,
   toneError: '',
+  toneCorrect: null,
   toneTime: 0,
+  toneSpeedCorrect: null,
   opening: null,
   path: [],
   activeAudio: '',
   options: [],
+  choicePending: false,
+  choiceError: '',
+  continuePending: false,
+  continueError: '',
   conversationFinished: false,
   stepNumber: 1,
   progressPercent: 33,
   nextAction: '',
+  actionPending: false,
+  actionError: '',
 })
 
 export function initialChallengeViewModel(): ChallengeViewModel {
@@ -69,14 +84,22 @@ function stageStep(stage: ChallengeStage): number {
   return stage === 'tone' ? 1 : stage === 'response' ? 2 : 3
 }
 
-function toAudioTurn(node: ConversationNode): ChallengeAudioTurnViewModel {
+function toAudioTurn(node: AttemptTurn): ChallengeAudioTurnViewModel {
   return {
-    key: node.transcript_url,
+    key: node.transcriptUrl,
     type: node.type,
     text: node.text,
-    transcriptUrl: node.transcript_url,
-    audioUrl: node.audio_url,
+    transcriptUrl: node.transcriptUrl,
+    audioUrl: node.audioUrl,
   }
+}
+
+function displayStage(status: string): ChallengeStage {
+  return status === 'tone'
+    ? 'tone'
+    : status === 'conversation'
+      ? 'response'
+      : 'action'
 }
 
 export function toChallengeViewModel(
@@ -86,31 +109,40 @@ export function toChallengeViewModel(
   if (output.status === 'error') {
     return { ...loadingViewModel(), status: 'error', message: output.message }
   }
-  const selectedKey = output.session.selectedResponse?.transcript_url ?? null
-  const options = responseOptions(output.session.path)
-  const step = stageStep(output.session.stage)
+  const { session } = output
+  const stage = displayStage(session.stage)
+  const step = stageStep(stage)
   return {
     status: output.status,
     message: '',
-    dateLabel: challengeDateLabel(output.challenge),
-    name: output.challenge.name,
-    category: output.challenge.category,
-    stage: output.session.stage,
-    tone: output.session.tone,
-    tonePending: output.session.tonePending,
-    toneError: output.session.toneError,
-    toneTime: output.session.toneTime,
-    opening: toAudioTurn(output.challenge.conversation_tree),
-    path: output.session.path.map(toAudioTurn),
-    activeAudio: output.session.activeAudio,
-    options: options.map((option) => ({
-      key: option.transcript_url,
-      text: option.text,
-      selected: option.transcript_url === selectedKey,
+    dateLabel: challengeDateLabel(session.challenge),
+    name: session.challenge.name,
+    category: session.challenge.category,
+    stage,
+    tone: session.tone,
+    tonePending: session.tonePending,
+    toneError: session.toneError,
+    toneCorrect: session.toneCorrect,
+    toneTime: session.toneTime === null ? 0 : Math.round(session.toneTime),
+    toneSpeedCorrect: session.toneSpeedCorrect,
+    opening: toAudioTurn(session.opening),
+    path: session.conversation.map(toAudioTurn),
+    activeAudio: session.activeAudio,
+    options: session.choices.map((choice) => ({
+      key: choice.choiceId,
+      text: choice.text,
+      selected: choice.choiceId === session.selectedChoiceId,
     })),
-    conversationFinished: options.length === 0,
+    choicePending: session.choicePending,
+    choiceError: session.choiceError,
+    continuePending: session.continuePending,
+    continueError: session.continueError,
+    conversationFinished:
+      session.stage === 'conversation' && session.choices.length === 0,
     stepNumber: step,
     progressPercent: Math.round((step / 3) * 100),
-    nextAction: output.session.nextAction,
+    nextAction: session.nextAction,
+    actionPending: session.actionPending,
+    actionError: session.actionError,
   }
 }

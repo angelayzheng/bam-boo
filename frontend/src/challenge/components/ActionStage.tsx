@@ -3,12 +3,16 @@ import { card, primaryButton, textField } from './styles'
 
 interface ActionStageProps {
   nextAction: string
+  actionPending: boolean
+  actionError: string
   onActionChange: (action: string) => void
   onFinish: () => void
 }
 
 export default function ActionStage({
   nextAction,
+  actionPending,
+  actionError,
   onActionChange,
   onFinish,
 }: ActionStageProps) {
@@ -30,7 +34,7 @@ export default function ActionStage({
         className="mt-6"
         onSubmit={(event) => {
           event.preventDefault()
-          if (nextAction.trim()) onFinish()
+          if (nextAction.trim() && !actionPending) onFinish()
         }}
       >
         <label htmlFor="next-action" className="sr-only">
@@ -40,18 +44,24 @@ export default function ActionStage({
           id="next-action"
           rows={4}
           value={nextAction}
+          disabled={actionPending}
           onChange={(event) => onActionChange(event.target.value)}
           placeholder="Describe the action you would take…"
           autoFocus
           className={`${textField} resize-none text-base leading-6`}
         />
+        {actionError && (
+          <p role="alert" className="mt-3 text-sm text-red-700">
+            {actionError}
+          </p>
+        )}
         <div className="mt-4 flex justify-end">
           <button
             type="submit"
-            disabled={!nextAction.trim()}
+            disabled={!nextAction.trim() || actionPending}
             className={primaryButton}
           >
-            Finish challenge
+            {actionPending ? 'Grading action…' : 'Finish challenge'}
           </button>
         </div>
       </form>

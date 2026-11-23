@@ -1,18 +1,35 @@
-import type { Challenge, ChallengeSummary } from '../../entities/types'
-
-export interface ToneGateway {
-  score(answer: string, slug: string, signal: AbortSignal): Promise<boolean>
-}
+import type { AttemptSnapshot, ChallengeSummary } from '../../entities/types'
 
 export interface ChallengeGateway {
   loadSummaries(signal: AbortSignal): Promise<ChallengeSummary[]>
-  loadDetail(slug: string, signal: AbortSignal): Promise<Challenge>
 }
 
-export interface Clock {
-  now(): number
+export interface AttemptGateway {
+  start(slug: string, signal: AbortSignal): Promise<AttemptSnapshot>
+  load(attemptId: string, signal: AbortSignal): Promise<AttemptSnapshot | null>
+  submitTone(
+    attemptId: string,
+    answer: string,
+    signal: AbortSignal,
+  ): Promise<AttemptSnapshot>
+  chooseResponse(
+    attemptId: string,
+    choiceId: string,
+    signal: AbortSignal,
+  ): Promise<AttemptSnapshot>
+  continueConversation(
+    attemptId: string,
+    signal: AbortSignal,
+  ): Promise<AttemptSnapshot>
+  submitAction(
+    attemptId: string,
+    answer: string,
+    signal: AbortSignal,
+  ): Promise<AttemptSnapshot>
 }
 
-export interface IdGenerator {
-  randomId(): string
+export interface AttemptStorage {
+  load(slug: string): string | null
+  save(slug: string, attemptId: string): void
+  clear(slug: string): void
 }

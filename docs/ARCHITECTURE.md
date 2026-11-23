@@ -81,15 +81,16 @@ frontend/
 	src/
 		main.tsx        React application entry point
 		App.tsx         Top-level training flow, summaries loading, and page navigation
-		pages/          Home, challenge, results, authentication, and profile pages plus the challenge, home, profile, and auth composition hooks
+		pages/          Home, challenge, results, authentication, and profile pages plus the challenge, results, home, profile, and auth composition hooks
 		components/     Shared interface components and icons
-		entities/      Challenge session, conversation rules, daily-challenge selection, training calendar, user profile progress, auth credentials, and domain types (framework-free)
+		entities/      Challenge session, result summary, daily-challenge selection, training calendar, user profile progress, auth credentials, and domain types (framework-free)
 		challenge/      Challenge route application code; future routes follow the same layout
-			boundaries/    Output boundary and challenge data access interfaces
+			boundaries/    Output boundary, challenge/attempt gateway interfaces, and attempt storage
 			components/    Challenge stage views and audio player
-			dataAccessInterface/  Challenge and tone gateways, browser services
+			dataAccessInterface/  Challenge and attempt gateways, attempt storage, browser services
 			viewModels/    Challenge view-model mapper (framework-free)
 			useCases/      One folder per challenge use case with its interactor, boundaries, and presenter
+		dataAccessInterface/  Shared JSON/CSRF HTTP client and ApiError
 		home/          Home route application code
 			boundaries/    Profile and leaderboard gateway interfaces
 			components/    Daily challenge card, calendar grid, leaderboard
@@ -102,15 +103,20 @@ frontend/
 			dataAccessInterface/  Profile gateway
 			viewModels/    Profile view model and avatar formatting
 			useCases/      loadUserProfile (interactor, boundaries, presenter)
+		results/       Results route application code
+			boundaries/    Result claim gateway and retained-result storage interfaces
+			components/    Result summary, achievements, save status, and actions
+			dataAccessInterface/  Claim endpoint and sessionStorage result service
+			viewModels/    Results and claim-state view models
+			useCases/      restoreChallengeResult and claimChallengeResult (interactor, boundaries, presenter)
 		viewModels/     Cross-feature view-model formatting (challenge dates, framework-free)
-		auth/          Account session, authentication, groups, and score gateway
-			boundaries/    Session, authentication, logout, signup-group, and score interfaces
+		auth/          Account session, authentication, and groups
+			boundaries/    Session, authentication, logout, and signup-group interfaces
 			components/    Login/signup form
-			dataAccessInterface/  CSRF/session endpoints, signup groups, score endpoint
+			dataAccessInterface/  CSRF/session endpoints and signup groups
 			viewModels/    Session, form, groups, and logout view models
 			useCases/      restoreSession, authenticateUser, logoutUser, loadSignupGroups
-		routes.ts       Routes derived from the loaded challenge date
-		types.ts        Shared screen and score-save types
+		routes.ts       Route parsing helpers for home, challenge, results, auth, and profile
 	    index.css       Tailwind import, design tokens (@theme), and global styles
 			assets/         Frontend image and SVG assets
 	tests/            API-loading, use case, entity, view-model, gateway, and offline-layout tests using native TypeScript support
@@ -129,12 +135,12 @@ docs/
 
 ## Frontend
 
-The frontend is written in TypeScript. Its entry point is `frontend/src/main.tsx`; it mounts the root `App` component into the page and loads `frontend/src/index.css`. Training content comes from the Django challenge API and SQLite. `App.tsx` loads the challenge summaries on mount and selects the `forgot-password-x3` demo when present (otherwise the first challenge) for the calendar and route date. Entering the challenge route hands the selected date to the challenge page, whose Start Challenge use case loads that challenge's detail and transcripts in parallel through `challenge/dataAccessInterface/challengeGatewayApi.ts`. Media URLs resolve from the origin root so direct visits to nested challenge routes work. Summary and account failures use a compact inline notice in `App.tsx` with retry, while challenge-detail failures surface inside the challenge and results pages with their own retry action; there is no static-scenario fallback. Without challenge summaries, the home page shows the current local month, an empty leaderboard/progress state, disabled calendar actions, and an empty recording card. Retrying failed requests restores real challenge/account data without reloading the page. The interface is styled with Tailwind CSS utility classes in React components. `frontend/src/index.css` imports Tailwind, defines the design tokens (brand colors, font, radius, shadow, and animation) in an @theme block, and contains global CSS rules. Use the token-based classes (for example bg-beige, text-orange, bg-green-light) instead of arbitrary hex values.
+The frontend is written in TypeScript. Its entry point is `frontend/src/main.tsx`; it mounts the root `App` component into the page and loads `frontend/src/index.css`. Training content comes from the Django challenge API and SQLite. `App.tsx` loads the challenge summaries on mount and selects the `forgot-password-x3` demo when present (otherwise the first challenge) for the calendar and route date. Entering the challenge route hands the slug to the challenge page, whose Start Challenge use case resumes a stored attempt or creates a new server-owned run through `challenge/dataAccessInterface/attemptGatewayApi.ts`; the opening and later turns are hydrated from their transcript URLs. Media URLs resolve from the origin root so direct visits to nested challenge routes work. Summary and account failures use a compact inline notice in `App.tsx` with retry, while attempt failures surface inside the challenge page with its own retry action; there is no static-scenario fallback. Without challenge summaries, the home page shows the current local month, an empty leaderboard/progress state, disabled calendar actions, and an empty recording card. Retrying failed requests restores real challenge/account data without reloading the page. The interface is styled with Tailwind CSS utility classes in React components. `frontend/src/index.css` imports Tailwind, defines the design tokens (brand colors, font, radius, shadow, and animation) in an @theme block, and contains global CSS rules. Use the token-based classes (for example bg-beige, text-orange, bg-green-light) instead of arbitrary hex values.
 
 Use npm scripts from the `frontend` directory:
 
 - `npm run dev`: start the Vite development server on port `5173`.
-- `npm test`: run the API-loading, branch-traversal, and answer-matching tests with Node 24’s built-in test runner and TypeScript support.
+- `npm test`: run the gateway, use-case, entity, view-model, and offline-layout tests with Node 24’s built-in test runner and TypeScript support.
 - `npm run build`: type-check the frontend and create a production build in `frontend/dist`.
 - `npm run lint`: check frontend formatting with Prettier.
 - `npm run lint:js`: lint JavaScript and TypeScript with Oxlint.
@@ -147,19 +153,21 @@ Frontend build tooling uses `@types/node` for the Node.js APIs in Vite configura
 
 Python formatting is enforced with Black using `backend/pyproject.toml`. Frontend formatting is enforced with Prettier and `prettier-plugin-tailwindcss`; Oxlint remains available as `npm run lint:js` for TypeScript and JavaScript quality checks.
 
-The frontend uses browser history for its routes: `/` renders the calendar, `/challenges/:slug` renders the challenge with that slug, and `/challenges/:slug/complete` renders that challenge's results. The slug comes from the URL and resolves through `GET /api/challenges/<slug>/`. Result feedback is retained in session storage with its challenge slug, per-completion submission token, and original completion timestamp to support a results-page reload during the same browser session. On a results reload the results page loads the challenge detail itself through the Start Challenge use case and returns home when the retained result belongs to a different challenge.
+The frontend uses browser history for its routes: `/` renders the calendar, `/challenges/:slug` renders the challenge with that slug, and `/challenges/:slug/complete` renders that challenge's results. The challenge route resumes an in-progress attempt id retained per slug in session storage or starts a new run; it does not fetch the conversation tree. A completed result is retained in session storage with its attempt id, challenge summary, server score, required action, and completion timestamp, so the results page reloads without creating another attempt. The results route restores and validates that result through the results slice; a missing or mismatched result shows an unavailable state instead of creating a new attempt.
 
 `/login` and `/signup` render `AuthPage.tsx`; `/profile` renders `ProfilePage.tsx` for the signed-in user and the login form while the account is anonymous or unknown. Signed-in visitors to either authentication route see their profile. Account pages resolve independently of challenge loading, including when the database has no challenges or media is unavailable. `App.tsx` restores the account through `/api/users/auth/me/` on mount; session loading and connection failures keep the form visible with a small status notice and retry action. Authentication submission waits for the initial session check to finish, and fields remain editable. A failed session check permits a later login attempt. The home header links to login or the current user's profile instead of displaying a placeholder avatar and streak. Recordings remain available without signing in.
 
-The `auth/` slice owns same-origin, cookie-based authentication. `pages/useAuthFlow.ts` composes `loadSignupGroups` and `authenticateUser` for `AuthPage`; `App.tsx` uses `restoreSession` on mount, and `pages/useProfileFlow.ts` uses `logoutUser` for profile logout. `auth/dataAccessInterface/authGatewayApi.ts` fetches a fresh CSRF token before each signup, login, or logout, so token rotation after login or a change in another tab does not leave a cached token; `httpClient.ts` centralizes response parsing and `ApiError`. Credentials, session identifiers, and CSRF tokens are not written to browser storage. Authentication errors and Django signup validation messages appear in the form; pending submissions disable inputs and the submit button. Requests made by page effects and sign-in forms are cancelled on unmount. Signup checks password confirmation through `entities/authCredentials.ts` before submitting. The score POST remains in `auth/dataAccessInterface/scoreGatewayApi.ts` until the results migration moves it behind its own use case.
+The `auth/` slice owns same-origin, cookie-based authentication. `pages/useAuthFlow.ts` composes `loadSignupGroups` and `authenticateUser` for `AuthPage`; `App.tsx` uses `restoreSession` on mount, and `pages/useProfileFlow.ts` uses `logoutUser` for profile logout. `auth/dataAccessInterface/authGatewayApi.ts` fetches a fresh CSRF token before each signup, login, or logout, so token rotation after login or a change in another tab does not leave a cached token; shared `dataAccessInterface/httpClient.ts` centralizes response parsing, CSRF-aware POSTs, and `ApiError`. Credentials, session identifiers, and CSRF tokens are not written to browser storage. Authentication errors and Django signup validation messages appear in the form; pending submissions disable inputs and the submit button. Requests made by page effects and sign-in forms are cancelled on unmount. Signup checks password confirmation through `entities/authCredentials.ts` before submitting.
 
-The `profile/` slice loads the account through `profile/useCases/loadUserProfile/`, joins saved scores with seeded summaries in `entities/userProfileProgress.ts`, and formats the avatar and score rows in `profile/viewModels/profileViewModel.ts`; `pages/ProfilePage.tsx` is a thin controller. The profile displays the current account's username and email plus its stored avatar, total score, completed challenge count, and per-challenge scores from `/api/users/<id>/profile/`. Profile loading and logout failures have separate error states; profile reads can be retried and a failed logout retains the signed-in account. Successful logout clears the frontend account and locally retained challenge result, then opens login. Profile fields are read-only in the interface, while challenge completion automatically saves scores through the authenticated current-user score endpoint. Results retain their completing account's ID (or `null` for a guest), a unique submission token, and the original completion timestamp alongside feedback in browser session storage. The results page shows saving, saved, and retryable failure states; a session expiry prompts login again. A guest can sign in or sign up to claim their pending result, but a result already assigned to one account is not submitted for another. Saving continues when navigating from results to the calendar or profile, and the profile reloads progress when a save finishes. Starting a retry keeps the previous result until another completion or logout, so beginning an attempt does not cancel an in-flight save. Reloading a retained result reuses its submission token and completion time, so retrying a save does not duplicate attempt history. A newly completed replay receives a new token and is always recorded, even when its score is lower. The profile displays only best scores, while Django admin exposes every attempt with its completion and receipt timestamps. Results saved before completion timestamps were introduced are display-only and require replay to create an attempt; the app does not invent historical completion times. API-client and route tests cover session restoration, authentication requests, fresh CSRF tokens, validation failures, HTML errors, cancellation, profile reads, and account routing without challenge data. Offline-layout regression tests bundle the app in memory with Vite and render it using React's server renderer to check that the calendar and authentication forms render without waiting for backend requests; these checks add no dependencies and do not start a server.
+The `profile/` slice loads the account through `profile/useCases/loadUserProfile/`, joins saved scores with seeded summaries in `entities/userProfileProgress.ts`, and formats the avatar and score rows in `profile/viewModels/profileViewModel.ts`; `pages/ProfilePage.tsx` is a thin controller. The profile displays the current account's username and email plus its stored avatar, total score, completed challenge count, and per-challenge scores from `/api/users/<id>/profile/`. Profile loading and logout failures have separate error states; profile reads can be retried and a failed logout retains the signed-in account. Successful logout clears the frontend account and locally retained challenge result, then opens login. Profile fields are read-only in the interface. Authenticated run completion is graded and saved by the backend in one transaction; the frontend then claims completed results while signed in so a run started anonymously before login is also recorded. Results retain the completing account's ID (or `null` for a guest), the attempt id, the completed challenge summary, server score, required action, and completion timestamp in browser session storage. The results page shows saving, saved, and retryable failure states; a session expiry prompts login again. A guest can sign in or sign up to claim their pending result, but a result assigned to another account is not claimed. Saving continues when navigating from results to the calendar or profile, and the profile reloads progress when a save finishes. Reloading a retained result reuses the same attempt id, so claiming is idempotent and does not duplicate attempt history. A newly completed replay creates a new run and attempt, even when its score is lower. The profile displays only best scores, while Django admin exposes every attempt with its completion and receipt timestamps. API-client and route tests cover session restoration, authentication requests, fresh CSRF tokens, validation failures, HTML errors, cancellation, profile reads, and account routing without challenge data. Offline-layout regression tests bundle the app in memory with Vite and render it using React's server renderer to check that the calendar and authentication forms render without waiting for backend requests; these checks add no dependencies and do not start a server.
 
 The home route follows the same Clean Architecture pattern. `pages/useHomeFlow.ts` composes three use cases: `loadTodayChallenge` selects the seeded summary through `entities/dailyChallenge.ts`, `loadCalendar` loads the signed-in user's progress through the profile gateway and builds the month grid and streak with `entities/trainingCalendar.ts`, and `loadLeaderboard` loads ranked users through the leaderboard gateway. Each use case has its own presenter and view-model mapper in `home/viewModels/homeViewModel.ts`; `pages/HomePage.tsx` wires them into `home/components/` and renders the calendar grid immediately from an empty training calendar before progress arrives.
 
-The challenge route follows Clean Architecture with source dependencies pointing inward only. `entities/` holds the framework-free business rules: `conversationRules.ts` (branch traversal and answer matching), the `ChallengeSession` entity in `challengeSession.ts`, which owns the tone/response/action stage state and exposes pure transitions, and the domain types in `types.ts`. `challenge/useCases/` holds the challenge application code and one folder per use case — `startChallenge/` (loads the challenge detail by date and starts the session), `submitTone/` (scores the answer with elapsed time and double-submit protection), `advanceConversation/` (reply selection, traversal, and audio chaining), and `completeChallenge/` (builds the completion result) — each containing its interactor, input boundary DTOs, and presenter. The shared output boundary lives in `challenge/boundaries/challengeOutputBoundary.ts`, and the `ToneGateway`, `ChallengeGateway`, `Clock`, and `IdGenerator` data access interfaces in `challenge/boundaries/dataAccessInterfaces.ts`; `challenge/dataAccessInterface/` implements them (`challengeGatewayApi.ts`, `toneGatewayApi.ts`, and `browserServices.ts` for time, IDs, and scrolling). `challenge/viewModels/challengeViewModel.ts` converts output data into display-ready view values (options, finished flag, step number, progress), and `pages/useChallengeFlow.ts` composes each use case's presenter, gateways, and interactors behind their input boundaries for the page. `viewModels/challengeDatePresenter.ts` is shared by challenge, home, results, and profile view models to format challenge dates. React components in `challenge/components/` render one view model per stage; `pages/ChallengePage.tsx` is a thin controller that owns only browser concerns (AbortControllers, scrolling, completion navigation). The interactors and entity are unit-tested with fakes in `tests/` without React or a browser.
+The challenge route follows Clean Architecture with source dependencies pointing inward only. `entities/` holds the framework-free state: the `ChallengeSession` entity in `challengeSession.ts` wraps the latest `AttemptSnapshot`, owns local drafts and pending/error presentation state, and exposes pure audio and result helpers; `types.ts` defines attempt turns, choices, snapshots, result data, and challenge summaries. There is no frontend conversation tree, answer matching, tone timing, or star calculation. `challenge/useCases/` holds one folder per use case — `startChallenge/` (resumes a stored attempt or starts a server run), `submitTone/` (posts the tone answer and applies the returned snapshot), `advanceConversation/` (choice selection, choice submission, continue, and audio chaining), and `completeChallenge/` (posts the action answer and builds the completion result) — each containing its interactor, input boundary DTOs, and presenter. The shared output boundary lives in `challenge/boundaries/challengeOutputBoundary.ts`, and the `ChallengeGateway`, `AttemptGateway`, and `AttemptStorage` interfaces in `challenge/boundaries/dataAccessInterfaces.ts`; `challenge/dataAccessInterface/` implements them (`challengeGatewayApi.ts`, `attemptGatewayApi.ts`, `attemptStorage.ts`, and `browserServices.ts` for scrolling). `challenge/viewModels/challengeViewModel.ts` converts attempt snapshots into display-ready view values (options, finished flag, step number, progress), and `pages/useChallengeFlow.ts` composes each use case's presenter, gateways, storage, and interactors behind their input boundaries for the page. `viewModels/challengeDatePresenter.ts` is shared by challenge, home, results, and profile view models to format challenge dates. React components in `challenge/components/` render one view model per stage; `pages/ChallengePage.tsx` is a thin controller that owns only browser concerns (AbortControllers, scrolling, completion navigation). The interactors and entity are unit-tested with fakes in `tests/` without React or a browser.
 
-The challenge has tone, conversation, and next-action stages. Conversation history starts at the tree root (a customer/question node). Selecting an agent/response child appends that response and its recorded customer follow-up, then exposes only that follow-up’s available replies. The bundled demo has three paths with two agent turns each and one customer continuation per agent node. Reaching a leaf unlocks the next-action stage. Both speakers have native MP3 controls and visible transcripts; selected agent audio plays before the customer follow-up, subject to browser autoplay permissions. Tone feedback sends only the user’s answer and challenge slug through the `ToneGateway` data access interface to the backend. The server looks up the correct tone from the challenge record and grades it at cosine similarity >= 0.65, an initial threshold that can be tuned with evaluated examples. The reference tone is omitted from challenge list responses, included in challenge detail responses, and never returned by grading; the results page shows correctness feedback without revealing it. Action feedback retains whole-word matching against `required_action`. Submission captures elapsed time before the request, disables repeated submissions while scoring, and stays on the tone step with a retryable error for unknown words or service failures. Requests are cancelled on unmount.
+The backend owns the tone, conversation, action, and completed stages. Starting or resuming a run returns the opening node; tone grading returns the conversation and current response choices; selecting a choice returns the updated history and next choices; continuing with no choices opens the action stage; and submitting the action returns the completed snapshot with `action_correct`, `score`, `required_action`, and `completed_at`. Snapshots expose only the opening, already-seen conversation, and current choices, never future nodes or the reference tone. Both speakers have native MP3 controls and visible transcripts; selected agent audio plays before the customer follow-up, subject to browser autoplay permissions. Tone submission sends only the answer, and the backend grades it at cosine similarity >= 0.65 while storing the elapsed tone time. Action grading uses whole-word matching against the challenge’s private required action. Submissions disable repeated requests and surface unknown-tone, stale-stage, ownership, and service failures as retryable inline errors. Requests are cancelled on unmount.
+
+The results route follows the same Clean Architecture boundary. `entities/challengeResultSummary.ts` validates and normalizes retained result data, decides claim eligibility (`checking`, `guest`, `saved`, `other-account`, `invalid`, or `claimable`), and exposes server-graded achievement/star values. `results/useCases/restoreChallengeResult/` accepts an optional in-memory seed or loads session storage through `ResultStorage`, verifies the route slug, persists a fresh completion seed, and presents the results view model. `results/useCases/claimChallengeResult/` posts only the attempt id through `ResultClaimGateway`, marks the result saved, and updates storage; it skips guests, saved results, invalid results, and results owned by another account. `pages/useResultsFlow.ts` is composed by `App` so a claim continues when the user leaves results for home, profile, or login. The hook restores the retained result for background claiming, accepts the freshly completed result as a seed, retries claims, clears the retained result on logout, and exposes display-ready results and claim view models. `results/viewModels/resultsViewModel.ts` owns achievement text, headings, date labels, save messages, and link/retry flags. `pages/ResultsPage.tsx` is a thin view over `results/components/` and receives no domain result or account objects.
 
 Vite enables polling for file watching so source changes in mounted Windows workspaces invalidate its transformed-module cache. Restart Vite once after changing this configuration. The Vite development proxy supplies both API and media access. Production hosting must also route `/api/` to Django and `/media/` to the stored recordings; Django’s development media serving is not a production media server.
 
@@ -169,7 +177,7 @@ The backend uses Clean Architecture boundaries: framework-free entities live in 
 
 `ManageChallengeRun` owns starting runs, reading snapshots, grading tone and action answers, traversing conversation choices, and completing runs. Its interactor, input/output data, and boundaries live in `play/use_cases/manage_challenge_run/`; its controller and presenter live in the matching `play/adapters/manage_challenge_run/` folder. The interactor depends on `ChallengeRepository`, `RunRepository`, `AttemptRepository`, `ProfileRepository`, `ToneMatcher`, and `UnitOfWork` ports. The presenter serializes snapshots and maps semantic failures to HTTP statuses. The Django views only parse request bodies, invoke the controller, and return the presenter's response. A completion locks and revalidates the run, then saves its completed state, history record, and profile score within one unit-of-work transaction.
 
-`RecordChallengeAttempt` handles score submissions from the separate legacy score endpoint. Its input/output data, boundaries, and interactor live in `play/use_cases/record_challenge_attempt/` and use the same challenge, attempt, profile, and unit-of-work ports. Django implementations live in `challenges/adapters/repositories.py`, `play/adapters/repositories.py`, `users/adapters/repositories.py`, and `play/adapters/unit_of_work.py`. `config/container.py` composes both play use cases from those adapters. The ORM models and migrations stay in `play/`, `users/`, and `challenges/`.
+`RecordChallengeAttempt` remains the validated score-submission use case in `play/use_cases/record_challenge_attempt/`, sharing the challenge, attempt, profile, and unit-of-work ports. The active `/api/users/me/scores/<slug>/` claim endpoint currently lives in `users/adapters/views.py` and derives the attempt from a completed `ChallengeRun` instead of trusting client-supplied metrics. Django implementations live in `challenges/adapters/repositories.py`, `play/adapters/repositories.py`, `users/adapters/repositories.py`, and `play/adapters/unit_of_work.py`. `config/container.py` composes the play use cases from those adapters. The ORM models and migrations stay in `play/`, `users/`, and `challenges/`.
 
 The Django project is configured in `backend/config`:
 
@@ -193,13 +201,12 @@ The Django project is configured in `backend/config`:
   - `/api/users/<username>/`: public `GET` of a user's profile; authenticated, owner-only `POST` to update profile details.
   - `/api/users/leaderboard/`: top ten users by total score.
   - `/api/users/groups/`: public `GET` of existing group IDs and names for signup, ordered by name.
-  - `/api/users/me/scores/<challenge_slug>/`: authenticated `POST` of completion metrics, a submission token, and a completion timestamp; records an attempt for the challenge slug and updates the current user's best-score summary.
+  - `/api/users/me/scores/<challenge_slug>/`: authenticated `POST` of a completed run's `attempt_id`; claims a guest-completed run, records its attempt, and updates the current user's best-score summary.
   - `/api/users/auth/csrf/`: `GET` a CSRF token and set the CSRF cookie.
   - `/api/users/auth/signup/`: `POST` signup credentials, create an account/profile, and start a session.
   - `/api/users/auth/login/`: `POST` credentials and start a session.
   - `/api/users/auth/logout/`: `POST` to flush the session.
   - `/api/users/auth/me/`: `GET` the current account, or `401` when anonymous.
-  - `/api/tone/<challenge_slug>/?answer=<user-answer>`: grade the URL-encoded answer against the challenge’s private tone. Success returns `200`, `{"similarity": 0.8, "correct": true}`. The former two-tone endpoint is removed.
   - `/media/`: local development transcript and MP3 serving when `DEBUG` is enabled.
   - `/admin/`: Django admin.
   - `/admin/challenges/challenge/import-package/`: staff-only ZIP challenge import.
@@ -210,36 +217,27 @@ Backend dependencies are pinned in `backend/requirements.txt`. Run Django comman
 
 ### Challenge API
 
-`GET /api/challenges/<slug>/` returns one challenge by its stable slug:
+`GET /api/challenges/<slug>/` returns one challenge's summary by its stable slug:
 
 ```json
 {
   "slug": "forgot-password-x3",
   "name": "Forgot Password x3",
   "challenge_date": "2026-10-15",
-  "tone": "frustrated",
-  "required_action": "reset password",
   "difficulty": 1,
-  "category": "account",
-  "conversation_tree": {
-    "type": "question",
-    "node_key": "c1",
-    "transcript_url": "/media/challenges/forgot-password-x3/transcripts/c1.txt",
-    "audio_url": "/media/challenges/forgot-password-x3/audio/c1.mp3",
-    "children": []
-  }
+  "category": "account"
 }
 ```
 
-Story nodes expose `type`, optional `node_key`, `transcript_url`, `audio_url`, and `children`. The stored `text_file` and `audio_file` paths remain internal. Detail responses include the challenge tone; list responses do not.
+The detail endpoint does not expose the tone, required action, or conversation tree. Those remain server-owned and appear only in attempt snapshots or completed-run results. Unknown slugs return JSON `404`.
 
 `GET /api/challenges/?category=<category>&name=<name>&date=<YYYY-MM-DD>&difficulty=<1-5>` returns `{"challenges": [...]}` summaries with `slug`, `name`, `challenge_date`, `difficulty`, and `category`. Category, date, and difficulty filters are strict. Names are case-folded and ranked with `difflib.SequenceMatcher`; only matches at or above `0.6` are returned, best match first. Invalid filter values return JSON `400`, and unknown slugs return JSON `404`.
 
 ### Challenge play API
 
-Challenge play is a server-owned workflow. Starting a run creates it in the `tone` stage. Submitting a tone answer advances to `conversation`; response choices update the conversation history; continuing after all response choices advances to `action`; and submitting the required action completes the run. Each successful request returns the current snapshot, including the stage, opening, conversation, available choices, and score fields when complete. Requests require JSON objects, including `{}` for start and continue. Invalid inputs return `400`, unavailable choices and stage transitions return `409`, unknown runs and tone answers return `404`, unavailable tone vectors return `503`, and requests for another account's run return `403`.
+Challenge play is a server-owned workflow. Starting a run creates it in the `tone` stage. Submitting a tone answer advances to `conversation`; response choices update the conversation history; continuing after all response choices advances to `action`; and submitting the required action completes the run. Each successful request returns the current snapshot, including the stage, opening, conversation, current choices, and score fields when complete. Snapshots expose transcript and audio URLs but not transcript text or future nodes. Requests require JSON objects, including `{}` for start and continue. Invalid inputs return `400`, unavailable choices and stage transitions return `409`, unknown runs and tone answers return `404`, unavailable tone vectors return `503`, and requests for another account's run return `403`.
 
-Anonymous runs can be played but do not save user progress. Authenticated run completion records the original completion time and challenge score in the attempt history and updates the profile's best score in the same transaction as the completed run state. If any write fails, the entire completion rolls back so the run can be retried.
+Anonymous runs can be played but do not save user progress. Completing a run created by an authenticated user records the completion time and challenge score in the attempt history and updates the profile's best score in the same transaction as the completed run state. If any write fails, the entire completion rolls back so the run can be retried. A guest-completed run can be claimed after login through the score endpoint using only its attempt id.
 
 ### Session authentication API
 
@@ -305,27 +303,19 @@ See Django's [authentication documentation](https://docs.djangoproject.com/en/6.
 
 ### Challenge score saving API
 
-`POST /api/users/me/scores/<challenge_slug>/` uses the challenge's stable **slug**. It requires an authenticated Django session, the CSRF cookie, and an `X-CSRFToken` header. The frontend's `saveChallengeResult` uses the same fresh-token request helper as signup/login/logout. The JSON body contains:
+`POST /api/users/me/scores/<challenge_slug>/` uses the challenge's stable **slug**. It requires an authenticated Django session, the CSRF cookie, and an `X-CSRFToken` header. The frontend `results/dataAccessInterface/resultClaimGatewayApi.ts` claim uses the same fresh-token request helper as signup/login/logout. The JSON body contains only the completed run's attempt id:
 
 ```json
 {
-  "tone_correct": true,
-  "tone_time": 8,
-  "action_correct": true,
-  "attempt_id": "627e5d91-c343-44ae-b6ab-532b2ed41b8e",
-  "completed_at": "2026-10-29T01:23:45.000Z"
+  "attempt_id": "627e5d91-c343-44ae-b6ab-532b2ed41b8e"
 }
 ```
 
-`tone_correct` and `action_correct` must be booleans. `tone_time` must be a finite, non-negative number of seconds. `completed_at` is a timezone-aware ISO timestamp captured when the frontend finishes the challenge, before any later guest login or network retry. `attempt_id` is a unique per-completion submission token (UUID-formatted text), generated once and retained with the result. It identifies the submission, not the challenge. Challenges keep their internal numeric primary key but expose only the slug.
+The endpoint looks up the completed `ChallengeRun` by UUID and challenge slug. It accepts a run owned by the current user or an unclaimed guest run, assigns the run to the current user, creates or reuses the corresponding `ChallengeAttempt`, and updates the user's best-score summary in one transaction. Client-supplied tone, action, score, or completion-time metrics are not accepted.
 
-The `RecordChallengeAttempt` use case validates the completion metrics, applies `StarRules`, checks the challenge and profile through their shared repositories, creates or reuses the attempt through `AttemptRepository`, and coordinates the write with a `UnitOfWork`. Its failures carry semantic reasons, which the presenter maps to HTTP statuses; the endpoint itself only handles HTTP concerns. The server calculates one star for each correct answer and one for identifying the tone within 10 seconds, matching the results screen. Each attempt is scored as an integer from 0 to 3, and the profile total is the sum of each challenge's best star score. Completion metrics and completion time are reported by the prototype client; the endpoint validates them and calculates points but does not independently grade the answers or verify elapsed time.
+Authenticated runs are already recorded by `POST /api/attempts/<uuid>/action/`; claiming such a run is idempotent and returns the existing attempt. The claim path is required for a challenge started anonymously and for a guest who signs in after completing it. A run already claimed by another account returns `409`.
 
-`users.models.ChallengeAttempt` stores every distinct completion with an automatic numeric primary key, a unique text `submission_id`, foreign keys to the user's profile and the challenge slug, the computed `score`, the original `completed_at`, and a server-generated `received_at`. Django stores aware timestamps in UTC. A lower or equal score from a new completion still creates a new attempt. Reusing a submission token with the same user, challenge, score, and completion time returns the existing attempt; reusing it for different data returns `409` without changing scores. Django admin's **Users → Challenge attempts** lists all attempts and timestamps as read-only records.
-
-Within a transaction, the endpoint selects the profile using `request.user`, creates or retrieves the attempt, and maintains `UserProfile.scores` as a best-score summary keyed by the challenge slug. `total_score` sums those best scores. Profile reads, completed-challenge counts, and the leaderboard use that summary, so the frontend displays only the best score for each challenge. A zero-point completion still counts as a completed challenge. Extra client properties cannot target another profile or override the computed score.
-
-Success returns `201` for a new completion or `200` for a repeated save of the same completion. It includes the best-score profile fields plus the recorded attempt:
+Success returns `201` for a new completion or `200` for a repeated claim and includes the best-score profile fields plus the recorded attempt:
 
 ```json
 {
@@ -336,19 +326,15 @@ Success returns `201` for a new completion or `200` for a repeated save of the s
   "completed_challenges": 1,
   "scores": {"forgot-password-x3": 3},
   "attempt": {
-    "id": 3,
     "attempt_id": "627e5d91-c343-44ae-b6ab-532b2ed41b8e",
     "challenge_slug": "forgot-password-x3",
-    "score": 2,
-    "completed_at": "2026-10-29T01:23:45+00:00",
-    "received_at": "2026-10-29T01:24:00+00:00"
+    "score": 3,
+    "completed_at": "2026-10-29T01:23:45+00:00"
   }
 }
 ```
 
-Malformed JSON, missing/invalid fields, invalid submission tokens, timezone-naive timestamps, and content types other than `application/json` return `400` with a `detail` message. Anonymous requests with valid CSRF return `401`; unknown challenge slugs return JSON `404`. CSRF or origin failures return Django's standard `403`, which may be HTML. Unsupported methods return `405`. Responses disable caching. The username read/update placeholder remains unimplemented and is not used for score writes.
-
-Initial migrations (`challenges/0001_initial.py`, `tone/0001_initial.py`, and `users/0001_initial.py`) define the current schema for challenges, word embeddings, user profiles, and challenge attempts. Apply migrations with `manage.py migrate`. No new dependencies are required. Tests cover all-attempt persistence, slug challenge linkage, original completion times, retry deduplication, best-score summaries, user isolation, validation, authentication, CSRF, and frontend save states.
+Malformed JSON, a missing or invalid `attempt_id`, and content types other than `application/json` return `400` with a `detail` message. Anonymous requests with valid CSRF return `401`; unknown challenge slugs or incomplete/missing runs return JSON `404`; runs already claimed by another account return `409`. CSRF or origin failures return Django's standard `403`, which may be HTML. Unsupported methods return `405`. Responses disable caching.
 
 ## Data and persistence
 
@@ -389,6 +375,6 @@ Update this document in the same change whenever a structural decision changes. 
 
 Architecture changes should be called out in pull requests and reflected in the relevant setup or contribution documentation.
 
-Frontend tests import `challenges.ts` and `conversation.ts` directly with Node 24. API tests mock browser globals and fetch responses; conversation tests exercise branch traversal and answer matching. They need no running Django or Vite server, filesystem watcher, or native bundler. The frontend build validates Vite integration separately. Windows users run development commands and commits from WSL using the same Linux environment.
+Frontend tests import the attempt and results gateways, storage services, interactors, entities, and view models directly with Node 24. API tests mock browser globals and fetch responses; use-case tests exercise server-snapshot transitions, resume behavior, pending guards, result restoration, claim eligibility, and error recovery. They need no running Django or Vite server, filesystem watcher, or native bundler. The frontend build validates Vite integration separately. Windows users run development commands and commits from WSL using the same Linux environment.
 
 The pre-commit hook checks platform-specific local npm launchers for Prettier, Oxlint, TypeScript, and Vite before running frontend checks. Missing launchers require reinstalling development dependencies in the committing terminal; the hook does not download dependencies automatically.

@@ -1,5 +1,13 @@
-export interface SelectResponseInputData {
-  responseKey: string
+export interface SelectChoiceInputData {
+  choiceId: string
+}
+
+export interface SendChoiceInputData {
+  signal: AbortSignal
+}
+
+export interface ContinueToActionInputData {
+  signal: AbortSignal
 }
 
 export interface AudioEndedInputData {
@@ -7,8 +15,8 @@ export interface AudioEndedInputData {
 }
 
 export interface AdvanceConversationInputBoundary {
-  selectResponse(input: SelectResponseInputData): void
-  sendResponse(): void
-  continueToAction(): void
+  selectChoice(input: SelectChoiceInputData): void
+  sendChoice(input: SendChoiceInputData): Promise<void>
+  continueToAction(input: ContinueToActionInputData): Promise<void>
   audioEnded(input: AudioEndedInputData): void
 }
