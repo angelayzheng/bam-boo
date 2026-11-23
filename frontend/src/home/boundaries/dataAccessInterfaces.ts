@@ -1,3 +1,5 @@
+import type { CalendarEntry, CalendarMonth } from '../../entities/calendarEntry'
+
 export interface HomeProgress {
   scores: Record<string, number>
   loginDays: string[]
@@ -16,4 +18,11 @@ export interface LeaderboardEntry {
 
 export interface LeaderboardGateway {
   loadLeaderboard(signal: AbortSignal): Promise<LeaderboardEntry[]>
+}
+
+export interface HomeChallengeGateway {
+  browseChallenges(
+    month: CalendarMonth,
+    signal: AbortSignal,
+  ): Promise<CalendarEntry[]>
 }

@@ -22,7 +22,7 @@ from .test_support import (
 
 
 class ChallengeValidationTests(MediaTestCase):
-    def create_challenge(self, slug="greeting", name=None):
+    def create_challenge(self, slug="greeting", name=None, challenge_date=None):
         manifest = challenge_manifest(slug=slug)
         if name is not None:
             manifest["name"] = name
@@ -35,7 +35,7 @@ class ChallengeValidationTests(MediaTestCase):
         return Challenge.objects.create(
             name=loaded.metadata["name"],
             slug=loaded.slug,
-            challenge_date=loaded.metadata["challenge_date"],
+            challenge_date=challenge_date or loaded.metadata["challenge_date"],
             difficulty=loaded.metadata["difficulty"],
             category=loaded.metadata["category"],
             tone=loaded.metadata["tone"],
@@ -186,7 +186,9 @@ class ChallengeValidationTests(MediaTestCase):
 
     def test_command_reports_challenge_errors_in_slug_order(self):
         self.create_challenge(slug="zulu", name="Zulu Greeting")
-        self.create_challenge(slug="alpha", name="Alpha Greeting")
+        self.create_challenge(
+            slug="alpha", name="Alpha Greeting", challenge_date="2026-10-16"
+        )
         shutil.rmtree(self.media / "challenges" / "zulu")
         shutil.rmtree(self.media / "challenges" / "alpha")
         stdout = StringIO()
