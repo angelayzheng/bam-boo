@@ -1,7 +1,4 @@
-from challenges.use_cases.ports import (
-    ChallengeRepository,
-    ChallengeValidationGateway,
-)
+from challenges.use_cases.ports import ChallengeValidationGateway
 
 from .InputBoundary import ValidateChallengesInputBoundary
 from .InputData import ValidateChallengesInputData
@@ -17,11 +14,9 @@ class ValidateChallengesInteractor(ValidateChallengesInputBoundary):
     def __init__(
         self,
         *,
-        challenges: ChallengeRepository,
         validation: ChallengeValidationGateway,
         presenter: ValidateChallengesOutputBoundary,
     ):
-        self._challenges = challenges
         self._validation = validation
         self._presenter = presenter
 
@@ -31,10 +26,7 @@ class ValidateChallengesInteractor(ValidateChallengesInputBoundary):
             errors.extend(self._validation.database_errors())
             errors.extend(self._validation.environment_errors())
             if not errors:
-                for challenge in sorted(
-                    self._challenges.list(), key=lambda item: item.slug
-                ):
-                    errors.extend(self._validation.challenge_errors(challenge))
+                errors.extend(self._validation.challenge_errors())
         except Exception as exc:
             self._fail(
                 ValidateChallengesFailureReason.VALIDATOR_ERROR,

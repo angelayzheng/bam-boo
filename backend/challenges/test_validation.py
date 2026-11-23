@@ -23,8 +23,10 @@ from .validation import ChallengeDatabaseValidator
 
 
 class ChallengeValidationTests(MediaTestCase):
-    def create_challenge(self, slug="greeting"):
+    def create_challenge(self, slug="greeting", name=None):
         manifest = challenge_manifest(slug=slug)
+        if name is not None:
+            manifest["name"] = name
         source_folder = write_package(self.source, manifest)
         shutil.copytree(
             source_folder,
@@ -149,6 +151,32 @@ class ChallengeValidationTests(MediaTestCase):
             )
         self.assertEqual(stdout.getvalue(), "")
         self.assertIn("ERROR:", stderr.getvalue())
+
+    def test_command_reports_invalid_challenge_row(self):
+        challenge = self.create_challenge()
+        Challenge.objects.filter(slug=challenge.slug).update(
+            conversation_tree={"bad": True}
+        )
+        stdout = StringIO()
+        stderr = StringIO()
+        with self.assertRaises(CommandError) as error:
+            call_command("validate_challenges", stdout=stdout, stderr=stderr)
+
+        self.assertEqual(str(error.exception), "Challenge validation failed.")
+        self.assertIn(f"{challenge.slug}: invalid challenge row:", stderr.getvalue())
+
+    def test_command_reports_challenge_errors_in_slug_order(self):
+        self.create_challenge(slug="zulu", name="Zulu Greeting")
+        self.create_challenge(slug="alpha", name="Alpha Greeting")
+        shutil.rmtree(self.media / "challenges" / "zulu")
+        shutil.rmtree(self.media / "challenges" / "alpha")
+        stdout = StringIO()
+        stderr = StringIO()
+        with self.assertRaises(CommandError):
+            call_command("validate_challenges", stdout=stdout, stderr=stderr)
+
+        errors = stderr.getvalue()
+        self.assertLess(errors.index("alpha:"), errors.index("zulu:"))
 
     def test_command_reports_validator_failures(self):
         stdout = StringIO()

@@ -107,7 +107,6 @@ class ApplicationContainer:
     def build_validate_challenges_use_case(self) -> ValidateChallengesUseCase:
         presenter = ValidateChallengesPresenter()
         interactor = ValidateChallengesInteractor(
-            challenges=self.challenges,
             validation=self.validation,
             presenter=presenter,
         )
