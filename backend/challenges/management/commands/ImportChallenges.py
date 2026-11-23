@@ -2,8 +2,9 @@
 
 from django.core.management.base import BaseCommand, CommandError
 
+from config.container import get_container
+
 from challenges import package
-from challenges.importer import install_challenge, prepare_challenge_package
 
 
 class Command(BaseCommand):
@@ -34,43 +35,26 @@ class Command(BaseCommand):
             raise CommandError(f"Unknown challenge slugs: {', '.join(sorted(missing))}")
         if not requested:
             raise CommandError(f"No challenge packages found in {challenges_dir}.")
-        try:
-            prepared = [
-                prepare_challenge_package(
-                    available[slug],
-                    replace=options["replace"],
-                    skip_existing=True,
-                )
-                for slug in dict.fromkeys(requested)
-            ]
-        except package.ChallengePackageError as exc:
-            raise CommandError(str(exc)) from exc
-        for field in ("name", "slug"):
-            seen = set()
-            for challenge_package in prepared:
-                if challenge_package is not None:
-                    value = getattr(challenge_package.challenge, field)
-                    if value in seen:
-                        raise CommandError(
-                            f"Selected challenges have a duplicate {field}: {value}"
-                        )
-                    seen.add(value)
-        for challenge_package in prepared:
-            if challenge_package is None:
+
+        use_case = get_container().build_import_challenge_package_use_case()
+        use_case.controller.execute(
+            sources=[available[slug] for slug in dict.fromkeys(requested)],
+            replace=options["replace"],
+            skip_existing=True,
+        )
+        view_model = use_case.presenter.view_model
+        if not view_model.success:
+            raise CommandError(view_model.message)
+
+        for result in view_model.results:
+            if result.skipped:
                 self.stdout.write(
                     "Challenge already exists; use --replace to update it."
                 )
                 continue
-            try:
-                install_challenge(challenge_package)
-            except package.ChallengePackageError as exc:
-                raise CommandError(
-                    f"Could not install {challenge_package.challenge.slug}: {exc}"
-                ) from exc
             self.stdout.write(
                 self.style.SUCCESS(
-                    f"Imported {challenge_package.challenge.slug}: "
-                    f"{challenge_package.challenge.name} "
-                    f"({challenge_package.turn_count} turns)."
+                    f"Imported {result.slug}: {result.name} "
+                    f"({result.turn_count} turns)."
                 )
             )

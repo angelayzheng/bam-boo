@@ -1,6 +1,21 @@
 from dataclasses import dataclass
 
-from challenges.use_cases.ports import ChallengeRepository, MediaStore
+from challenges.adapters.importChallengePackage.Controller import (
+    ImportChallengePackageController,
+)
+from challenges.adapters.importChallengePackage.Presenter import (
+    ImportChallengePackagePresenter,
+)
+from challenges.use_cases.ports import (
+    AudioValidator,
+    ChallengeRepository,
+    MediaStore,
+    PackageArchiveExtractor,
+    PackageSource,
+)
+from challenges.use_cases.importChallengePackage.Interactor import (
+    ImportChallengePackageInteractor,
+)
 from play.adapters.record_challenge_attempt.record_challenge_attempt_controller import (
     RecordChallengeAttemptController,
 )
@@ -22,12 +37,21 @@ class RecordChallengeAttemptUseCase:
 
 
 @dataclass(frozen=True, slots=True)
+class ImportChallengePackageUseCase:
+    controller: ImportChallengePackageController
+    presenter: ImportChallengePackagePresenter
+
+
+@dataclass(frozen=True, slots=True)
 class ApplicationContainer:
     challenges: ChallengeRepository
     attempts: AttemptRepository
     profiles: ProfileRepository
     unit_of_work: UnitOfWork
-    media: MediaStore | None = None
+    packages: PackageSource
+    archives: PackageArchiveExtractor
+    audio: AudioValidator
+    media: MediaStore
     tone_matcher: ToneMatcher | None = None
     tone_vectors: ToneVectorRepository | None = None
     auth: AuthGateway | None = None
@@ -47,6 +71,22 @@ class ApplicationContainer:
             presenter=presenter,
         )
 
+    def build_import_challenge_package_use_case(self) -> ImportChallengePackageUseCase:
+        presenter = ImportChallengePackagePresenter()
+        interactor = ImportChallengePackageInteractor(
+            challenges=self.challenges,
+            packages=self.packages,
+            archives=self.archives,
+            audio=self.audio,
+            media=self.media,
+            unit_of_work=self.unit_of_work,
+            presenter=presenter,
+        )
+        return ImportChallengePackageUseCase(
+            controller=ImportChallengePackageController(interactor),
+            presenter=presenter,
+        )
+
 
 def build_container(
     *,
@@ -54,7 +94,10 @@ def build_container(
     attempts: AttemptRepository,
     profiles: ProfileRepository,
     unit_of_work: UnitOfWork,
-    media: MediaStore | None = None,
+    packages: PackageSource,
+    archives: PackageArchiveExtractor,
+    audio: AudioValidator,
+    media: MediaStore,
     tone_matcher: ToneMatcher | None = None,
     tone_vectors: ToneVectorRepository | None = None,
     auth: AuthGateway | None = None,
@@ -66,6 +109,9 @@ def build_container(
         attempts=attempts,
         profiles=profiles,
         unit_of_work=unit_of_work,
+        packages=packages,
+        archives=archives,
+        audio=audio,
         media=media,
         tone_matcher=tone_matcher,
         tone_vectors=tone_vectors,
@@ -78,6 +124,10 @@ _container: ApplicationContainer | None = None
 
 
 def build_django_container() -> ApplicationContainer:
+    from challenges.adapters.archives import ZipPackageArchiveExtractor
+    from challenges.adapters.AudioValidator import FfprobeAudioValidator
+    from challenges.adapters.MediaStore import FileSystemMediaStore
+    from challenges.adapters.PackageSource import FileSystemPackageSource
     from challenges.adapters.repositories import DjangoChallengeRepository
     from play.adapters.repositories import DjangoAttemptRepository
     from play.adapters.unit_of_work import DjangoUnitOfWork
@@ -88,6 +138,10 @@ def build_django_container() -> ApplicationContainer:
         attempts=DjangoAttemptRepository(),
         profiles=DjangoProfileRepository(),
         unit_of_work=DjangoUnitOfWork(),
+        packages=FileSystemPackageSource(),
+        archives=ZipPackageArchiveExtractor(),
+        audio=FfprobeAudioValidator(),
+        media=FileSystemMediaStore(),
     )
 
 
