@@ -1,3 +1,4 @@
+from datetime import date
 import io
 import json
 import stat
@@ -85,10 +86,15 @@ class ChallengeModelTests(TestCase):
         with self.assertRaises(ValidationError):
             make_challenge(name="Another Greeting", slug=challenge.slug)
 
-    def test_multiple_challenges_can_share_a_date(self):
+    def test_two_challenges_cannot_share_a_date(self):
         first = make_challenge()
-        second = make_challenge(name="Evening Greeting", slug="evening-greeting")
-        self.assertNotEqual(first.slug, second.slug)
+        with self.assertRaises(ValidationError):
+            make_challenge(
+                name="Evening Greeting",
+                slug="evening-greeting",
+                challenge_date=first.challenge_date,
+            )
+        self.assertEqual(Challenge.objects.count(), 1)
 
     def test_difficulty_bounds_enforced(self):
         with self.assertRaises(ValidationError):
@@ -127,6 +133,7 @@ class ChallengeModelTests(TestCase):
             name="Server Outage",
             slug="server-outage",
             category="emergency",
+            challenge_date=date(2026, 10, 20),
             difficulty=5,
         )
         filtered = self.client.get("/api/challenges/?category=emergency")
@@ -245,7 +252,7 @@ class MissingChallengeSourceTests(TestCase):
                 CommandError,
                 f"Challenge source directory not found: {self.missing_source}",
             ):
-                call_command("import_challenges")
+                call_command("ImportChallenges")
 
     def test_seed_reports_missing_challenge_source_directory(self):
         for force in (False, True):
@@ -260,6 +267,14 @@ class MissingChallengeSourceTests(TestCase):
                         f"Challenge source directory not found: {self.missing_source}",
                     ):
                         call_command("seed_kale_demo", **options)
+
+
+PACKAGE_DATES = {
+    "greeting": "2026-10-15",
+    "farewell": "2026-10-16",
+    "first": "2026-10-17",
+    "second": "2026-10-18",
+}
 
 
 class ImportChallengesTests(MediaTestCase):
@@ -287,7 +302,7 @@ class ImportChallengesTests(MediaTestCase):
         manifest = {
             "name": slug.title(),
             "slug": slug,
-            "challenge_date": "2026-10-15",
+            "challenge_date": PACKAGE_DATES.get(slug, "2026-10-15"),
             "difficulty": 1,
             "category": "social",
             "tone": "friendly",
@@ -305,7 +320,7 @@ class ImportChallengesTests(MediaTestCase):
     def test_imports_all_challenges_into_separate_local_directories(self):
         for slug in ("greeting", "farewell"):
             self._package(slug)
-        call_command("import_challenges")
+        call_command("ImportChallenges")
         self.assertEqual(Challenge.objects.count(), 2)
         for challenge in Challenge.objects.all():
             prefix = f"challenges/{challenge.slug}/"
@@ -325,7 +340,7 @@ class ImportChallengesTests(MediaTestCase):
     def test_selects_a_challenge_by_its_slug(self):
         _, first = self._package()
         self._package("farewell")
-        call_command("import_challenges", first["slug"])
+        call_command("ImportChallenges", first["slug"])
         self.assertEqual(
             list(Challenge.objects.values_list("slug", flat=True)),
             [first["slug"]],
@@ -333,14 +348,14 @@ class ImportChallengesTests(MediaTestCase):
 
     def test_unknown_challenge_is_an_actionable_error(self):
         with self.assertRaisesMessage(CommandError, "Unknown challenge slugs"):
-            call_command("import_challenges", "missing")
+            call_command("ImportChallenges", "missing")
 
     def test_missing_file_prevents_any_selected_challenge_from_being_imported(self):
         self._package("first")
         folder, manifest = self._package("second")
         (folder / manifest["conversation_tree"]["audio_file"]).unlink()
         with self.assertRaisesMessage(CommandError, "Missing or empty file"):
-            call_command("import_challenges")
+            call_command("ImportChallenges")
         self.assertEqual(Challenge.objects.count(), 0)
         self.assertEqual(list(self.media.iterdir()), [])
 
@@ -350,14 +365,14 @@ class ImportChallengesTests(MediaTestCase):
             b"Let\x92s begin"
         )
         with self.assertRaisesMessage(CommandError, "Invalid challenge package"):
-            call_command("import_challenges")
+            call_command("ImportChallenges")
 
     def test_folder_and_manifest_slugs_must_match(self):
         folder, manifest = self._package()
         manifest["slug"] = "different-challenge"
         self._write_manifest(folder, manifest)
         with self.assertRaisesMessage(CommandError, "slug must match"):
-            call_command("import_challenges")
+            call_command("ImportChallenges")
 
     def test_windows_path_traversal_in_node_key_is_rejected(self):
         folder, manifest = self._package()
@@ -367,18 +382,18 @@ class ImportChallengesTests(MediaTestCase):
         node["audio_file"] = "audio/..\\outside.mp3"
         self._write_manifest(folder, manifest)
         with self.assertRaises(CommandError):
-            call_command("import_challenges")
+            call_command("ImportChallenges")
 
     def test_existing_challenges_are_skipped_until_replace_is_requested(self):
         folder, manifest = self._package()
-        call_command("import_challenges")
+        call_command("ImportChallenges")
         original = Challenge.objects.get()
         manifest["name"] = "Updated Greeting"
         self._write_manifest(folder, manifest)
-        call_command("import_challenges")
+        call_command("ImportChallenges")
         original.refresh_from_db()
         self.assertEqual(original.name, "Greeting")
-        call_command("import_challenges", replace=True)
+        call_command("ImportChallenges", replace=True)
         updated = Challenge.objects.get()
         self.assertEqual(updated.pk, original.pk)
         self.assertEqual(updated.name, "Updated Greeting")
@@ -390,12 +405,12 @@ class ImportChallengesTests(MediaTestCase):
         manifest["name"] = "First"
         self._write_manifest(folder, manifest)
         with self.assertRaisesMessage(CommandError, "duplicate name"):
-            call_command("import_challenges")
+            call_command("ImportChallenges")
         self.assertEqual(Challenge.objects.count(), 0)
 
     def test_failed_replace_restores_published_files(self):
         folder, manifest = self._package()
-        call_command("import_challenges")
+        call_command("ImportChallenges")
         original = Challenge.objects.get()
         relative = manifest["conversation_tree"]["text_file"]
         original_text = (
@@ -406,7 +421,7 @@ class ImportChallengesTests(MediaTestCase):
             Challenge, "save", side_effect=RuntimeError("Simulated failure")
         ):
             with self.assertRaisesMessage(RuntimeError, "Simulated failure"):
-                call_command("import_challenges", replace=True)
+                call_command("ImportChallenges", replace=True)
         self.assertEqual(
             (self.media / original.conversation_tree["text_file"]).read_bytes(),
             original_text,

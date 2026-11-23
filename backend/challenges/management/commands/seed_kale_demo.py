@@ -18,5 +18,5 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         call_command(
-            "import_challenges", DEMO_SLUG, replace=options["force"], stdout=self.stdout
+            "ImportChallenges", DEMO_SLUG, replace=options["force"], stdout=self.stdout
         )

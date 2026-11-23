@@ -1,8 +1,10 @@
 # Local challenge storage
 
-Every challenge has a unique, stable `slug`. The slug names the challenge's source folder and manifest: both are `<slug>` and `<slug>.json`. Keep the slug unchanged after publication, even if you edit the display name or schedule date. Names and slugs must also be unique under the current database model.
+Every challenge has a unique, stable `slug`. The slug names the challenge's source folder and manifest: both are `<slug>` and `<slug>.json`. Keep the slug unchanged after publication, even if you edit the display name or schedule date. Names, slugs, and schedule dates must also be unique under the current database model.
 
 SQLite stores IDs, names, dates, grading metadata, and the conversation tree. Both audio and transcript contents remain local files.
+
+Each challenge needs a unique `challenge_date`. Importing a package whose date is already used by another challenge fails, and importing several packages that share a date fails before anything is saved. Admin forms keep the date read-only, so change it by replacing the package.
 
 ## Directory layout
 
@@ -81,8 +83,8 @@ The importer publishes the same structure beneath `backend/media/challenges/<slu
 
    ```bash
    backend/.venv/bin/python backend/manage.py migrate
-   backend/.venv/bin/python backend/manage.py import_challenges account-locked
-   backend/.venv/bin/python backend/manage.py import_challenges
+   backend/.venv/bin/python backend/manage.py ImportChallenges account-locked
+   backend/.venv/bin/python backend/manage.py ImportChallenges
    ```
 
    On Windows, run these commands in WSL with the Linux environment at `backend/.venv`, as described in [SETUP.md](SETUP.md).
@@ -94,7 +96,7 @@ The importer checks that the slug matches its folder name and validates metadata
 Edit its source package, then explicitly replace the published copy:
 
 ```bash
-backend/.venv/bin/python backend/manage.py import_challenges forgot-password-x3 --replace
+backend/.venv/bin/python backend/manage.py ImportChallenges forgot-password-x3 --replace
 ```
 
 Without `--replace`, existing challenges are skipped. Replacement preserves the numeric database ID and slug, stages a complete media folder, and restores the previous published folder if saving fails. For a different challenge, create a new slug and folder instead of reusing an existing one.
@@ -123,7 +125,7 @@ Staff can import a challenge without shell, Git, or server access. Create a staf
 4. Choose the ZIP and select **Import challenge package**. Tick **Replace an existing challenge with this slug** only when updating a challenge that already exists.
 5. The package is validated before anything is changed. A successful import reports the challenge name, slug, date, and turn count. A failed import reports the exact problem and leaves the database, published media, and source package untouched.
 
-The admin import accepts the same manifest, file layout, and validation rules as `import_challenges`. It additionally rejects path traversal, absolute paths, backslashes, symbolic links, encrypted ZIP entries, duplicate files, unsupported file types, corrupt or undecompressible archive data, and archives above the configured limits. macOS metadata such as `__MACOSX`, `.DS_Store`, and `._*` files are ignored. The limits are configured in `backend/config/settings.py` as `CHALLENGE_IMPORT_MAX_ARCHIVE_BYTES`, `CHALLENGE_IMPORT_MAX_UNCOMPRESSED_BYTES`, and `CHALLENGE_IMPORT_MAX_FILES`.
+The admin import accepts the same manifest, file layout, and validation rules as `ImportChallenges`. It additionally rejects path traversal, absolute paths, backslashes, symbolic links, encrypted ZIP entries, duplicate files, unsupported file types, corrupt or undecompressible archive data, and archives above the configured limits. macOS metadata such as `__MACOSX`, `.DS_Store`, and `._*` files are ignored. The limits are configured in `backend/config/settings.py` as `CHALLENGE_IMPORT_MAX_ARCHIVE_BYTES`, `CHALLENGE_IMPORT_MAX_UNCOMPRESSED_BYTES`, and `CHALLENGE_IMPORT_MAX_FILES`.
 
 Admin imports publish to both `backend/media/challenges/<slug>/` and `backend/challenges/source_data/challenges/<slug>/`. The source package is the canonical copy used by validation and recovery; keep `source_data/challenges/` writable and persistent in production. Back up `backend/db.sqlite3`, `backend/media/challenges/`, and `backend/challenges/source_data/challenges/` together before importing.
 

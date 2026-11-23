@@ -7,6 +7,7 @@ import zipfile
 from copy import deepcopy
 from pathlib import Path
 from unittest.mock import patch
+from datetime import date, timedelta
 
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase, override_settings
@@ -42,6 +43,14 @@ VALID_MP3_PATH = Path(__file__).resolve().parent / "test_data" / "tone.mp3"
 VALID_MP3_BYTES = VALID_MP3_PATH.read_bytes()
 
 
+def _next_free_date(start):
+    """The first date at or after `start` that no challenge uses yet."""
+    candidate = date.fromisoformat(start)
+    while Challenge.objects.filter(challenge_date=candidate).exists():
+        candidate += timedelta(days=1)
+    return candidate
+
+
 def make_challenge(**kwargs):
     defaults = {
         "name": "Morning Greeting",
@@ -54,6 +63,8 @@ def make_challenge(**kwargs):
         "conversation_tree": VALID_TREE,
     }
     defaults.update(kwargs)
+    if "challenge_date" not in kwargs:
+        defaults["challenge_date"] = _next_free_date(defaults["challenge_date"])
     return Challenge.objects.create(**defaults)
 
 
@@ -77,11 +88,14 @@ def walk_tree(node):
         yield from walk_tree(child)
 
 
+MANIFEST_DATES = {"greeting": "2026-10-15", "farewell": "2026-10-16"}
+
+
 def challenge_manifest(slug="greeting", **overrides):
     manifest = {
         "name": "Greeting",
         "slug": slug,
-        "challenge_date": "2026-10-15",
+        "challenge_date": MANIFEST_DATES.get(slug, "2026-10-15"),
         "difficulty": 1,
         "category": "social",
         "tone": "friendly",

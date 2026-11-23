@@ -32,39 +32,39 @@ backend/
 ├── play/
 │   ├── domain/
 │   │   ├── attempt.py
-│   │   ├── run.py
+│   │   ├── Run.py
 │   │   ├── answer_matching.py
 │   │   └── star_rules.py
 │   ├── use_cases/
 │   │   ├── ports.py
-│   │   ├── manage_challenge_run/
-│   │   │   ├── interactor.py
-│   │   │   ├── input_boundary.py
-│   │   │   ├── input_data.py
-│   │   │   ├── output_boundary.py
-│   │   │   └── output_data.py
-│   │   └── record_challenge_attempt/
-│   │       ├── interactor.py
-│   │       ├── input_boundary.py
-│   │       ├── input_data.py
-│   │       ├── output_boundary.py
-│   │       └── output_data.py
+│   │   ├── manageChallengeRun/
+│   │   │   ├── Interactor.py
+│   │   │   ├── InputBoundary.py
+│   │   │   ├── InputData.py
+│   │   │   ├── OutputBoundary.py
+│   │   │   └── OutputData.py
+│   │   └── recordChallengeAttempt/
+│   │       ├── Interactor.py
+│   │       ├── InputBoundary.py
+│   │       ├── InputData.py
+│   │       ├── OutputBoundary.py
+│   │       └── OutputData.py
 │   ├── adapters/
-│   │   ├── manage_challenge_run/
-│   │   │   ├── controller.py
-│   │   │   └── presenter.py
-│   │   ├── record_challenge_attempt/
-│   │   │   ├── controller.py
-│   │   │   └── presenter.py
+│   │   ├── manageChallengeRun/
+│   │   │   ├── Controller.py
+│   │   │   └── Presenter.py
+│   │   ├── recordChallengeAttempt/
+│   │   │   ├── Controller.py
+│   │   │   └── Presenter.py
 │   │   ├── repositories.py
 │   │   ├── unit_of_work.py
-│   │   └── vector_tone_matcher.py
+│   │   └── VectorToneMatcher.py
 │   └── models.py
 └── challenges/
     └── ...
 ```
 
-Use lowercase `snake_case` folder names based on the use-case name. Keep its interactor, input/output data, and boundaries in that folder. Small use cases do not need empty boilerplate files; add only the pieces they use. App-wide ports and adapter implementations can be shared.
+Use camelCase folder names based on the use-case name and PascalCase files whose main contents are one class. Keep an interactor's input/output data and boundaries in its use-case folder. Django test discovery files remain lowercase `test_*.py`, and small utilities or multi-class modules can stay lowercase. Small use cases do not need empty boilerplate files; add only the pieces they use. App-wide ports and adapter implementations can be shared. See [CONTRIBUTING.md](CONTRIBUTING.md#backend-naming) for the repository-wide naming rule.
 
 Use the same pattern in `challenges/use_cases/` and `users/use_cases/`. A use case must not be a standalone module directly under `use_cases/`.
 
@@ -84,9 +84,9 @@ Keep Django models and migrations at the app boundary. Repositories convert betw
 
 Create one directory per use case. These names describe application goals; several goals may be reached through related URLs or commands.
 
-- **Challenges:** `browse_challenges`, `get_challenge`, `import_challenge_package`, `validate_challenges`
-- **Play:** `manage_challenge_run`, `record_challenge_attempt`
-- **Users:** `sign_up`, `log_in`, `log_out`, `get_current_user`, `list_groups`, `get_profile`, `update_profile`, `get_leaderboard`, `claim_guest_attempt`
+- **Challenges:** `browseChallenges`, `getChallenge`, `importChallengePackage`, `validateChallenges`
+- **Play:** `manageChallengeRun`, `recordChallengeAttempt`
+- **Users:** `signUp`, `logIn`, `logOut`, `getCurrentUser`, `listGroups`, `getProfile`, `updateProfile`, `getLeaderboard`, `claimGuestAttempt`
 
 The run workflow covers starting a run, reading its snapshot, grading tone and action answers, selecting responses, and advancing the conversation. Keep these operations together only while they share a clear run boundary and coherent input/output contract.
 

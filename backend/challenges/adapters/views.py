@@ -6,6 +6,17 @@ from django.views.decorators.http import require_GET
 
 from challenges.models import Challenge, ChallengeCategory
 
+from challenges.adapters.BrowseChallengesDataAccess import (
+    DjangoBrowseChallengesDataAccess,
+)
+from challenges.adapters.BrowseChallengesPresenter import BrowseChallengesPresenter
+from challenges.use_cases.browseChallenges.BrowseChallengesInputData import (
+    BrowseChallengesInputData,
+)
+from challenges.use_cases.browseChallenges.BrowseChallengesInteractor import (
+    BrowseChallengesInteractor,
+)
+
 NAME_MATCH_THRESHOLD = 0.6
 
 
@@ -98,3 +109,28 @@ def challenge_detail(request, slug):
     if challenge is None:
         return JsonResponse({"detail": "Challenge not found."}, status=404)
     return JsonResponse(_challenge_summary(challenge))
+
+
+@require_GET
+def calendar_view(request):
+    """GET /api/calendar/?year=2026&month=10: one month with the user's statuses."""
+    try:
+        year = int(request.GET["year"])
+        month = int(request.GET["month"])
+    except KeyError, ValueError:
+        return JsonResponse(
+            {"detail": "year and month are required integers."}, status=400
+        )
+
+    user_id = request.user.id if request.user.is_authenticated else None
+    presenter = BrowseChallengesPresenter()
+    interactor = BrowseChallengesInteractor(
+        DjangoBrowseChallengesDataAccess(), presenter
+    )
+    interactor.execute(
+        BrowseChallengesInputData(year=year, month=month, user_id=user_id)
+    )
+
+    if presenter.error is not None:
+        return JsonResponse({"detail": presenter.error}, status=400)
+    return JsonResponse(presenter.payload)

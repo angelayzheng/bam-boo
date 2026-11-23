@@ -4,17 +4,17 @@ from datetime import date, datetime, timezone
 from django.test import SimpleTestCase
 
 from challenges.domain.challenge import Challenge
-from play.adapters.record_challenge_attempt.record_challenge_attempt_presenter import (
+from play.adapters.recordChallengeAttempt.Presenter import (
     RecordChallengeAttemptPresenter,
 )
 from play.domain.attempt import Attempt
-from play.use_cases.record_challenge_attempt.record_challenge_attempt_input_data import (
+from play.use_cases.recordChallengeAttempt.InputData import (
     RecordChallengeAttemptInputData,
 )
-from play.use_cases.record_challenge_attempt.record_challenge_attempt_interactor import (
+from play.use_cases.recordChallengeAttempt.Interactor import (
     RecordChallengeAttemptInteractor,
 )
-from play.use_cases.record_challenge_attempt.record_challenge_attempt_output_data import (
+from play.use_cases.recordChallengeAttempt.OutputData import (
     RecordChallengeAttemptFailureReason,
 )
 from users.domain.profile import Profile

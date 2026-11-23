@@ -10,6 +10,7 @@ interface HeaderProps {
   onAccount?: () => void
   onHome?: () => void
   onChallenge?: () => void
+  streak?: number
 }
 
 // Runs a navigation callback without a full page reload, if one is provided.
@@ -32,6 +33,7 @@ export default function Header({
   onAccount,
   onHome,
   onChallenge,
+  streak,
 }: HeaderProps) {
   return (
     <header className="bg-beige">
@@ -68,10 +70,9 @@ export default function Header({
           ) : (
             <div className="flex items-center gap-4 sm:gap-5">
               {user && (
-                // TODO: replace with the user's real streak once available.
                 <div className="text-orange flex items-center gap-1 text-lg font-bold">
                   <FlameIcon className="size-5" />
-                  <span>3</span>
+                  <span>{streak ?? 0}</span>
                 </div>
               )}
               <a

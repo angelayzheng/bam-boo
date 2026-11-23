@@ -21,6 +21,8 @@ from django.contrib import admin
 from django.http import JsonResponse
 from django.urls import include, path
 
+from challenges.adapters.views import calendar_view
+
 
 def health_check(request):
     """GET /api/health/: return the backend health status."""
@@ -39,6 +41,7 @@ urlpatterns = [
     path("api/attempts/", include("play.urls")),
     path("api/users/", include("users.urls")),
     path("admin/", admin.site.urls),
+    path("api/calendar/", calendar_view, name="calendar"),
 ]
 
 if settings.DEBUG:

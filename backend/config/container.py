@@ -1,12 +1,37 @@
 from dataclasses import dataclass
 
-from challenges.use_cases.ports import ChallengeRepository, MediaStore
-from play.adapters.manage_challenge_run.controller import ChallengeRunController
-from play.adapters.manage_challenge_run.presenter import ChallengeRunPresenter
-from play.adapters.record_challenge_attempt.record_challenge_attempt_controller import (
+from challenges.adapters.importChallengePackage.Controller import (
+    ImportChallengePackageController,
+)
+from challenges.adapters.importChallengePackage.Presenter import (
+    ImportChallengePackagePresenter,
+)
+from challenges.adapters.validateChallenges.Controller import (
+    ValidateChallengesController,
+)
+from challenges.adapters.validateChallenges.Presenter import (
+    ValidateChallengesPresenter,
+)
+from challenges.use_cases.ports import (
+    AudioValidator,
+    ChallengeRepository,
+    ChallengeValidationGateway,
+    MediaStore,
+    PackageArchiveExtractor,
+    PackageSource,
+)
+from challenges.use_cases.importChallengePackage.Interactor import (
+    ImportChallengePackageInteractor,
+)
+from challenges.use_cases.validateChallenges.Interactor import (
+    ValidateChallengesInteractor,
+)
+from play.adapters.manageChallengeRun.Controller import ChallengeRunController
+from play.adapters.manageChallengeRun.Presenter import ChallengeRunPresenter
+from play.adapters.recordChallengeAttempt.Controller import (
     RecordChallengeAttemptController,
 )
-from play.adapters.record_challenge_attempt.record_challenge_attempt_presenter import (
+from play.adapters.recordChallengeAttempt.Presenter import (
     RecordChallengeAttemptPresenter,
 )
 from play.use_cases.ports import (
@@ -15,10 +40,10 @@ from play.use_cases.ports import (
     ToneMatcher,
     UnitOfWork,
 )
-from play.use_cases.manage_challenge_run.interactor import (
+from play.use_cases.manageChallengeRun.Interactor import (
     ManageChallengeRunInteractor,
 )
-from play.use_cases.record_challenge_attempt.record_challenge_attempt_interactor import (
+from play.use_cases.recordChallengeAttempt.Interactor import (
     RecordChallengeAttemptInteractor,
 )
 from tone.use_cases.ports import ToneVectorRepository
@@ -38,13 +63,29 @@ class ManageChallengeRunUseCase:
 
 
 @dataclass(frozen=True, slots=True)
+class ImportChallengePackageUseCase:
+    controller: ImportChallengePackageController
+    presenter: ImportChallengePackagePresenter
+
+
+@dataclass(frozen=True, slots=True)
+class ValidateChallengesUseCase:
+    controller: ValidateChallengesController
+    presenter: ValidateChallengesPresenter
+
+
+@dataclass(frozen=True, slots=True)
 class ApplicationContainer:
     challenges: ChallengeRepository
     attempts: AttemptRepository
     runs: RunRepository
     profiles: ProfileRepository
     unit_of_work: UnitOfWork
-    media: MediaStore | None = None
+    packages: PackageSource
+    archives: PackageArchiveExtractor
+    audio: AudioValidator
+    media: MediaStore
+    validation: ChallengeValidationGateway
     tone_matcher: ToneMatcher | None = None
     tone_vectors: ToneVectorRepository | None = None
     auth: AuthGateway | None = None
@@ -80,6 +121,33 @@ class ApplicationContainer:
             presenter=presenter,
         )
 
+    def build_import_challenge_package_use_case(self) -> ImportChallengePackageUseCase:
+        presenter = ImportChallengePackagePresenter()
+        interactor = ImportChallengePackageInteractor(
+            challenges=self.challenges,
+            packages=self.packages,
+            archives=self.archives,
+            audio=self.audio,
+            media=self.media,
+            unit_of_work=self.unit_of_work,
+            presenter=presenter,
+        )
+        return ImportChallengePackageUseCase(
+            controller=ImportChallengePackageController(interactor),
+            presenter=presenter,
+        )
+
+    def build_validate_challenges_use_case(self) -> ValidateChallengesUseCase:
+        presenter = ValidateChallengesPresenter()
+        interactor = ValidateChallengesInteractor(
+            validation=self.validation,
+            presenter=presenter,
+        )
+        return ValidateChallengesUseCase(
+            controller=ValidateChallengesController(interactor),
+            presenter=presenter,
+        )
+
 
 def build_container(
     *,
@@ -88,7 +156,11 @@ def build_container(
     runs: RunRepository,
     profiles: ProfileRepository,
     unit_of_work: UnitOfWork,
-    media: MediaStore | None = None,
+    packages: PackageSource,
+    archives: PackageArchiveExtractor,
+    audio: AudioValidator,
+    media: MediaStore,
+    validation: ChallengeValidationGateway,
     tone_matcher: ToneMatcher | None = None,
     tone_vectors: ToneVectorRepository | None = None,
     auth: AuthGateway | None = None,
@@ -101,7 +173,11 @@ def build_container(
         runs=runs,
         profiles=profiles,
         unit_of_work=unit_of_work,
+        packages=packages,
+        archives=archives,
+        audio=audio,
         media=media,
+        validation=validation,
         tone_matcher=tone_matcher,
         tone_vectors=tone_vectors,
         auth=auth,
@@ -113,10 +189,15 @@ _container: ApplicationContainer | None = None
 
 
 def build_django_container() -> ApplicationContainer:
+    from challenges.adapters.archives import ZipPackageArchiveExtractor
+    from challenges.adapters.AudioValidator import FfprobeAudioValidator
+    from challenges.adapters.ChallengeValidator import DjangoChallengeValidator
+    from challenges.adapters.MediaStore import FileSystemMediaStore
+    from challenges.adapters.PackageSource import FileSystemPackageSource
     from challenges.adapters.repositories import DjangoChallengeRepository
     from play.adapters.repositories import DjangoAttemptRepository, DjangoRunRepository
     from play.adapters.unit_of_work import DjangoUnitOfWork
-    from play.adapters.vector_tone_matcher import VectorToneMatcher
+    from play.adapters.VectorToneMatcher import VectorToneMatcher
     from users.adapters.repositories import DjangoProfileRepository
 
     return build_container(
@@ -125,6 +206,11 @@ def build_django_container() -> ApplicationContainer:
         runs=DjangoRunRepository(),
         profiles=DjangoProfileRepository(),
         unit_of_work=DjangoUnitOfWork(),
+        packages=FileSystemPackageSource(),
+        archives=ZipPackageArchiveExtractor(),
+        audio=FfprobeAudioValidator(),
+        media=FileSystemMediaStore(),
+        validation=DjangoChallengeValidator(),
         tone_matcher=VectorToneMatcher(),
     )
 
