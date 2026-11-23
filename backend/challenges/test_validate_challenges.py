@@ -59,6 +59,46 @@ class ValidateChallengesInteractorTests(SimpleTestCase):
         self.assertEqual(view_model.errors, ())
         self.assertEqual(validation.challenge_calls, 1)
 
+    def test_reports_database_errors_and_skips_challenge_checks(self):
+        validation = FakeValidationGateway(
+            database_errors_result=("Unapplied migrations: tone.0002.",)
+        )
+
+        view_model = self._run(validation=validation)
+
+        self.assertFalse(view_model.success)
+        self.assertEqual(view_model.message, "Challenge validation failed.")
+        self.assertEqual(view_model.errors, ("Unapplied migrations: tone.0002.",))
+        self.assertEqual(validation.challenge_calls, 0)
+
+    def test_reports_database_and_environment_errors_together(self):
+        validation = FakeValidationGateway(
+            database_errors_result=("SQLite integrity_check failed",),
+            environment_errors_result=("MEDIA_ROOT is missing",),
+        )
+
+        view_model = self._run(validation=validation)
+
+        self.assertFalse(view_model.success)
+        self.assertEqual(view_model.message, "Challenge validation failed.")
+        self.assertEqual(
+            view_model.errors,
+            ("SQLite integrity_check failed", "MEDIA_ROOT is missing"),
+        )
+        self.assertEqual(validation.challenge_calls, 0)
+
+    def test_reports_challenge_validation_errors(self):
+        validation = FakeValidationGateway(
+            challenge_errors_result=("greeting: media file is missing.",)
+        )
+
+        view_model = self._run(validation=validation)
+
+        self.assertFalse(view_model.success)
+        self.assertEqual(view_model.message, "Challenge validation failed.")
+        self.assertEqual(view_model.errors, ("greeting: media file is missing.",))
+        self.assertEqual(validation.challenge_calls, 1)
+
     def test_reports_validation_errors_and_skips_challenge_checks(self):
         validation = FakeValidationGateway(
             environment_errors_result=("MEDIA_ROOT is missing",)
