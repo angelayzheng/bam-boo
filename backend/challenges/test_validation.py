@@ -210,3 +210,17 @@ class ChallengeValidationTests(MediaTestCase):
         self.assertEqual(str(error.exception), "Could not validate challenges: boom")
         self.assertEqual(stdout.getvalue(), "")
         self.assertEqual(stderr.getvalue(), "")
+
+    def test_command_reports_container_failures(self):
+        stdout = StringIO()
+        stderr = StringIO()
+        with patch(
+            "challenges.management.commands.validate_challenges.get_container",
+            side_effect=RuntimeError("boom"),
+        ):
+            with self.assertRaises(CommandError) as error:
+                call_command("validate_challenges", stdout=stdout, stderr=stderr)
+
+        self.assertEqual(str(error.exception), "Could not validate challenges: boom")
+        self.assertEqual(stdout.getvalue(), "")
+        self.assertEqual(stderr.getvalue(), "")
