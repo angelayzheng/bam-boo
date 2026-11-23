@@ -62,7 +62,7 @@ Run the checks relevant to your changes from the repository root:
 
 ```bash
 backend/.venv/bin/python backend/manage.py check
-backend/.venv/bin/python backend/manage.py test --noinput
+(cd backend && ../.venv/bin/python manage.py test --noinput)
 backend/.venv/bin/python backend/manage.py makemigrations --check --dry-run
 backend/.venv/bin/python -m black --check backend
 cd frontend && npm test && npm run build && npm run lint && npm run lint:js
