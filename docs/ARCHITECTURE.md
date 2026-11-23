@@ -372,7 +372,7 @@ Success returns `201` for a new completion or `200` for a repeated save of the s
 
 Malformed JSON, missing/invalid fields, invalid submission tokens, timezone-naive timestamps, and content types other than `application/json` return `400` with a `detail` message. Anonymous requests with valid CSRF return `401`; unknown challenge slugs return JSON `404`. CSRF or origin failures return Django's standard `403`, which may be HTML. Unsupported methods return `405`. Responses disable caching. The username read/update placeholder remains unimplemented and is not used for score writes.
 
-Initial migrations (`challenges/0001_initial.py`, `tone/0001_initial.py`, and `users/0001_initial.py`) define the schema for challenges, word embeddings, user profiles, and challenge attempts, and `challenges/0002_alter_challenge_challenge_date.py` makes the schedule date unique. A database that already has two challenges on one date must resolve the clash before running `migrate`.
+Initial migrations (`challenges/0001_initial.py`, `tone/0001_initial.py`, and `users/0001_initial.py`) define the schema for challenges, word embeddings, user profiles, and challenge attempts, and `challenges/0002_alter_challenge_challenge_date.py` makes the schedule date unique. `users/0002_ensure_challenge_attempt_table.py` recreates the attempt table on local databases created before the initial migration reset and is a no-op elsewhere. A database that already has two challenges on one date must resolve the clash before running `migrate`.
 
 
 ## Data and persistence
