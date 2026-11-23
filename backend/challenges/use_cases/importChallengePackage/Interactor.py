@@ -199,7 +199,7 @@ class ImportChallengePackageInteractor(ImportChallengePackageInputBoundary):
                 raise AudioValidationError(f"{relative}: {exc}") from exc
 
     def _find_duplicate(self, prepared: list[_PreparedPackage]) -> str | None:
-        for field in ("name", "slug"):
+        for field in ("name", "slug", "challenge_date"):
             seen = set()
             for item in prepared:
                 value = getattr(item.challenge, field)
