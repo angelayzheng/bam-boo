@@ -31,15 +31,15 @@ class ChallengeDatabaseValidator:
         self.source_root = Path(source_root or package.CHALLENGES_DIR)
 
     def validate(self):
-        errors = self._database_errors()
-        errors.extend(self._environment_errors())
+        errors = self.database_errors()
+        errors.extend(self.environment_errors())
         if errors:
             return errors
         for challenge in Challenge.objects.all().order_by("slug"):
-            errors.extend(self._challenge_errors(challenge))
+            errors.extend(self.challenge_errors(challenge))
         return errors
 
-    def _database_errors(self):
+    def database_errors(self):
         errors = []
         try:
             if connection.vendor == "sqlite":
@@ -68,7 +68,7 @@ class ChallengeDatabaseValidator:
             errors.append(f"Could not inspect the database: {exc}")
         return errors
 
-    def _environment_errors(self):
+    def environment_errors(self):
         errors = []
         if not self.media_root.is_dir():
             errors.append(f"MEDIA_ROOT is not a directory: {self.media_root}.")
@@ -80,7 +80,7 @@ class ChallengeDatabaseValidator:
             errors.append("MEDIA_URL must be a nonempty value ending in '/'.")
         return errors
 
-    def _challenge_errors(self, challenge):
+    def challenge_errors(self, challenge):
         slug = challenge.slug
         try:
             challenge.full_clean()
