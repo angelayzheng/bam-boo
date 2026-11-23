@@ -6,11 +6,9 @@ import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
+from challenges.domain.ChallengePackage import AudioValidationError
+
 FFPROBE_TIMEOUT_SECONDS = 30
-
-
-class AudioValidationError(Exception):
-    """An audio file cannot be validated as playable MP3 audio."""
 
 
 @dataclass(frozen=True)
