@@ -2,6 +2,12 @@
 
 Read [ARCHITECTURE.md](ARCHITECTURE.md) before making structural changes. Keep it updated in the same pull request when changing services, routes, data models, frontend organization, dependencies, ports, or top-level directories.
 
+## Backend naming
+
+Migrated backend Clean Architecture modules intentionally do not follow Python's usual snake_case naming. Use camelCase for directories such as `importChallengePackage`, and use PascalCase for files whose main contents are a single class, such as `Interactor.py`, `Presenter.py`, `MediaStore.py`, and `ChallengePackage.py`. Keep lowercase names for small utility modules such as `archives.py`.
+
+Django test discovery is the exception: test modules must be named `test_*.py`, such as `test_import_challenge_package.py`, so `manage.py test` finds them. Do not add PascalCase test shims. Django management command filenames determine their CLI names, so the import command is intentionally `ImportChallenges.py`.
+
 ## Commit messages
 
 Use the [Conventional Commits](https://www.conventionalcommits.org/) format:
