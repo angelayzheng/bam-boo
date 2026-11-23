@@ -22,7 +22,7 @@ from .validation import ChallengeDatabaseValidator
 
 
 class ChallengeValidationTests(MediaTestCase):
-    def create_challenge(self, slug="greeting"):
+    def create_challenge(self, slug="greeting", challenge_date=None):
         manifest = challenge_manifest(slug=slug)
         source_folder = write_package(self.source, manifest)
         shutil.copytree(
@@ -33,7 +33,7 @@ class ChallengeValidationTests(MediaTestCase):
         return Challenge.objects.create(
             name=loaded.metadata["name"],
             slug=loaded.slug,
-            challenge_date=loaded.metadata["challenge_date"],
+            challenge_date=challenge_date or loaded.metadata["challenge_date"],
             difficulty=loaded.metadata["difficulty"],
             category=loaded.metadata["category"],
             tone=loaded.metadata["tone"],
