@@ -17,6 +17,11 @@ from challenges.use_cases.BrowseChallenges.BrowseChallengesOutputBoundary import
     BrowseChallengesOutputBoundary,
 )
 
+from django.contrib.auth.models import User
+from django.test import TestCase as DjangoTestCase
+
+from challenges.test_support import make_challenge
+
 TODAY = date(2026, 10, 15)
 
 
@@ -127,3 +132,67 @@ class BrowseChallengesInteractorTests(TestCase):
         self.assertEqual(presenter.error, "Month must be between 1 and 12.")
         self.assertIsNone(presenter.output)
         self.assertEqual(data_access.month_calls, 0)
+
+
+class CalendarEndpointTests(DjangoTestCase):
+    url = "/api/calendar/"
+
+    def setUp(self):
+        self.challenge = make_challenge(
+            name="Greeting", slug="greeting", challenge_date="2026-10-05"
+        )
+
+    def day(self, response, iso_date):
+        return next(d for d in response.json()["days"] if d["date"] == iso_date)
+
+    def test_rejects_missing_or_non_numeric_parameters(self):
+        for query in [
+            "",
+            "?year=2026",
+            "?month=10",
+            "?year=abc&month=10",
+            "?year=2026&month=oct",
+        ]:
+            with self.subTest(query=query):
+                response = self.client.get(f"{self.url}{query}")
+                self.assertEqual(response.status_code, 400)
+                self.assertIn("detail", response.json())
+
+    def test_rejects_out_of_range_year_and_month(self):
+        for query in [
+            "year=0&month=10",
+            "year=10000&month=10",
+            "year=2026&month=13",
+            "year=2026&month=0",
+        ]:
+            with self.subTest(query=query):
+                response = self.client.get(f"{self.url}?{query}")
+                self.assertEqual(response.status_code, 400)
+                self.assertIn("detail", response.json())
+
+    def test_guest_gets_the_month_without_scores(self):
+        response = self.client.get(f"{self.url}?year=2026&month=10")
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        self.assertEqual(
+            (body["year"], body["month"], len(body["days"])), (2026, 10, 31)
+        )
+        day = self.day(response, "2026-10-05")
+        self.assertEqual(
+            (day["status"], day["stars"], day["slug"]), ("missed", None, "greeting")
+        )
+        self.assertEqual(self.day(response, "2026-10-01")["status"], "none")
+
+    def test_authenticated_user_sees_their_scores(self):
+        user = User.objects.create_user(username="agent", password="pw")
+        user.profile.add_score("greeting", 2)
+        user.profile.save()
+        self.client.force_login(user)
+
+        response = self.client.get(f"{self.url}?year=2026&month=10")
+        day = self.day(response, "2026-10-05")
+        self.assertEqual((day["status"], day["stars"]), ("completed", 2))
+
+    def test_only_get_is_allowed(self):
+        response = self.client.post(f"{self.url}?year=2026&month=10")
+        self.assertEqual(response.status_code, 405)

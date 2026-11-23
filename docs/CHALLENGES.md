@@ -1,6 +1,6 @@
 # Local challenge storage
 
-Every challenge has a unique, stable `slug`. The slug names the challenge's source folder and manifest: both are `<slug>` and `<slug>.json`. Keep the slug unchanged after publication, even if you edit the display name or schedule date. Names, slugs, and schedule dates must also be unique under the current database model. 
+Every challenge has a unique, stable `slug`. The slug names the challenge's source folder and manifest: both are `<slug>` and `<slug>.json`. Keep the slug unchanged after publication, even if you edit the display name or schedule date. Names, slugs, and schedule dates must also be unique under the current database model.
 
 SQLite stores IDs, names, dates, grading metadata, and the conversation tree. Both audio and transcript contents remain local files.
 
