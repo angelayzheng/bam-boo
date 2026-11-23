@@ -21,9 +21,7 @@ class ValidateChallengesPresenter(ValidateChallengesOutputBoundary):
         self.view_model = ValidateChallengesViewModel(success=False, message="")
 
     def prepare_success_view(self, output_data: ValidateChallengesOutputData) -> None:
-        self.view_model = ValidateChallengesViewModel(
-            success=True, message="OK", errors=output_data.errors
-        )
+        self.view_model = ValidateChallengesViewModel(success=True, message="OK")
 
     def prepare_fail_view(self, failure: ValidateChallengesFailureData) -> None:
         self.view_model = ValidateChallengesViewModel(

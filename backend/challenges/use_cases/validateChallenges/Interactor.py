@@ -3,11 +3,7 @@ from challenges.use_cases.ports import ChallengeValidationGateway
 from .InputBoundary import ValidateChallengesInputBoundary
 from .InputData import ValidateChallengesInputData
 from .OutputBoundary import ValidateChallengesOutputBoundary
-from .OutputData import (
-    ValidateChallengesFailureData,
-    ValidateChallengesFailureReason,
-    ValidateChallengesOutputData,
-)
+from .OutputData import ValidateChallengesFailureData, ValidateChallengesOutputData
 
 
 class ValidateChallengesInteractor(ValidateChallengesInputBoundary):
@@ -28,28 +24,16 @@ class ValidateChallengesInteractor(ValidateChallengesInputBoundary):
             if not errors:
                 errors.extend(self._validation.challenge_errors())
         except Exception as exc:
-            self._fail(
-                ValidateChallengesFailureReason.VALIDATOR_ERROR,
-                f"Could not validate challenges: {exc}",
-            )
+            self._fail(f"Could not validate challenges: {exc}")
             return
 
         if errors:
-            self._fail(
-                ValidateChallengesFailureReason.VALIDATION_FAILED,
-                "Challenge validation failed.",
-                tuple(errors),
-            )
+            self._fail("Challenge validation failed.", tuple(errors))
             return
 
         self._presenter.prepare_success_view(ValidateChallengesOutputData())
 
-    def _fail(
-        self,
-        reason: ValidateChallengesFailureReason,
-        message: str,
-        errors: tuple[str, ...] = (),
-    ) -> None:
+    def _fail(self, message: str, errors: tuple[str, ...] = ()) -> None:
         self._presenter.prepare_fail_view(
-            ValidateChallengesFailureData(reason=reason, message=message, errors=errors)
+            ValidateChallengesFailureData(message=message, errors=errors)
         )
