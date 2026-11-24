@@ -217,6 +217,22 @@ class ChallengeRunApiTests(TestCase):
         )
         self.assertEqual(Challenge.objects.count(), 1)
 
+    def test_tone_submission_rejects_answers_longer_than_200_characters(self):
+        run = self.start()
+        run_url = f"/api/attempts/{run['attempt_id']}/tone/"
+
+        response = self.post_json(run_url, {"answer": "a" * 201})
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(
+            response.json(),
+            {"detail": "answer must be at most 200 characters."},
+        )
+        self.assertEqual(
+            ChallengeRun.objects.get(pk=run["attempt_id"]).stage,
+            "tone",
+        )
+
     def test_missing_attempt_is_not_reported_as_an_unknown_tone(self):
         missing_url = f"/api/attempts/{uuid4()}/tone/"
         missing = self.post_json(missing_url, {"answer": "calm"})

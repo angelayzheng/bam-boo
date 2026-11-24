@@ -21,6 +21,8 @@ from .InputData import ChallengeRunInputData, StartChallengeRunInputData
 from .OutputBoundary import ManageChallengeRunOutputBoundary
 from .OutputData import PlayFailureData, PlayFailureReason, PlaySuccessData
 
+MAX_TONE_ANSWER_LENGTH = 200
+
 
 class _PlayFailure(Exception):
     def __init__(self, reason: PlayFailureReason, message: str):
@@ -100,6 +102,10 @@ class ManageChallengeRunInteractor(ManageChallengeRunInputBoundary):
         def transition(run, challenge):
             if set(payload) != {"answer"} or not isinstance(payload["answer"], str):
                 self._reject("answer must be a string.")
+            if len(payload["answer"]) > MAX_TONE_ANSWER_LENGTH:
+                self._reject(
+                    f"answer must be at most {MAX_TONE_ANSWER_LENGTH} characters."
+                )
             if self._tone_matcher is None:
                 raise ToneUnavailable("Tone vectors are unavailable.")
             similarity = self._tone_matcher.similarity(

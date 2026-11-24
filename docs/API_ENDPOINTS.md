@@ -149,9 +149,10 @@ Request:
 ```
 
 Returns the snapshot after tone grading, with `stage` set to `conversation` and
-the current response choices. Invalid JSON or answer shape returns status 400;
-an unknown answer word returns 422; a missing attempt returns 404; unavailable
-tone vectors return 503. Errors use `{"detail":"<message>"}`.
+the current response choices. Answers are limited to 200 characters. Invalid
+JSON, answer shape, or answer length returns status 400; an unknown answer word
+returns 422; a missing attempt returns 404; unavailable tone vectors return 503.
+Errors use `{"detail":"<message>"}`.
 
 ### `POST /api/attempts/<uuid>/choices/`
 
