@@ -21,14 +21,16 @@ from django.contrib import admin
 from django.http import JsonResponse
 from django.urls import include, path
 
-from challenges.views import calendar_view
+from challenges.adapters.views import calendar_view
 
 
 def health_check(request):
+    """GET /api/health/: return the backend health status."""
     return JsonResponse({"status": "ok"})
 
 
 def index(request):
+    """GET /: return the backend service status."""
     return JsonResponse({"service": "bam-boo backend", "status": "ok"})
 
 
@@ -36,8 +38,8 @@ urlpatterns = [
     path("", index, name="index"),
     path("api/health/", health_check, name="health-check"),
     path("api/challenges/", include("challenges.urls")),
+    path("api/attempts/", include("play.urls")),
     path("api/users/", include("users.urls")),
-    path("api/tone/", include("tone.urls")),
     path("admin/", admin.site.urls),
     path("api/calendar/", calendar_view, name="calendar"),
 ]

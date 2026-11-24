@@ -4,7 +4,7 @@ export function ChallengeLoading() {
       role="status"
       className="rounded-xl bg-slate-100 px-4 py-3 text-sm text-slate-600"
     >
-      Loading today’s recording…
+      Starting the challenge…
     </div>
   )
 }

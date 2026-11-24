@@ -1,12 +1,10 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import HomePage from './pages/HomePage'
 import ChallengePage from './pages/ChallengePage'
 import ResultsPage from './pages/ResultsPage'
 import AuthPage from './pages/AuthPage'
 import ProfilePage from './pages/ProfilePage'
 import { authApi } from './auth/dataAccessInterface/authGatewayApi'
-import { scoreApi } from './auth/dataAccessInterface/scoreGatewayApi'
-import { ApiError } from './auth/dataAccessInterface/httpClient'
 import { RestoreSessionInteractor } from './auth/useCases/restoreSession/restoreSessionInteractor'
 import { RestoreSessionPresenter } from './auth/useCases/restoreSession/restoreSessionPresenter'
 import type { AuthUser } from './entities/types'
@@ -18,84 +16,38 @@ import {
   parseChallengePath,
   resultsPath,
 } from './routes'
-import type { Challenge, ChallengeSummary, ResultData } from './entities/types'
-import type { ScoreSaveState } from './types'
-
-const RESULT_STORAGE_KEY = 'bam-boo:last-challenge-result'
-
-function loadSavedResult(): ResultData | null {
-  try {
-    const saved = window.sessionStorage.getItem(RESULT_STORAGE_KEY)
-    if (!saved) return null
-    const result: unknown = JSON.parse(saved)
-    if (
-      typeof result !== 'object' ||
-      result === null ||
-      typeof (result as ResultData).challengeSlug !== 'string' ||
-      !(result as ResultData).challengeSlug
-    ) {
-      window.sessionStorage.removeItem(RESULT_STORAGE_KEY)
-      return null
-    }
-    return result as ResultData
-  } catch {
-    return null
-  }
-}
+import type { ChallengeSummary, ResultData } from './entities/types'
+import { useResultsFlow } from './pages/useResultsFlow'
 
 function App() {
   const [pathname, setPathname] = useState(() => window.location.pathname)
-  const [result, setResult] = useState<ResultData | null>(loadSavedResult)
   const [summaries, setSummaries] = useState<ChallengeSummary[]>([])
   const [todayChallenge, setTodayChallenge] = useState<ChallengeSummary | null>(
     null,
   )
-  const [challenge, setChallenge] = useState<Challenge | null>(null)
   const [error, setError] = useState('')
   const [attempt, setAttempt] = useState(0)
   const [user, setUser] = useState<AuthUser | null>(null)
   const [authLoading, setAuthLoading] = useState(true)
   const [authError, setAuthError] = useState('')
   const [authAttempt, setAuthAttempt] = useState(0)
-  const [scoreSave, setScoreSave] = useState<ScoreSaveState>({
-    status: 'saving',
-  })
-  const [saveAttempt, setSaveAttempt] = useState(0)
   const [progressVersion, setProgressVersion] = useState(0)
-  const currentUserId = user?.id
 
-  useEffect(() => {
-    if (
-      !result ||
-      !result.attemptId ||
-      !result.completedAt ||
-      currentUserId === undefined ||
-      result.userId !== currentUserId
-    )
-      return
-    const controller = new AbortController()
-    scoreApi
-      .saveChallengeResult(result, controller.signal)
-      .then(() => {
-        if (!controller.signal.aborted) {
-          setScoreSave({ status: 'saved' })
-          setProgressVersion((value) => value + 1)
-        }
-      })
-      .catch((cause: unknown) => {
-        if (!controller.signal.aborted) {
-          if (cause instanceof ApiError && cause.status === 401) setUser(null)
-          setScoreSave({
-            status: 'error',
-            message:
-              cause instanceof Error
-                ? cause.message
-                : 'Could not save your score. Please try again.',
-          })
-        }
-      })
-    return () => controller.abort()
-  }, [result, currentUserId, saveAttempt])
+  const route = getRoute(pathname)
+  const challengeRoute = parseChallengePath(pathname)
+  const handleProgressSaved = useCallback(() => {
+    setProgressVersion((value) => value + 1)
+  }, [])
+  const handleUnauthorized = useCallback(() => {
+    setUser(null)
+  }, [])
+  const results = useResultsFlow({
+    slug: challengeRoute?.results ? challengeRoute.slug : null,
+    user,
+    sessionLoading: authLoading,
+    onProgressSaved: handleProgressSaved,
+    onUnauthorized: handleUnauthorized,
+  })
 
   const restoreSession = useMemo(
     () =>
@@ -159,23 +111,11 @@ function App() {
     navigate(challengePath(todayChallenge.slug))
   }
 
-  const completeChallenge = (
-    nextResult: ResultData,
-    completedChallenge: Challenge,
-  ) => {
-    const ownedResult = { ...nextResult, userId: user?.id ?? null }
-    setScoreSave({ status: 'saving' })
-    setResult(ownedResult)
-    setChallenge(completedChallenge)
-    window.sessionStorage.setItem(
-      RESULT_STORAGE_KEY,
-      JSON.stringify(ownedResult),
-    )
-    navigate(resultsPath(completedChallenge.slug))
+  const completeChallenge = (nextResult: ResultData) => {
+    results.acceptCompletedResult(nextResult)
+    navigate(resultsPath(nextResult.challenge.slug))
   }
 
-  const route = getRoute(pathname)
-  const challengeRoute = parseChallengePath(pathname)
   const openAccount = () => navigate(user ? '/profile' : '/login')
 
   const connecting = authLoading || (!todayChallenge && !error)
@@ -229,8 +169,7 @@ function App() {
           onChallenge={todayChallenge ? startChallenge : undefined}
           onLoggedOut={() => {
             setUser(null)
-            setResult(null)
-            window.sessionStorage.removeItem(RESULT_STORAGE_KEY)
+            results.clearResult()
             navigate('/login')
           }}
         />
@@ -245,19 +184,16 @@ function App() {
         onAuthenticated={(account) => {
           setUser(account)
           setAuthError('')
+          const pendingResult = results.result
           // A guest can claim their pending result when they sign in.
           if (
-            result &&
-            (result.userId === null || result.userId === account.id)
+            pendingResult &&
+            !pendingResult.saved &&
+            (pendingResult.userId === null ||
+              pendingResult.userId === undefined ||
+              pendingResult.userId === account.id)
           ) {
-            const ownedResult = { ...result, userId: account.id }
-            setScoreSave({ status: 'saving' })
-            setResult(ownedResult)
-            window.sessionStorage.setItem(
-              RESULT_STORAGE_KEY,
-              JSON.stringify(ownedResult),
-            )
-            navigate(resultsPath(result.challengeSlug))
+            navigate(resultsPath(pendingResult.challenge.slug))
           } else {
             navigate('/profile')
           }
@@ -290,23 +226,20 @@ function App() {
     )
   }
 
-  if (challengeRoute?.results && result) {
-    const resultsChallenge =
-      challenge && challenge.slug === result.challengeSlug ? challenge : null
+  if (challengeRoute?.results) {
     return (
       <ResultsPage
-        challenge={resultsChallenge}
-        slug={challengeRoute.slug}
-        result={result}
+        viewModel={results.resultsViewModel}
+        claimViewModel={results.claimViewModel}
         onHome={() => navigate('/')}
-        onRetry={() => navigate(challengePath(challengeRoute.slug))}
-        user={user}
-        sessionLoading={authLoading}
-        saveState={scoreSave}
-        onSaveRetry={() => {
-          setScoreSave({ status: 'saving' })
-          setSaveAttempt((value) => value + 1)
+        onRetry={() => {
+          if (results.result) {
+            navigate(challengePath(results.result.challenge.slug))
+          } else {
+            navigate('/')
+          }
         }}
+        onRetryClaim={results.retryClaim}
         onLogin={() => navigate('/login')}
         onProfile={() => navigate('/profile')}
       />

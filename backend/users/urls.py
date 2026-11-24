@@ -1,18 +1,16 @@
 from django.urls import path
 
-from .adapters.auth_views import (
+from .adapters.views import (
+    leaderboard,
+    save_challenge_score,
+    user_by_slug,
+    user_profile,
     csrf_token,
     current_user,
     login_user,
     logout_user,
     signup,
     signup_groups,
-)
-from .adapters.progress_views import (
-    leaderboard,
-    save_challenge_score,
-    user_by_slug,
-    user_profile,
 )
 
 urlpatterns = [

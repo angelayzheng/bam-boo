@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react'
 import Header from '../components/Header'
 import { scrollIntoView } from '../challenge/dataAccessInterface/browserServices'
 import { useChallengeFlow } from './useChallengeFlow'
-import type { Challenge, ResultData } from '../entities/types'
+import type { ResultData } from '../entities/types'
 import ChallengeHeader from '../challenge/components/ChallengeHeader'
 import {
   ChallengeLoadError,
@@ -16,7 +16,7 @@ import ActionStage from '../challenge/components/ActionStage'
 interface ChallengePageProps {
   slug: string
   onExit: () => void
-  onComplete: (result: ResultData, challenge: Challenge) => void
+  onComplete: (result: ResultData) => void
 }
 
 export default function ChallengePage({
@@ -25,13 +25,13 @@ export default function ChallengePage({
   onComplete,
 }: ChallengePageProps) {
   const { viewModel, completion, controller, retry } = useChallengeFlow(slug)
-  const toneRequest = useRef<AbortController | null>(null)
+  const request = useRef<AbortController | null>(null)
   const endRef = useRef<HTMLDivElement>(null)
   const lastSeen = useRef({ length: 0, stage: '' })
   const completedRef = useRef(false)
 
   useEffect(() => {
-    return () => toneRequest.current?.abort()
+    return () => request.current?.abort()
   }, [])
 
   useEffect(() => {
@@ -54,13 +54,14 @@ export default function ChallengePage({
       return
     }
     completedRef.current = true
-    onComplete(completion.result, completion.challenge)
+    onComplete(completion)
   }, [completion, onComplete])
 
-  const submitTone = (answer: string) => {
-    const toneController = new AbortController()
-    toneRequest.current = toneController
-    void controller.submitTone(answer, toneController.signal)
+  const run = (action: (signal: AbortSignal) => Promise<void>) => {
+    request.current?.abort()
+    const requestController = new AbortController()
+    request.current = requestController
+    void action(requestController.signal)
   }
 
   const ready = viewModel.name !== null && viewModel.opening !== null
@@ -99,7 +100,9 @@ export default function ChallengePage({
                 tonePending={viewModel.tonePending}
                 toneError={viewModel.toneError}
                 onToneChange={controller.setTone}
-                onSubmit={() => submitTone(viewModel.tone)}
+                onSubmit={() =>
+                  run((signal) => controller.submitTone(viewModel.tone, signal))
+                }
               />
             )}
 
@@ -117,17 +120,25 @@ export default function ChallengePage({
                 toneTime={viewModel.toneTime}
                 conversationFinished={viewModel.conversationFinished}
                 options={viewModel.options}
-                onSelect={controller.selectResponse}
-                onSend={controller.sendResponse}
-                onContinue={controller.continueToAction}
+                choicePending={viewModel.choicePending}
+                choiceError={viewModel.choiceError}
+                continuePending={viewModel.continuePending}
+                continueError={viewModel.continueError}
+                onSelect={controller.selectChoice}
+                onSend={() => run((signal) => controller.sendChoice(signal))}
+                onContinue={() =>
+                  run((signal) => controller.continueToAction(signal))
+                }
               />
             )}
 
             {viewModel.stage === 'action' && (
               <ActionStage
                 nextAction={viewModel.nextAction}
+                actionPending={viewModel.actionPending}
+                actionError={viewModel.actionError}
                 onActionChange={controller.setAction}
-                onFinish={controller.finish}
+                onFinish={() => run((signal) => controller.finish(signal))}
               />
             )}
 

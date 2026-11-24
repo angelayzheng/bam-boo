@@ -7,10 +7,14 @@ import type {
   SignupGroup,
   SignupGroupGateway,
 } from '../boundaries/dataAccessInterfaces'
-import { basePath, postJson, readResponse } from './httpClient.ts'
+import {
+  authBasePath,
+  postJson,
+  readResponse,
+} from '../../dataAccessInterface/httpClient.ts'
 
 async function restoreSession(signal: AbortSignal): Promise<AuthUser | null> {
-  const response = await fetch(`${basePath}me/`, {
+  const response = await fetch(`${authBasePath}me/`, {
     credentials: 'same-origin',
     cache: 'no-store',
     signal,
@@ -26,7 +30,7 @@ async function authenticate(
 ): Promise<AuthUser> {
   return (
     await postJson<{ user: AuthUser }>(
-      `${basePath}${action}/`,
+      `${authBasePath}${action}/`,
       credentials,
       signal,
     )
@@ -34,7 +38,7 @@ async function authenticate(
 }
 
 async function logout(signal?: AbortSignal): Promise<void> {
-  await postJson(`${basePath}logout/`, {}, signal)
+  await postJson(`${authBasePath}logout/`, {}, signal)
 }
 
 async function loadGroups(signal: AbortSignal): Promise<SignupGroup[]> {

@@ -11,10 +11,15 @@ class Profile:
     team: str | None = None
     scores: dict[str, int] = field(default_factory=dict)
     login_days: list[date] = field(default_factory=list)
+    record_id: int | None = None
 
     def __post_init__(self):
         if not isinstance(self.user_id, int) or isinstance(self.user_id, bool):
             raise ValueError("Profile user ID must be an integer.")
+        if self.record_id is not None and (
+            isinstance(self.record_id, bool) or not isinstance(self.record_id, int)
+        ):
+            raise ValueError("Profile record ID must be an integer or null.")
         if not isinstance(self.username, str) or not self.username.strip():
             raise ValueError("Profile username must not be empty.")
         if not isinstance(self.scores, Mapping):

@@ -102,50 +102,112 @@ test('a direct slug URL starts the challenge before summaries load', (t) => {
   assert.match(html, /Checking your account before starting the challenge/)
 })
 
+test('a direct results URL renders the results shell before storage loads', (t) => {
+  const html = renderPage(t, '/challenges/charged-twice/complete')
+  assert.match(html, /Loading your result/)
+})
+
 test('results distinguish saving, saved, retryable failure, guests, and another account', () => {
+  const claim = (overrides = {}) => ({
+    status: 'saving',
+    message: 'Saving your score…',
+    showLogin: false,
+    showProfile: false,
+    canRetry: false,
+    ...overrides,
+  })
   const props = {
-    challenge: {
-      slug: 'test-recording',
-      name: 'Test recording',
-      challenge_date: '2026-10-15',
-      required_action: 'reset password',
+    viewModel: {
+      status: 'ready',
+      challengeName: 'Test recording',
+      dateLabel: 'Thursday, October 15, 2026',
+      heading: 'Beautifully handled.',
+      starCount: 3,
+      stars: [true, true, true],
+      achievements: [
+        { earned: true, title: 'Read the tone', detail: 'Tone matched.' },
+        { earned: true, title: 'Quick instinct', detail: 'Fast.' },
+        { earned: true, title: 'Correct next step', detail: 'Reset.' },
+      ],
     },
-    slug: 'test-recording',
-    result: {
-      challengeSlug: 'test-recording',
-      attemptId: '627e5d91-c343-44ae-b6ab-532b2ed41b8e',
-      completedAt: '2026-10-29T01:23:45.000Z',
-      toneCorrect: true,
-      toneTime: 8,
-      actionCorrect: true,
-      userId: 7,
-    },
-    user: { id: 7, username: 'ada', email: '' },
-    sessionLoading: false,
+    claimViewModel: claim(),
     onHome() {},
     onRetry() {},
-    onSaveRetry() {},
+    onRetryClaim() {},
     onLogin() {},
     onProfile() {},
   }
   const render = (extra) =>
     renderToStaticMarkup(createElement(ResultsPage, { ...props, ...extra }))
-  assert.match(render({ saveState: { status: 'saving' } }), /Saving your score/)
+  assert.match(render(), /Saving your score/)
   assert.match(
-    render({ saveState: { status: 'saved' } }),
+    render({
+      claimViewModel: claim({
+        status: 'saved',
+        message: 'Score saved to your profile. Your best score counts.',
+        showProfile: true,
+      }),
+    }),
     /Score saved to your profile/,
   )
   const failed = render({
-    saveState: { status: 'error', message: 'Backend unavailable.' },
+    claimViewModel: claim({
+      status: 'error',
+      message: 'Could not save your score. Backend unavailable.',
+      canRetry: true,
+    }),
   })
   assert.match(failed, /Retry saving/)
   assert.doesNotMatch(failed, /Score saved to your profile/)
   assert.match(
-    render({ user: null, saveState: { status: 'saving' } }),
+    render({
+      claimViewModel: claim({
+        status: 'guest',
+        message: 'Your result is kept in this browser session.',
+        showLogin: true,
+      }),
+    }),
     /Log in to save your score/,
   )
   assert.match(
-    render({ user: { id: 9 }, saveState: { status: 'saved' } }),
+    render({
+      claimViewModel: claim({
+        status: 'other-account',
+        message:
+          'This result belongs to another session. Retry the challenge to save a score to this account.',
+      }),
+    }),
     /another session/,
   )
+})
+
+test('results render loading and unavailable states', () => {
+  const props = {
+    viewModel: { status: 'loading', message: 'Loading your result…' },
+    claimViewModel: {
+      status: 'checking',
+      message: 'Checking your account before saving…',
+      showLogin: false,
+      showProfile: false,
+      canRetry: false,
+    },
+    onHome() {},
+    onRetry() {},
+    onRetryClaim() {},
+    onLogin() {},
+    onProfile() {},
+  }
+  const loading = renderToStaticMarkup(createElement(ResultsPage, { ...props }))
+  assert.match(loading, /Loading your result/)
+  const unavailable = renderToStaticMarkup(
+    createElement(ResultsPage, {
+      ...props,
+      viewModel: {
+        status: 'unavailable',
+        message: 'This result is no longer available.',
+      },
+    }),
+  )
+  assert.match(unavailable, /no longer available/)
+  assert.match(unavailable, /Back to calendar/)
 })

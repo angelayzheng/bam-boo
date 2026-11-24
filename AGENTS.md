@@ -21,6 +21,7 @@ Read `docs/SETUP.md` for local installation, `docs/CONTRIBUTING.md` for contribu
 - Do not commit virtual environments, SQLite databases, dependency directories, or build output.
 - Update relevant documentation when setup or developer workflow changes.
 - Update `docs/ARCHITECTURE.md` in the same change when a service, route boundary, data model, directory, dependency, or other structural decision changes.
+- Write code using Clean Architecture. For backend layering and migration guidance, read [the backend Clean Architecture migration plan](docs/CLEAN_ARCHITECTURE_MIGRATION_PLAN_BACKEND.md). For frontend, read [the frontend Clean Architecture migration plan](docs/CLEAN_ARCHITECTURE_MIGRATION_PLAN_FRONTEND.md)
 
 ## Validation
 
