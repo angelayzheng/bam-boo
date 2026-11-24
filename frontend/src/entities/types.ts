@@ -35,6 +35,8 @@ export interface AttemptSnapshot {
   score: number | null
   requiredAction: string | null
   completedAt: string | null
+  userId?: number | null
+  saved?: boolean
 }
 
 export interface ResultData {

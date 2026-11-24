@@ -34,6 +34,8 @@ export interface SessionState {
   score: number | null
   requiredAction: string | null
   completedAt: string | null
+  userId: number | null
+  saved: boolean
 }
 
 export function normalizeToneInput(value: string): string {
@@ -71,6 +73,8 @@ export class ChallengeSession {
       score: snapshot.score,
       requiredAction: snapshot.requiredAction,
       completedAt: snapshot.completedAt,
+      userId: snapshot.userId ?? null,
+      saved: snapshot.saved ?? false,
     }
   }
 
@@ -184,6 +188,8 @@ export class ChallengeSession {
       actionCorrect,
       score,
       requiredAction,
+      userId,
+      saved,
     } = this.state
     if (
       this.state.stage !== 'completed' ||
@@ -208,6 +214,8 @@ export class ChallengeSession {
       actionCorrect,
       score,
       requiredAction,
+      userId,
+      saved,
     }
   }
 
@@ -242,6 +250,8 @@ export class ChallengeSession {
       score: snapshot.score,
       requiredAction: snapshot.requiredAction,
       completedAt: snapshot.completedAt,
+      userId: snapshot.userId ?? null,
+      saved: snapshot.saved ?? false,
     }
   }
 }

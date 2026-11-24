@@ -17,7 +17,7 @@ class ChallengeRunPresenter(ManageChallengeRunOutputBoundary):
         PlayFailureReason.RUN_NOT_FOUND: 404,
         PlayFailureReason.RUN_FORBIDDEN: 403,
         PlayFailureReason.INVALID_STAGE: 409,
-        PlayFailureReason.UNKNOWN_TONE_ANSWER: 404,
+        PlayFailureReason.UNKNOWN_TONE_ANSWER: 422,
         PlayFailureReason.TONE_UNAVAILABLE: 503,
         PlayFailureReason.PROFILE_NOT_FOUND: 404,
         PlayFailureReason.ATTEMPT_CONFLICT: 409,
@@ -77,6 +77,8 @@ def _snapshot(run, challenge):
                 "score": run.score,
                 "required_action": challenge.required_action,
                 "completed_at": run.completed_at.isoformat(),
+                "user_id": run.user_id,
+                "saved": run.user_id is not None,
             }
         )
     return payload

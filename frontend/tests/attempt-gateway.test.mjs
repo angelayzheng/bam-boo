@@ -256,14 +256,24 @@ test('404 and 403 loads are treated as stale stored attempts', async (t) => {
 
 test('tone failures map to retryable user-facing messages', async (t) => {
   mockBrowser(t)
-  mockFetch(t, async (url) => {
-    if (url === '/api/users/auth/csrf/') return csrf()
-    return Response.json({ detail: 'Unknown tone answer.' }, { status: 404 })
-  })
-  await assert.rejects(
-    attemptApi.submitTone('attempt-1', 'calm', new AbortController().signal),
-    /Tone not recognized. Try another word or phrase./,
-  )
+  const cases = [
+    [422, /Tone not recognized. Try another word or phrase./],
+    [404, /This attempt is no longer available. Reload the challenge./],
+    [403, /This attempt belongs to another account./],
+    [409, /This attempt has already moved on. Reload the challenge./],
+    [503, /Tone scoring is unavailable. Please try again./],
+  ]
+  for (const [status, message] of cases) {
+    t.mock.method(globalThis, 'fetch', async (url) => {
+      if (url === '/api/users/auth/csrf/') return csrf()
+      return Response.json({ detail: 'Failure.' }, { status })
+    })
+    await assert.rejects(
+      attemptApi.submitTone('attempt-1', 'calm', new AbortController().signal),
+      message,
+    )
+    t.mock.restoreAll()
+  }
 })
 
 test('missing transcripts reject instead of rendering fake text', async (t) => {

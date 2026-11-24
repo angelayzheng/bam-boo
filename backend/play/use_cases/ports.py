@@ -5,6 +5,17 @@ from play.domain.attempt import Attempt
 from play.domain.Run import Run
 
 
+class AttemptRecordingError(Exception):
+    def __init__(self, reason: str, message: str):
+        super().__init__(message)
+        self.reason = reason
+        self.message = message
+
+
+class CompletedRunRecorder(Protocol):
+    def record_completed_run(self, run: Run) -> object: ...
+
+
 class UnitOfWork(Protocol):
     def atomic(self) -> AbstractContextManager[None]: ...
 

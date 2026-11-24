@@ -116,8 +116,21 @@ test('completion uses the server-graded snapshot and clears the attempt', async 
     actionCorrect: true,
     score: 3,
     requiredAction: 'reset password',
+    userId: null,
+    saved: false,
   })
   assert.deepEqual(storage.cleared, ['forgot-password-x3'])
+})
+
+test('completion preserves authenticated persistence state from the server', async () => {
+  const { output, interactor } = make({
+    submitAction: async () => completedSnapshot({ userId: 7, saved: true }),
+  })
+  interactor.setAction({ action: 'Reset the password.' })
+  await interactor.execute({ signal: new AbortController().signal })
+
+  assert.equal(output.outputs.at(-1).result.userId, 7)
+  assert.equal(output.outputs.at(-1).result.saved, true)
 })
 
 test('a mismatched action still completes with the server score', async () => {

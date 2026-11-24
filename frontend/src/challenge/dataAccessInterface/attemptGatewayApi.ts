@@ -42,6 +42,8 @@ interface ApiSnapshot {
   score?: number | null
   required_action?: string | null
   completed_at?: string | null
+  user_id?: number | null
+  saved?: boolean
 }
 
 function mediaUrl(value: string): string {
@@ -125,6 +127,8 @@ async function hydrateSnapshot(
     score: raw.score ?? null,
     requiredAction: raw.required_action ?? null,
     completedAt: raw.completed_at ?? null,
+    userId: raw.user_id ?? null,
+    saved: raw.saved === true,
   }
 }
 
@@ -200,8 +204,9 @@ async function submitTone(
   } catch (error) {
     fail(error, transitionFallback, {
       403: 'This attempt belongs to another account.',
-      404: 'Tone not recognized. Try another word or phrase.',
+      404: 'This attempt is no longer available. Reload the challenge.',
       409: 'This attempt has already moved on. Reload the challenge.',
+      422: 'Tone not recognized. Try another word or phrase.',
       503: 'Tone scoring is unavailable. Please try again.',
     })
   }

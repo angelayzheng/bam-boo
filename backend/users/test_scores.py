@@ -1,5 +1,6 @@
 import json
 from array import array
+from uuid import uuid4
 
 from django.contrib.auth.models import User
 from django.test import Client, TestCase
@@ -99,6 +100,8 @@ class ChallengeRunApiTests(TestCase):
         self.assertTrue(completed.json()["action_correct"])
         self.assertEqual(completed.json()["score"], 3)
         self.assertIsNotNone(completed.json()["completed_at"])
+        self.assertIsNone(completed.json()["user_id"])
+        self.assertFalse(completed.json()["saved"])
         self.assertEqual(
             ChallengeRun.objects.get(pk=run["attempt_id"]).stage, "completed"
         )
@@ -132,6 +135,9 @@ class ChallengeRunApiTests(TestCase):
         self.assertEqual(response.status_code, 201, response.content)
         self.assertEqual(response.json()["scores"], {self.challenge.slug: 3})
         self.assertEqual(ChallengeAttempt.objects.count(), 1)
+        self.assertEqual(
+            ChallengeRun.objects.get(pk=run["attempt_id"]).user_id, self.user.pk
+        )
 
         repeated = self.post_json(score_url, {"attempt_id": run["attempt_id"]})
         self.assertEqual(repeated.status_code, 200)
@@ -156,6 +162,34 @@ class ChallengeRunApiTests(TestCase):
         )
         self.assertEqual(profile.total_score, completed.json()["score"])
         self.assertEqual(ChallengeAttempt.objects.count(), 1)
+        self.assertEqual(completed.json()["user_id"], self.user.pk)
+        self.assertTrue(completed.json()["saved"])
+
+        score_url = f"/api/users/me/scores/{self.challenge.slug}/"
+        redundant_claim = self.post_json(score_url, {"attempt_id": run["attempt_id"]})
+        self.assertEqual(redundant_claim.status_code, 200)
+        self.assertEqual(ChallengeAttempt.objects.count(), 1)
+
+    def test_score_claim_requires_a_completion_timestamp(self):
+        self.client.force_login(self.user)
+        self.refresh_csrf()
+        run = ChallengeRun.objects.create(
+            challenge=self.challenge,
+            user=None,
+            stage="completed",
+            current_node="q1",
+            score=3,
+            completed_at=None,
+        )
+
+        response = self.post_json(
+            f"/api/users/me/scores/{self.challenge.slug}/",
+            {"attempt_id": str(run.pk)},
+        )
+
+        self.assertEqual(response.status_code, 409)
+        self.assertEqual(response.json(), {"detail": "The attempt is not complete."})
+        self.assertEqual(ChallengeAttempt.objects.count(), 0)
 
     def test_score_endpoint_rejects_client_calculated_results(self):
         self.client.force_login(self.user)
@@ -179,6 +213,18 @@ class ChallengeRunApiTests(TestCase):
         run_url = f"/api/attempts/{run['attempt_id']}/tone/"
         self.assertEqual(self.client.get(run_url).status_code, 405)
         self.assertEqual(
-            self.post_json(run_url, {"answer": "unlisted"}).status_code, 404
+            self.post_json(run_url, {"answer": "unlisted"}).status_code, 422
         )
         self.assertEqual(Challenge.objects.count(), 1)
+
+    def test_missing_attempt_is_not_reported_as_an_unknown_tone(self):
+        missing_url = f"/api/attempts/{uuid4()}/tone/"
+        missing = self.post_json(missing_url, {"answer": "calm"})
+        self.assertEqual(missing.status_code, 404)
+
+        run = self.start()
+        unknown = self.post_json(
+            f"/api/attempts/{run['attempt_id']}/tone/", {"answer": "unlisted"}
+        )
+        self.assertEqual(unknown.status_code, 422)
+        self.assertNotEqual(missing.status_code, unknown.status_code)

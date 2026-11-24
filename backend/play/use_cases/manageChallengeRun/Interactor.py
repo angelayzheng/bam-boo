@@ -6,16 +6,15 @@ from uuid import uuid4
 from challenges.domain.conversation_node import ConversationNode
 from challenges.use_cases.ports import ChallengeRepository
 from play.domain.answer_matching import AnswerMatching
-from play.domain.attempt import Attempt
 from play.domain.Run import Run
 from play.domain.star_rules import StarRules
 from play.use_cases.ports import (
-    AttemptRepository,
+    AttemptRecordingError,
+    CompletedRunRecorder,
     RunRepository,
     ToneMatcher,
     UnitOfWork,
 )
-from users.use_cases.ports import ProfileRepository
 from .errors import ToneAnswerUnknown, ToneUnavailable
 from .InputBoundary import ManageChallengeRunInputBoundary
 from .InputData import ChallengeRunInputData, StartChallengeRunInputData
@@ -37,8 +36,7 @@ class ManageChallengeRunInteractor(ManageChallengeRunInputBoundary):
         *,
         challenges: ChallengeRepository,
         runs: RunRepository,
-        attempts: AttemptRepository,
-        profiles: ProfileRepository,
+        attempt_recorder: CompletedRunRecorder,
         unit_of_work: UnitOfWork,
         tone_matcher: ToneMatcher | None,
         presenter: ManageChallengeRunOutputBoundary,
@@ -47,8 +45,7 @@ class ManageChallengeRunInteractor(ManageChallengeRunInputBoundary):
     ):
         self._challenges = challenges
         self._runs = runs
-        self._attempts = attempts
-        self._profiles = profiles
+        self._attempt_recorder = attempt_recorder
         self._unit_of_work = unit_of_work
         self._tone_matcher = tone_matcher
         self._presenter = presenter
@@ -204,41 +201,23 @@ class ManageChallengeRunInteractor(ManageChallengeRunInputBoundary):
                 transition(run, challenge)
                 self._runs.save(run)
                 if run.stage == "completed" and run.user_id is not None:
-                    self._record_completion(run)
+                    self._attempt_recorder.record_completed_run(run)
             self._success(run, challenge)
         except _PlayFailure as exc:
             self._presenter.prepare_fail_view(exc.failure)
+        except AttemptRecordingError as exc:
+            reason = (
+                PlayFailureReason.PROFILE_NOT_FOUND
+                if exc.reason == "profile_not_found"
+                else PlayFailureReason.ATTEMPT_CONFLICT
+            )
+            self._fail(reason, exc.message)
         except ToneAnswerUnknown as exc:
             self._fail(PlayFailureReason.UNKNOWN_TONE_ANSWER, str(exc))
         except ToneUnavailable as exc:
             self._fail(PlayFailureReason.TONE_UNAVAILABLE, str(exc))
         except ValueError as exc:
             self._fail(PlayFailureReason.INVALID_INPUT, str(exc))
-
-    def _record_completion(self, run: Run) -> None:
-        profile = self._profiles.get_by_user_id(run.user_id, for_update=True)
-        if profile is None:
-            self._reject("Profile not found.", PlayFailureReason.PROFILE_NOT_FOUND)
-        attempt = Attempt(
-            submission_id=run.id,
-            profile_id=profile.record_id or profile.user_id,
-            challenge_slug=run.challenge_slug,
-            score=run.score,
-            completed_at=run.completed_at,
-        )
-        stored, _created = self._attempts.get_or_create(attempt)
-        if not stored.matches_completion(
-            attempt.profile_id,
-            attempt.challenge_slug,
-            attempt.score,
-            attempt.completed_at,
-        ):
-            self._reject(
-                "This attempt ID has already been used for a different completion.",
-                PlayFailureReason.ATTEMPT_CONFLICT,
-            )
-        profile.add_score(run.challenge_slug, run.score)
-        self._profiles.save(profile)
 
     def _get_run(self, run_id, user_id, *, for_update=False):
         run = self._runs.get_by_id(run_id, for_update=for_update)

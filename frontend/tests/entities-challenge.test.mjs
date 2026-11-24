@@ -214,6 +214,8 @@ test('a completed snapshot builds the result the results page uses', () => {
     actionCorrect: true,
     score: 3,
     requiredAction: 'reset password',
+    userId: null,
+    saved: false,
   })
 })
 

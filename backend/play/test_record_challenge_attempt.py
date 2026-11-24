@@ -1,12 +1,12 @@
 from contextlib import nullcontext
-from datetime import date, datetime, timezone
+from datetime import datetime, timezone
 
 from django.test import SimpleTestCase
 
-from challenges.domain.challenge import Challenge
 from play.adapters.recordChallengeAttempt.Presenter import (
     RecordChallengeAttemptPresenter,
 )
+from play.domain.Run import Run
 from play.domain.attempt import Attempt
 from play.use_cases.recordChallengeAttempt.InputData import (
     RecordChallengeAttemptInputData,
@@ -23,33 +23,20 @@ COMPLETED_AT = datetime(2026, 11, 19, 12, tzinfo=timezone.utc)
 SUBMISSION_ID = "12345678-1234-5678-1234-567812345678"
 
 
-class InMemoryChallengeRepository:
-    def __init__(self, valid_slugs=()):
-        self.slugs = set(valid_slugs)
+class InMemoryRunRepository:
+    def __init__(self, runs=()):
+        self.records: dict[str, Run] = {run.id: run for run in runs}
 
-    def list(self):
-        return [self._challenge(slug) for slug in self.slugs]
+    def get_by_id(self, run_id, *, for_update=False):
+        return self.records.get(run_id)
 
-    def get_by_slug(self, slug):
-        return self._challenge(slug) if slug in self.slugs else None
+    def create(self, run):
+        self.records[run.id] = run
+        return run
 
-    def get_by_date(self, challenge_date):
-        return None
-
-    def save(self, challenge):
-        self.slugs.add(challenge.slug)
-        return challenge
-
-    def _challenge(self, slug):
-        return Challenge(
-            name=slug,
-            slug=slug,
-            challenge_date=date(2026, 11, 19),
-            difficulty=1,
-            category="work",
-            tone="calm",
-            required_action="reply",
-        )
+    def save(self, run):
+        self.records[run.id] = run
+        return run
 
 
 class InMemoryAttemptRepository:
@@ -124,10 +111,10 @@ class RecordingOutputBoundary:
 
 
 class RecordChallengeAttemptInteractorTests(SimpleTestCase):
-    def build_interactor(self, challenges, attempts, profiles, presenter=None):
+    def build_interactor(self, runs, attempts, profiles, presenter=None):
         presenter = presenter or RecordChallengeAttemptPresenter()
         interactor = RecordChallengeAttemptInteractor(
-            challenges=challenges,
+            runs=runs,
             attempts=attempts,
             profiles=profiles,
             unit_of_work=InMemoryUnitOfWork(),
@@ -140,17 +127,30 @@ class RecordChallengeAttemptInteractorTests(SimpleTestCase):
             "user_id": 1,
             "challenge_slug": "greeting",
             "attempt_id": SUBMISSION_ID,
-            "tone_correct": True,
-            "action_correct": True,
-            "tone_time": 3.5,
-            "completed_at": COMPLETED_AT,
         }
         values.update(overrides)
         return RecordChallengeAttemptInputData(**values)
 
-    def test_success_scores_with_domain_rules_and_prepares_201_view(self):
+    def completed_run(self, **overrides):
+        values = {
+            "id": SUBMISSION_ID,
+            "challenge_slug": "greeting",
+            "current_node": "a1",
+            "created_at": datetime(2026, 11, 19, 11, tzinfo=timezone.utc),
+            "stage": "completed",
+            "user_id": None,
+            "score": 3,
+            "completed_at": COMPLETED_AT,
+        }
+        values.update(overrides)
+        run = Run.__new__(Run)
+        for field, value in values.items():
+            setattr(run, field, value)
+        return run
+
+    def test_success_records_completed_run_and_prepares_201_view(self):
         interactor, presenter = self.build_interactor(
-            InMemoryChallengeRepository({"greeting"}),
+            InMemoryRunRepository([self.completed_run()]),
             InMemoryAttemptRepository(),
             InMemoryProfileRepository(),
         )
@@ -165,7 +165,7 @@ class RecordChallengeAttemptInteractorTests(SimpleTestCase):
     def test_repeated_submission_prepares_200_view(self):
         attempts = InMemoryAttemptRepository()
         interactor, presenter = self.build_interactor(
-            InMemoryChallengeRepository({"greeting"}),
+            InMemoryRunRepository([self.completed_run()]),
             attempts,
             InMemoryProfileRepository(),
         )
@@ -178,14 +178,22 @@ class RecordChallengeAttemptInteractorTests(SimpleTestCase):
         self.assertEqual(len(attempts.records), 1)
 
     def test_conflicting_submission_prepares_409_view(self):
+        attempts = InMemoryAttemptRepository()
+        attempts.records[SUBMISSION_ID] = Attempt(
+            submission_id=SUBMISSION_ID,
+            profile_id=2,
+            challenge_slug="greeting",
+            score=3,
+            completed_at=COMPLETED_AT,
+            received_at=COMPLETED_AT,
+            record_id=1,
+        )
         interactor, presenter = self.build_interactor(
-            InMemoryChallengeRepository({"greeting"}),
-            InMemoryAttemptRepository(),
+            InMemoryRunRepository([self.completed_run()]),
+            attempts,
             InMemoryProfileRepository(),
         )
         interactor.execute(self.input_data())
-
-        interactor.execute(self.input_data(action_correct=False))
 
         self.assertEqual(presenter.status_code, 409)
         self.assertEqual(
@@ -197,31 +205,49 @@ class RecordChallengeAttemptInteractorTests(SimpleTestCase):
 
     def test_missing_challenge_prepares_404_view(self):
         interactor, presenter = self.build_interactor(
-            InMemoryChallengeRepository(),
+            InMemoryRunRepository(),
             InMemoryAttemptRepository(),
             InMemoryProfileRepository(),
         )
 
-        interactor.execute(self.input_data(challenge_slug="unknown"))
+        interactor.execute(self.input_data())
 
         self.assertEqual(presenter.status_code, 404)
-        self.assertEqual(presenter.response_body, {"detail": "Challenge not found."})
+        self.assertEqual(
+            presenter.response_body, {"detail": "Completed attempt not found."}
+        )
 
-    def test_naive_completion_time_prepares_400_view(self):
+    def test_missing_completion_time_is_rejected(self):
         interactor, presenter = self.build_interactor(
-            InMemoryChallengeRepository({"greeting"}),
+            InMemoryRunRepository(
+                [self.completed_run(completed_at=datetime(2026, 11, 19, 12))]
+            ),
             InMemoryAttemptRepository(),
             InMemoryProfileRepository(),
         )
 
-        interactor.execute(self.input_data(completed_at=datetime(2026, 11, 19, 12)))
+        interactor.execute(self.input_data())
 
-        self.assertEqual(presenter.status_code, 400)
+        self.assertEqual(presenter.status_code, 409)
+
+    def test_uncompleted_run_is_rejected(self):
+        interactor, presenter = self.build_interactor(
+            InMemoryRunRepository([self.completed_run(stage="action")]),
+            InMemoryAttemptRepository(),
+            InMemoryProfileRepository(),
+        )
+
+        interactor.execute(self.input_data())
+
+        self.assertEqual(presenter.status_code, 409)
+        self.assertEqual(
+            presenter.response_body, {"detail": "The attempt is not complete."}
+        )
 
     def test_failure_carries_semantic_reason_without_status_code(self):
         output_boundary = RecordingOutputBoundary()
         interactor, _ = self.build_interactor(
-            InMemoryChallengeRepository(),
+            InMemoryRunRepository(),
             InMemoryAttemptRepository(),
             InMemoryProfileRepository(),
             presenter=output_boundary,
@@ -231,6 +257,6 @@ class RecordChallengeAttemptInteractorTests(SimpleTestCase):
 
         self.assertEqual(
             output_boundary.failure.reason,
-            RecordChallengeAttemptFailureReason.CHALLENGE_NOT_FOUND,
+            RecordChallengeAttemptFailureReason.RUN_NOT_FOUND,
         )
         self.assertFalse(hasattr(output_boundary.failure, "status_code"))

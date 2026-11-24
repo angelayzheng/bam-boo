@@ -8,6 +8,9 @@ class RecordChallengeAttemptFailureReason(Enum):
     CHALLENGE_NOT_FOUND = "challenge_not_found"
     PROFILE_NOT_FOUND = "profile_not_found"
     ATTEMPT_CONFLICT = "attempt_conflict"
+    RUN_NOT_FOUND = "run_not_found"
+    RUN_INCOMPLETE = "run_incomplete"
+    RUN_FORBIDDEN = "run_forbidden"
 
 
 @dataclass(frozen=True, slots=True)

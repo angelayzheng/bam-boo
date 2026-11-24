@@ -14,6 +14,9 @@ class RecordChallengeAttemptPresenter(RecordChallengeAttemptOutputBoundary):
         RecordChallengeAttemptFailureReason.CHALLENGE_NOT_FOUND: 404,
         RecordChallengeAttemptFailureReason.PROFILE_NOT_FOUND: 404,
         RecordChallengeAttemptFailureReason.ATTEMPT_CONFLICT: 409,
+        RecordChallengeAttemptFailureReason.RUN_NOT_FOUND: 404,
+        RecordChallengeAttemptFailureReason.RUN_INCOMPLETE: 409,
+        RecordChallengeAttemptFailureReason.RUN_FORBIDDEN: 409,
     }
 
     def __init__(self):
@@ -31,12 +34,10 @@ class RecordChallengeAttemptPresenter(RecordChallengeAttemptOutputBoundary):
             "completed_challenges": output_data.completed_challenges,
             "scores": output_data.scores,
             "attempt": {
-                "id": output_data.attempt.id,
                 "attempt_id": output_data.attempt.attempt_id,
                 "challenge_slug": output_data.attempt.challenge_slug,
                 "score": output_data.attempt.score,
                 "completed_at": output_data.attempt.completed_at.isoformat(),
-                "received_at": output_data.attempt.received_at.isoformat(),
             },
         }
         self.status_code = 201 if output_data.created else 200

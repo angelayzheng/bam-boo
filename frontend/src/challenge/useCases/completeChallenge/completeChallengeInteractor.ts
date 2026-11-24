@@ -1,4 +1,5 @@
 import type { ChallengeSession } from '../../../entities/challengeSession.ts'
+import type { AttemptSnapshot } from '../../../entities/types'
 import type { SessionStore } from '../sessionStore.ts'
 import type {
   ActionInputData,
@@ -57,16 +58,23 @@ export class CompleteChallengeInteractor implements CompleteChallengeInputBounda
         input.signal,
       )
       if (input.signal.aborted) return
-      session.recordActionResult(snapshot)
-      const result = session.buildResult()
-      this.storage.clear(session.snapshot().challenge.slug)
-      this.output.present({
-        status: 'complete',
-        session: session.snapshot(),
-        result,
-      })
+      this.complete(session, snapshot)
     } catch (error) {
       if (input.signal.aborted) return
+
+      // The server may have committed the action even if its response was lost.
+      // Reload the run before showing a retry error so completed work reaches results.
+      try {
+        const snapshot = await this.gateway.load(state.attemptId, input.signal)
+        if (input.signal.aborted) return
+        if (snapshot?.stage === 'completed') {
+          this.complete(session, snapshot)
+          return
+        }
+      } catch {
+        if (input.signal.aborted) return
+      }
+
       session.recordActionError(
         error instanceof Error
           ? error.message
@@ -74,6 +82,17 @@ export class CompleteChallengeInteractor implements CompleteChallengeInputBounda
       )
       this.present(session)
     }
+  }
+
+  private complete(session: ChallengeSession, snapshot: AttemptSnapshot): void {
+    session.recordActionResult(snapshot)
+    const result = session.buildResult()
+    this.storage.clear(session.snapshot().challenge.slug)
+    this.output.present({
+      status: 'complete',
+      session: session.snapshot(),
+      result,
+    })
   }
 
   private present(session: ChallengeSession): void {

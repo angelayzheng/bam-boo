@@ -93,25 +93,30 @@ class ApplicationContainer:
 
     def build_record_challenge_attempt_use_case(self) -> RecordChallengeAttemptUseCase:
         presenter = RecordChallengeAttemptPresenter()
-        interactor = RecordChallengeAttemptInteractor(
-            challenges=self.challenges,
-            attempts=self.attempts,
-            profiles=self.profiles,
-            unit_of_work=self.unit_of_work,
-            presenter=presenter,
-        )
+        interactor = self._build_record_challenge_attempt_interactor(presenter)
         return RecordChallengeAttemptUseCase(
             controller=RecordChallengeAttemptController(interactor),
             presenter=presenter,
         )
 
-    def build_manage_challenge_run_use_case(self) -> ManageChallengeRunUseCase:
-        presenter = ChallengeRunPresenter()
-        interactor = ManageChallengeRunInteractor(
-            challenges=self.challenges,
+    def _build_record_challenge_attempt_interactor(self, presenter):
+        return RecordChallengeAttemptInteractor(
             runs=self.runs,
             attempts=self.attempts,
             profiles=self.profiles,
+            unit_of_work=self.unit_of_work,
+            presenter=presenter,
+        )
+
+    def build_manage_challenge_run_use_case(self) -> ManageChallengeRunUseCase:
+        presenter = ChallengeRunPresenter()
+        attempt_recorder = self._build_record_challenge_attempt_interactor(
+            RecordChallengeAttemptPresenter()
+        )
+        interactor = ManageChallengeRunInteractor(
+            challenges=self.challenges,
+            runs=self.runs,
+            attempt_recorder=attempt_recorder,
             unit_of_work=self.unit_of_work,
             tone_matcher=self.tone_matcher,
             presenter=presenter,

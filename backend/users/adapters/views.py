@@ -14,11 +14,10 @@ from django.utils.text import slugify
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_GET, require_http_methods, require_POST
 
-from play.models import ChallengeRun
+from config.container import get_container
 from users.forms import SignupForm
 from users.models import (
     AvatarChoices,
-    ChallengeAttempt,
     UserProfile,
     validate_login_days,
     validate_scores,
@@ -194,62 +193,15 @@ def save_challenge_score(request, challenge_slug):
     except ValueError, TypeError, AttributeError:
         return JsonResponse({"detail": "attempt_id must be a valid UUID."}, status=400)
 
-    run = (
-        ChallengeRun.objects.select_related("challenge")
-        .filter(pk=attempt_id, challenge_id=challenge_slug)
-        .first()
+    use_case = get_container().build_record_challenge_attempt_use_case()
+    use_case.controller.execute(
+        user_id=request.user.pk,
+        challenge_slug=challenge_slug,
+        attempt_id=attempt_id,
     )
-    if run is None:
-        return JsonResponse({"detail": "Completed attempt not found."}, status=404)
-    if run.stage != "completed":
-        return JsonResponse({"detail": "The attempt is not complete."}, status=409)
-    if run.user_id not in (None, request.user.pk):
-        return JsonResponse(
-            {"detail": "This completed attempt belongs to another account."},
-            status=409,
-        )
-
-    try:
-        with transaction.atomic():
-            run = ChallengeRun.objects.select_for_update().get(pk=run.pk)
-            profile = UserProfile.objects.select_for_update().get(user=request.user)
-            record, created = ChallengeAttempt.objects.get_or_create(
-                submission_id=str(run.pk),
-                defaults={
-                    "profile": profile,
-                    "challenge_id": run.challenge_id,
-                    "score": run.score,
-                    "completed_at": run.completed_at,
-                },
-            )
-            if (
-                record.profile_id != profile.pk
-                or record.challenge_id != run.challenge_id
-                or record.score != run.score
-            ):
-                return JsonResponse(
-                    {"detail": "This attempt was already claimed with different data."},
-                    status=409,
-                )
-            run.user = request.user
-            run.save(update_fields=["user"])
-            best_score = max(profile.scores.get(run.challenge_id, 0), run.score)
-            profile.scores = {**profile.scores, run.challenge_id: best_score}
-            profile.recalculate_total()
-            profile.save(update_fields=["scores", "total_score", "updated_at"])
-    except ChallengeRun.DoesNotExist:
-        return JsonResponse({"detail": "Completed attempt not found."}, status=404)
-    except UserProfile.DoesNotExist:
-        return JsonResponse({"detail": "Account or challenge not found."}, status=404)
-
-    profile_data = _profile_data(profile)
-    profile_data["attempt"] = {
-        "attempt_id": str(run.pk),
-        "challenge_slug": run.challenge_id,
-        "score": run.score,
-        "completed_at": run.completed_at.isoformat(),
-    }
-    return JsonResponse(profile_data, status=201 if created else 200)
+    return JsonResponse(
+        use_case.presenter.response_body, status=use_case.presenter.status_code
+    )
 
 
 @require_http_methods(["GET", "POST"])
