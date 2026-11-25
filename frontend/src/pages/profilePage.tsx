@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import Header from '../components/Header'
+import Header from '../components/header'
 import type { AuthUser, ChallengeSummary } from '../entities/types'
 import AccountDetails from '../profile/components/accountDetails'
 import ProfileHeader from '../profile/components/profileHeader'

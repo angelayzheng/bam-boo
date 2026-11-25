@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
-import Header from '../components/Header'
+import Header from '../components/header'
 import type { AuthUser, ChallengeSummary } from '../entities/types'
-import HomeDashboard from '../home/components/HomeDashboard'
+import HomeDashboard from '../home/components/homeDashboard'
 import { useHomeFlow } from './useHomeFlow'
 
 interface HomePageProps {

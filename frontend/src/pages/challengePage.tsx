@@ -1,17 +1,17 @@
 import { useEffect, useRef } from 'react'
-import Header from '../components/Header'
+import Header from '../components/header'
 import { scrollIntoView } from '../challenge/dataAccessInterface/browserServices'
 import { useChallengeFlow } from './useChallengeFlow'
 import type { ResultData } from '../entities/types'
-import ChallengeHeader from '../challenge/components/ChallengeHeader'
+import ChallengeHeader from '../challenge/components/challengeHeader'
 import {
   ChallengeLoadError,
   ChallengeLoading,
-} from '../challenge/components/ChallengeLoading'
-import ToneStage from '../challenge/components/ToneStage'
-import ConversationHistory from '../challenge/components/ConversationHistory'
-import ResponseStage from '../challenge/components/ResponseStage'
-import ActionStage from '../challenge/components/ActionStage'
+} from '../challenge/components/challengeLoading'
+import ToneStage from '../challenge/components/toneStage'
+import ConversationHistory from '../challenge/components/conversationHistory'
+import ResponseStage from '../challenge/components/responseStage'
+import ActionStage from '../challenge/components/actionStage'
 
 interface ChallengePageProps {
   slug: string

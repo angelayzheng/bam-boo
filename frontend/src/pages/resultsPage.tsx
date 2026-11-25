@@ -1,4 +1,4 @@
-import Header from '../components/Header'
+import Header from '../components/header'
 import AchievementGrid from '../results/components/achievementGrid'
 import ResultsActions from '../results/components/resultsActions'
 import ResultsSummary from '../results/components/resultsSummary'

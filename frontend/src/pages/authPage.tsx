@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
-import Header from '../components/Header'
+import Header from '../components/header'
 import type { AuthUser } from '../entities/types'
-import AuthForm from '../auth/components/AuthForm'
+import AuthForm from '../auth/components/authForm'
 import { useAuthFlow } from './useAuthFlow'
 
 interface AuthPageProps {
