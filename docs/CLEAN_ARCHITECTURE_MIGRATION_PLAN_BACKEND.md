@@ -90,6 +90,8 @@ Create one directory per use case. These names describe application goals; sever
 
 The run workflow covers starting a run, reading its snapshot, grading tone and action answers, selecting responses, and advancing the conversation. Keep these operations together only while they share a clear run boundary and coherent input/output contract.
 
+The former `GetChallengeForPlay` goal is covered by `manageChallengeRun.start_challenge` and `get_run` for playable snapshots; the separate `getChallenge` use case retrieves public metadata through `GET /api/challenges/<slug>/`. The former `GradeTone` goal is `manageChallengeRun.submit_tone`, using the `ToneMatcher` port. Starting, resuming, and grading tone have isolated fake-port coverage in `play/testManageChallengeRun.py`, alongside the endpoint tests in `users/testScores.py`. Metadata retrieval has fake-port tests in `challenges/testGetChallenge.py` and endpoint coverage in `challenges/tests.py`.
+
 Root and health status, CSRF token issuance, and static media serving are transport or infrastructure concerns; they do not need artificial use-case folders. Loading vector data is a management command, not a player-facing use case.
 
 ## Migration sequence

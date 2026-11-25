@@ -4,6 +4,7 @@ from difflib import SequenceMatcher
 from django.http import JsonResponse
 from django.views.decorators.http import require_GET
 
+from config.container import get_container
 from challenges.models import Challenge, ChallengeCategory
 
 from challenges.adapters.browseChallengesDataAccess import (
@@ -105,10 +106,11 @@ def challenge_list(request):
 @require_GET
 def challenge_detail(request, slug):
     """GET /api/challenges/<slug>/: return public challenge metadata."""
-    challenge = Challenge.objects.filter(slug=slug).first()
-    if challenge is None:
-        return JsonResponse({"detail": "Challenge not found."}, status=404)
-    return JsonResponse(_challenge_summary(challenge))
+    use_case = get_container().build_get_challenge_use_case()
+    use_case.controller.execute(slug)
+    return JsonResponse(
+        use_case.presenter.response_body, status=use_case.presenter.status_code
+    )
 
 
 @require_GET
