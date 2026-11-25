@@ -22,7 +22,7 @@ const bundle = await build({
       transform(code, id) {
         if (id === fileURLToPath(new URL('../src/app.tsx', import.meta.url))) {
           return {
-            code: `${code}\nexport { default as ResultsPage } from './pages/ResultsPage';`,
+            code: `${code}\nexport { default as ResultsPage } from './pages/resultsPage';`,
             map: null,
           }
         }
