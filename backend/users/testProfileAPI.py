@@ -1,7 +1,10 @@
 import json
+from unittest.mock import patch
 
 from django.contrib.auth.models import Group, User
 from django.test import Client, TestCase
+
+from users.models import UserProfile
 
 
 class UserByUsernameApiTests(TestCase):
@@ -41,6 +44,85 @@ class UserByUsernameApiTests(TestCase):
 
     def test_get_unknown_username_returns_404(self):
         self.assertEqual(self.client.get("/api/users/missing/").status_code, 404)
+
+    def test_missing_profiles_keep_django_404_responses(self):
+        for url in ("/api/users/missing/", "/api/users/999999/profile/"):
+            response = self.client.get(url)
+            self.assertEqual(response.status_code, 404)
+            self.assertTrue(response["Content-Type"].startswith("text/html"))
+
+    def test_update_rolls_back_account_changes_when_profile_save_fails(self):
+        self.client.force_login(self.user)
+        with patch.object(
+            UserProfile, "save", side_effect=RuntimeError("write failed")
+        ):
+            with self.assertRaisesMessage(RuntimeError, "write failed"):
+                self.client.post(
+                    self.url,
+                    data={
+                        "name": "Ada Lovelace",
+                        "email": "ada@example.com",
+                        "avatar": "owl",
+                    },
+                    content_type="application/json",
+                )
+        self.user.refresh_from_db()
+        self.user.profile.refresh_from_db()
+        self.assertEqual(self.user.first_name, "")
+        self.assertEqual(self.user.email, "")
+        self.assertEqual(self.user.profile.avatar, "fox")
+
+    def test_partial_updates_clear_team_and_email_without_changing_progress(self):
+        team = Group.objects.create(name="Alpha team")
+        profile = self.user.profile
+        profile.group = team
+        profile.add_score("sample", 2)
+        profile.save()
+        self.user.email = "ada@example.com"
+        self.user.save()
+        self.client.force_login(self.user)
+        response = self.client.post(
+            self.url, data={"avatar": "owl"}, content_type="application/json"
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["team"], "alpha-team")
+        response = self.client.post(
+            self.url, data={"team": "", "email": ""}, content_type="application/json"
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["team"], "")
+        self.assertEqual(response.json()["email"], "")
+        self.assertEqual(response.json()["challenge_scores"], {"sample": 2})
+        self.assertEqual(response.json()["total_score"], 2.0)
+        profile.refresh_from_db()
+        self.assertIsNone(profile.group_id)
+
+    def test_ambiguous_team_and_invalid_changes_do_not_write_account_fields(self):
+        Group.objects.create(name="Alpha team")
+        Group.objects.create(name="Alpha-team")
+        self.client.force_login(self.user)
+        for changes in (
+            {"team": "alpha-team"},
+            {"challenge_scores": {"sample": True}},
+            {"login_days": ["2026-10-12", "2026-10-12"]},
+            {"email": "invalid"},
+        ):
+            response = self.client.post(
+                self.url,
+                data={"name": "Changed", **changes},
+                content_type="application/json",
+            )
+            self.assertEqual(response.status_code, 400)
+            self.user.refresh_from_db()
+            self.assertEqual(self.user.first_name, "")
+
+    def test_update_error_precedence_is_unchanged(self):
+        self.assertEqual(self.client.post("/api/users/missing/").status_code, 401)
+        self.client.force_login(self.other)
+        self.assertEqual(self.client.post("/api/users/missing/").status_code, 404)
+        self.assertEqual(self.client.post(self.url).status_code, 403)
+        self.client.force_login(self.user)
+        self.assertEqual(self.client.post(self.url).status_code, 400)
 
     def test_post_requires_authentication_owner_and_csrf(self):
         anonymous = Client(enforce_csrf_checks=True)

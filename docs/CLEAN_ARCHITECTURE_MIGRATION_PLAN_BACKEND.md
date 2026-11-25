@@ -86,7 +86,9 @@ Create one directory per use case. These names describe application goals; sever
 
 - **Challenges:** `browseChallenges`, `getChallenge`, `importChallengePackage`, `validateChallenges`
 - **Play:** `manageChallengeRun`, `recordChallengeAttempt`
-- **Users:** `signUp`, `logIn`, `logOut`, `getCurrentUser`, `listGroups`, `getProfile`, `updateProfile`, `getLeaderboard`, `claimGuestAttempt`
+- **Users:** `signUp`, `logIn`, `logOut`, `getCurrentUser`, `listGroups`, `viewProfile`, `updateProfile`, `getLeaderboard`, `claimGuestAttempt`
+
+`viewProfile` and `updateProfile` are migrated, with per-use-case input/output boundaries, controllers, presenters, and container wiring. `viewProfile` is the implementation name for the former `getProfile` goal and covers both public profile read routes, preserving each response schema. `updateProfile` owns authorization, patch validation, unique-team selection, and the account/profile transaction; shared framework-free validation rules live in `users/domain/profileChanges.py`. See `users/testProfileUseCases.py` for fake-port tests and `users/testProfileAPI.py` for endpoint contracts and rollback coverage.
 
 The run workflow covers starting a run, reading its snapshot, grading tone and action answers, selecting responses, and advancing the conversation. Keep these operations together only while they share a clear run boundary and coherent input/output contract.
 

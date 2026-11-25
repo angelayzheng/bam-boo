@@ -7,6 +7,11 @@ from django.db import models
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 
+from users.domain.profileChanges import (
+    validate_scores as validate_profile_scores,
+    validate_login_days as validate_profile_login_days,
+)
+
 
 class AvatarChoices(models.TextChoices):
     FOX = "fox", "Fox"
@@ -18,33 +23,17 @@ class AvatarChoices(models.TextChoices):
 
 
 def validate_scores(value):
-    if not isinstance(value, dict):
-        raise ValidationError("Scores must be a JSON object.")
-    for key, score in value.items():
-        if not isinstance(key, str) or not key.strip():
-            raise ValidationError("Score keys must be non-empty strings.")
-        if isinstance(score, bool) or not isinstance(score, int):
-            raise ValidationError(f"Score for {key!r} must be a whole number.")
-        if not 0 <= score <= 3:
-            raise ValidationError(f"Score for {key!r} must be between 0 and 3.")
+    try:
+        validate_profile_scores(value)
+    except ValueError as exc:
+        raise ValidationError(str(exc)) from exc
 
 
 def validate_login_days(value):
-    if not isinstance(value, list):
-        raise ValidationError("Login days must be a JSON list.")
-    seen = set()
-    for entry in value:
-        if not isinstance(entry, str):
-            raise ValidationError("Each login day must be a YYYY-MM-DD string.")
-        try:
-            date.fromisoformat(entry)
-        except ValueError as exc:
-            raise ValidationError(
-                f"Invalid login day {entry!r}; expected YYYY-MM-DD."
-            ) from exc
-        if entry in seen:
-            raise ValidationError(f"Duplicate login day: {entry!r}.")
-        seen.add(entry)
+    try:
+        validate_profile_login_days(value)
+    except ValueError as exc:
+        raise ValidationError(str(exc)) from exc
 
 
 class UserProfile(models.Model):

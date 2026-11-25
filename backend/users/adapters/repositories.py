@@ -1,11 +1,17 @@
 from collections.abc import Sequence
 from datetime import date
 
+from django.contrib.auth.models import Group
 from django.utils.text import slugify
 
 from users.domain.profile import Profile
 from users.models import UserProfile
-from users.useCases.ports import ProfileRepository
+from users.useCases.ports import (
+    ProfileDetailsRepository,
+    ProfileRepository,
+    TeamRepository,
+)
+from users.useCases.profileData import ProfileData
 
 
 def _to_domain(row: UserProfile) -> Profile:
@@ -62,3 +68,70 @@ class DjangoProfileRepository(ProfileRepository):
             ]
         )
         return _to_domain(row)
+
+
+def _profile_details(row: UserProfile) -> ProfileData:
+    return ProfileData(
+        user_id=row.user_id,
+        username=row.user.username,
+        name=row.user.get_full_name().strip(),
+        email=row.user.email,
+        team=slugify(row.group.name) if row.group_id else "",
+        avatar=row.avatar,
+        scores=dict(row.scores),
+        total_score=row.total_score,
+        login_days=list(row.login_days),
+    )
+
+
+class DjangoProfileDetailsRepository(ProfileDetailsRepository):
+    def get_by_user_id(self, user_id: int) -> ProfileData | None:
+        row = (
+            UserProfile.objects.select_related("user", "group")
+            .filter(user_id=user_id)
+            .first()
+        )
+        return None if row is None else _profile_details(row)
+
+    def get_by_username(
+        self, username: str, *, for_update: bool = False
+    ) -> ProfileData | None:
+        query = UserProfile.objects.select_related("user", "group")
+        if for_update:
+            # Only lock non-nullable relations; a profile may have no group.
+            query = UserProfile.objects.select_related("user").select_for_update()
+        row = query.filter(user__username=username).first()
+        return None if row is None else _profile_details(row)
+
+    def update(self, user_id: int, changes: dict) -> ProfileData:
+        row = UserProfile.objects.select_related("user", "group").get(user_id=user_id)
+        user_fields = []
+        if "name" in changes:
+            row.user.first_name = changes["name"]
+            row.user.last_name = ""
+            user_fields.extend(("first_name", "last_name"))
+        if "email" in changes:
+            row.user.email = changes["email"]
+            user_fields.append("email")
+        if user_fields:
+            row.user.save(update_fields=user_fields)
+        profile_fields = ["updated_at"]
+        for field in ("avatar", "login_days", "group_id"):
+            if field in changes:
+                setattr(row, field, changes[field])
+                profile_fields.append(field)
+        if "challenge_scores" in changes:
+            row.scores = dict(changes["challenge_scores"])
+            row.total_score = changes["total_score"]
+            profile_fields.extend(("scores", "total_score"))
+        row.save(update_fields=profile_fields)
+        return _profile_details(row)
+
+
+class DjangoTeamRepository(TeamRepository):
+    def find_by_slug(self, slug: str) -> Sequence[int]:
+        return [
+            group.pk
+            for group in Group.objects.order_by("pk")
+            if slugify(group.name) == slug
+        ]
