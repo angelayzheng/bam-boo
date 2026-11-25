@@ -1,4 +1,4 @@
-import AudioPlayer from './AudioPlayer'
+import AudioPlayer from './audioPlayer'
 import type { ChallengeAudioTurnViewModel } from '../viewModels/challengeViewModel'
 import { card, primaryButton, textField } from './styles'
 
