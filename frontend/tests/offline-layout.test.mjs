@@ -20,7 +20,7 @@ const bundle = await build({
         }
       },
       transform(code, id) {
-        if (id === fileURLToPath(new URL('../src/App.tsx', import.meta.url))) {
+        if (id === fileURLToPath(new URL('../src/app.tsx', import.meta.url))) {
           return {
             code: `${code}\nexport { default as ResultsPage } from './pages/ResultsPage';`,
             map: null,
@@ -34,7 +34,7 @@ const bundle = await build({
     write: false,
     minify: false,
     lib: {
-      entry: fileURLToPath(new URL('../src/App.tsx', import.meta.url)),
+      entry: fileURLToPath(new URL('../src/app.tsx', import.meta.url)),
       formats: ['es'],
     },
   },
