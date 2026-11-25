@@ -4,9 +4,19 @@ Read [ARCHITECTURE.md](ARCHITECTURE.md) before making structural changes. Keep i
 
 ## Backend naming
 
-Migrated backend Clean Architecture modules intentionally do not follow Python's usual snake_case naming. Use camelCase for directories such as `importChallengePackage`, and use PascalCase for files whose main contents are a single class, such as `Interactor.py`, `Presenter.py`, `MediaStore.py`, and `ChallengePackage.py`. Keep lowercase names for small utility modules such as `archives.py`.
+- Folders use camelCase: package folders (`useCases/`, `adapters/`, `domain/`) and use-case folders named for the use case (`manageChallengeRun/`).
+- Modules use camelCase, including modules whose main contents are one class: `conversationNode.py`, `challengeValidator.py`, `unitOfWork.py`.
+- Files inside a use-case folder (`useCases/<useCase>/` or `adapters/<useCase>/`) are named for their role in PascalCase: `Interactor.py`, `InputBoundary.py`, `InputData.py`, `OutputBoundary.py`, `OutputData.py`, `DataAccessInterface.py`, `Errors.py`, `Controller.py`, `Presenter.py`. The folder already names the use case, so don't repeat it in the filename.
+- Tests are `test<Subject>.py` (for example `testAudio.py`) or `tests.py`. Django's test runner discovers any `test*.py` module. Shared helpers such as `testSupport.py` and `testUrls.py` match the same pattern and are imported during discovery, so keep test methods out of them.
+- Management commands use snake_case (`import_challenges.py`, `seed_kale_demo.py`), because Django uses the filename as the command name. The `management/commands/` folders they live in also keep Django's required names.
+- Migrations and their `migrations/` folders keep Django's generated names.
+- Module paths written as strings, in `call_command(...)`, `patch(...)`, and settings such as `ROOT_URLCONF`, must match the filename exactly. Editors and type checkers don't check them.
+- Rename files with `git mv`. On macOS, a rename that only changes capitalization isn't recorded otherwise. Use `git mv -f old new`, or rename through a temporary name.
 
-Django test discovery is the exception: test modules must be named `test_*.py`, such as `test_import_challenge_package.py`, so `manage.py test` finds them. Do not add PascalCase test shims. Django management command filenames determine their CLI names, so the import command is intentionally `ImportChallenges.py`.
+## Frontend naming
+
+- Folders and source files use camelCase: components (`profileStats.tsx`), pages (`profilePage.tsx`), the root (`app.tsx`), hooks (`useProfileFlow.ts`), and use-case folders and files (`useCases/submitTone/submitToneInteractor.ts`).
+- Exported React components keep PascalCase identifiers (`export default function ProfileStats`), because JSX requires component names to start with a capital letter.
 
 ## Commit messages
 

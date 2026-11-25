@@ -21,7 +21,7 @@ Views and management commands should parse input, call a use case, and return it
 
 ## One folder per use case
 
-Every use case has its own directory under `use_cases/`. Keep shared port protocols in the app's `use_cases/ports.py`; do not put use-case interactors in that shared file.
+Every use case has its own directory under `useCases/`. Keep shared port protocols in the app's `useCases/ports.py`; do not put use-case interactors in that shared file.
 
 For example:
 
@@ -32,10 +32,10 @@ backend/
 ├── play/
 │   ├── domain/
 │   │   ├── attempt.py
-│   │   ├── Run.py
-│   │   ├── answer_matching.py
-│   │   └── star_rules.py
-│   ├── use_cases/
+│   │   ├── run.py
+│   │   ├── answerMatching.py
+│   │   └── starRules.py
+│   ├── useCases/
 │   │   ├── ports.py
 │   │   ├── manageChallengeRun/
 │   │   │   ├── Interactor.py
@@ -57,16 +57,16 @@ backend/
 │   │   │   ├── Controller.py
 │   │   │   └── Presenter.py
 │   │   ├── repositories.py
-│   │   ├── unit_of_work.py
-│   │   └── VectorToneMatcher.py
+│   │   ├── unitOfWork.py
+│   │   └── vectorToneMatcher.py
 │   └── models.py
 └── challenges/
     └── ...
 ```
 
-Use camelCase folder names based on the use-case name and PascalCase files whose main contents are one class. Keep an interactor's input/output data and boundaries in its use-case folder. Django test discovery files remain lowercase `test_*.py`, and small utilities or multi-class modules can stay lowercase. Small use cases do not need empty boilerplate files; add only the pieces they use. App-wide ports and adapter implementations can be shared. See [CONTRIBUTING.md](CONTRIBUTING.md#backend-naming) for the repository-wide naming rule.
+Use camelCase folder names, including the `useCases/` package and each use-case folder named for its use case. Inside a use-case folder, name each file for its role in PascalCase (`Interactor.py`, `InputData.py`, `OutputBoundary.py`) without repeating the use-case name. Other modules use camelCase, including class-focused ones (`run.py`, `unitOfWork.py`, `vectorToneMatcher.py`). Tests are `test<Subject>.py` or `tests.py`, which Django's default `test*.py` discovery pattern finds, and management commands stay snake_case because Django uses the filename as the command name. Small use cases do not need empty boilerplate files; add only the pieces they use. App-wide ports and adapter implementations can be shared. See [CONTRIBUTING.md](CONTRIBUTING.md#backend-naming) for the repository-wide naming rule.
 
-Use the same pattern in `challenges/use_cases/` and `users/use_cases/`. A use case must not be a standalone module directly under `use_cases/`.
+Use the same pattern in `challenges/useCases/` and `users/useCases/`. A use case must not be a standalone module directly under `useCases/`.
 
 ## App ownership
 
@@ -95,7 +95,7 @@ Root and health status, CSRF token issuance, and static media serving are transp
 ## Migration sequence
 
 1. **Keep contracts stable.** Use the existing endpoint documentation and relevant backend tests to capture request, response, status, and persistence behavior before changing a route.
-2. **Move one use case at a time.** Add its domain rules and port protocols, then create its dedicated `use_cases/<name>/` directory and interactor.
+2. **Move one use case at a time.** Add its domain rules and port protocols, then create its dedicated `useCases/<name>/` directory and interactor.
 3. **Add adapters and wiring.** Implement repository, matcher, or file ports; add the controller and presenter; register the dependencies in `config/container.py`. Keep the view or command limited to input parsing and dispatch.
 4. **Preserve transaction boundaries.** Lock and revalidate state when needed. Changes that make up one completion, such as the run state, attempt history, and profile score, must commit or roll back together.
 5. **Remove duplicate behavior.** Once the use case owns a rule, delete its old view/client copy when the API migration allows it. Update `docs/ARCHITECTURE.md` when routes, ownership, or directories change.
@@ -106,7 +106,7 @@ Migrate challenges, play, and users independently where their ports allow it. Ke
 
 A use case is complete when:
 
-- Its application code lives in its own `use_cases/<name>/` directory.
+- Its application code lives in its own `useCases/<name>/` directory.
 - Its interactor depends only on entities and port protocols.
 - Django views and commands contain no business rules or direct ORM access for that use case.
 - Its presenter preserves the documented response shape and status behavior.

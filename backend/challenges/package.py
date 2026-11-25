@@ -7,7 +7,7 @@ from pathlib import Path
 from django.core.exceptions import ValidationError
 from django.core.validators import validate_slug
 
-from .domain.ChallengePackage import ChallengePackageError
+from .domain.challengePackage import ChallengePackageError
 from .models import Challenge, validate_conversation_tree
 
 CHALLENGES_DIR = Path(__file__).resolve().parent / "source_data" / "challenges"

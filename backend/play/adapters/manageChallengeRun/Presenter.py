@@ -1,8 +1,8 @@
 from challenges.serialization import media_url
-from play.use_cases.manageChallengeRun.OutputBoundary import (
+from play.useCases.manageChallengeRun.OutputBoundary import (
     ManageChallengeRunOutputBoundary,
 )
-from play.use_cases.manageChallengeRun.OutputData import (
+from play.useCases.manageChallengeRun.OutputData import (
     PlayFailureData,
     PlayFailureReason,
     PlaySuccessData,

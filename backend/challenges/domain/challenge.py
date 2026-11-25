@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from datetime import date
 from typing import Mapping
 
-from .conversation_node import ConversationNode
+from .conversationNode import ConversationNode
 
 CHALLENGE_CATEGORIES = frozenset(
     {"work", "social", "family", "health", "emergency", "account", "other"}

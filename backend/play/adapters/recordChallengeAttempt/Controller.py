@@ -1,7 +1,7 @@
-from play.use_cases.recordChallengeAttempt.InputBoundary import (
+from play.useCases.recordChallengeAttempt.InputBoundary import (
     RecordChallengeAttemptInputBoundary,
 )
-from play.use_cases.recordChallengeAttempt.InputData import (
+from play.useCases.recordChallengeAttempt.InputData import (
     RecordChallengeAttemptInputData,
 )
 

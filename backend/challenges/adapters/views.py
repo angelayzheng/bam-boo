@@ -6,14 +6,14 @@ from django.views.decorators.http import require_GET
 
 from challenges.models import Challenge, ChallengeCategory
 
-from challenges.adapters.BrowseChallengesDataAccess import (
+from challenges.adapters.browseChallengesDataAccess import (
     DjangoBrowseChallengesDataAccess,
 )
-from challenges.adapters.BrowseChallengesPresenter import BrowseChallengesPresenter
-from challenges.use_cases.browseChallenges.BrowseChallengesInputData import (
+from challenges.adapters.browseChallengesPresenter import BrowseChallengesPresenter
+from challenges.useCases.browseChallenges.InputData import (
     BrowseChallengesInputData,
 )
-from challenges.use_cases.browseChallenges.BrowseChallengesInteractor import (
+from challenges.useCases.browseChallenges.Interactor import (
     BrowseChallengesInteractor,
 )
 

@@ -5,7 +5,7 @@ from django.utils.text import slugify
 
 from users.domain.profile import Profile
 from users.models import UserProfile
-from users.use_cases.ports import ProfileRepository
+from users.useCases.ports import ProfileRepository
 
 
 def _to_domain(row: UserProfile) -> Profile:

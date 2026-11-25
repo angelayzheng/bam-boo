@@ -3,10 +3,10 @@ from datetime import date, datetime, timezone
 from django.test import SimpleTestCase
 
 from challenges.domain.challenge import Challenge
-from challenges.domain.conversation_node import ConversationNode
-from play.domain.answer_matching import AnswerMatching
+from challenges.domain.conversationNode import ConversationNode
+from play.domain.answerMatching import AnswerMatching
 from play.domain.attempt import Attempt
-from play.domain.star_rules import StarRules
+from play.domain.starRules import StarRules
 from users.domain.profile import Profile
 
 

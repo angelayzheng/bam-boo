@@ -2,9 +2,9 @@ from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
 
 from challenges import models as challenge_models
-from challenges.domain.ChallengePackage import ChallengePackageError
+from challenges.domain.challengePackage import ChallengePackageError
 from challenges.domain.challenge import Challenge
-from challenges.use_cases.ports import ChallengeRepository
+from challenges.useCases.ports import ChallengeRepository
 
 
 def _to_domain(row: challenge_models.Challenge) -> Challenge:

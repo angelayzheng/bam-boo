@@ -40,7 +40,7 @@ export function resolveCalendarMonth(
   return chosen ?? monthOfDate(referenceDate)
 }
 
-// Must match CALENDAR_TIME_ZONE in the backend (challenges/domain/calendar_clock.py).
+// Must match CALENDAR_TIME_ZONE in the backend (challenges/domain/calendarClock.py).
 export const CALENDAR_TIME_ZONE = 'America/Toronto'
 
 export function calendarToday(now: Date = new Date()): string {

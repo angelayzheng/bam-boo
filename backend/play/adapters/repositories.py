@@ -1,7 +1,7 @@
 from play.domain.attempt import Attempt
-from play.domain.Run import Run
+from play.domain.run import Run
 from play.models import ChallengeRun
-from play.use_cases.ports import AttemptRepository, RunRepository
+from play.useCases.ports import AttemptRepository, RunRepository
 from users.models import ChallengeAttempt
 
 

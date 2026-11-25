@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
-import type { AuthFlow } from '../auth/components/AuthForm'
+import type { AuthFlow } from '../auth/components/authForm'
 import type { SignupGroup } from '../auth/boundaries/dataAccessInterfaces'
 import { authApi } from '../auth/dataAccessInterface/authGatewayApi'
 import { buildCredentials, passwordsMatch } from '../entities/authCredentials'

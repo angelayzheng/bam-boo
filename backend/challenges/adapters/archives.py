@@ -8,8 +8,8 @@ from pathlib import Path, PurePosixPath
 
 from django.conf import settings
 
-from challenges.domain.ChallengePackage import ChallengePackageError
-from challenges.use_cases.ports import PackageArchiveExtractor
+from challenges.domain.challengePackage import ChallengePackageError
+from challenges.useCases.ports import PackageArchiveExtractor
 
 logger = logging.getLogger(__name__)
 

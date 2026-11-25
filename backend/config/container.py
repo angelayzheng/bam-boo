@@ -12,7 +12,7 @@ from challenges.adapters.validateChallenges.Controller import (
 from challenges.adapters.validateChallenges.Presenter import (
     ValidateChallengesPresenter,
 )
-from challenges.use_cases.ports import (
+from challenges.useCases.ports import (
     AudioValidator,
     ChallengeRepository,
     ChallengeValidationGateway,
@@ -20,10 +20,10 @@ from challenges.use_cases.ports import (
     PackageArchiveExtractor,
     PackageSource,
 )
-from challenges.use_cases.importChallengePackage.Interactor import (
+from challenges.useCases.importChallengePackage.Interactor import (
     ImportChallengePackageInteractor,
 )
-from challenges.use_cases.validateChallenges.Interactor import (
+from challenges.useCases.validateChallenges.Interactor import (
     ValidateChallengesInteractor,
 )
 from play.adapters.manageChallengeRun.Controller import ChallengeRunController
@@ -34,20 +34,20 @@ from play.adapters.recordChallengeAttempt.Controller import (
 from play.adapters.recordChallengeAttempt.Presenter import (
     RecordChallengeAttemptPresenter,
 )
-from play.use_cases.ports import (
+from play.useCases.ports import (
     AttemptRepository,
     RunRepository,
     ToneMatcher,
     UnitOfWork,
 )
-from play.use_cases.manageChallengeRun.Interactor import (
+from play.useCases.manageChallengeRun.Interactor import (
     ManageChallengeRunInteractor,
 )
-from play.use_cases.recordChallengeAttempt.Interactor import (
+from play.useCases.recordChallengeAttempt.Interactor import (
     RecordChallengeAttemptInteractor,
 )
-from tone.use_cases.ports import ToneVectorRepository
-from users.use_cases.ports import AuthGateway, GroupRepository, ProfileRepository
+from tone.useCases.ports import ToneVectorRepository
+from users.useCases.ports import AuthGateway, GroupRepository, ProfileRepository
 
 
 @dataclass(frozen=True, slots=True)
@@ -195,14 +195,14 @@ _container: ApplicationContainer | None = None
 
 def build_django_container() -> ApplicationContainer:
     from challenges.adapters.archives import ZipPackageArchiveExtractor
-    from challenges.adapters.AudioValidator import FfprobeAudioValidator
-    from challenges.adapters.ChallengeValidator import DjangoChallengeValidator
-    from challenges.adapters.MediaStore import FileSystemMediaStore
-    from challenges.adapters.PackageSource import FileSystemPackageSource
+    from challenges.adapters.audioValidator import FfprobeAudioValidator
+    from challenges.adapters.challengeValidator import DjangoChallengeValidator
+    from challenges.adapters.mediaStore import FileSystemMediaStore
+    from challenges.adapters.packageSource import FileSystemPackageSource
     from challenges.adapters.repositories import DjangoChallengeRepository
     from play.adapters.repositories import DjangoAttemptRepository, DjangoRunRepository
-    from play.adapters.unit_of_work import DjangoUnitOfWork
-    from play.adapters.VectorToneMatcher import VectorToneMatcher
+    from play.adapters.unitOfWork import DjangoUnitOfWork
+    from play.adapters.vectorToneMatcher import VectorToneMatcher
     from users.adapters.repositories import DjangoProfileRepository
 
     return build_container(
