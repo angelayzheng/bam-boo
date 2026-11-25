@@ -5,7 +5,7 @@ from unittest.mock import patch
 from django.test import SimpleTestCase
 
 from .audio import AudioValidationError, probe_audio
-from .test_support import VALID_MP3_PATH
+from .testSupport import VALID_MP3_PATH
 
 
 class AudioProbeTests(SimpleTestCase):

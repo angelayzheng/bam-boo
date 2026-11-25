@@ -9,7 +9,7 @@ from .package import (
     iter_conversation_nodes,
     load_challenge_package,
 )
-from .test_support import challenge_manifest, write_package
+from .testSupport import challenge_manifest, write_package
 
 
 class ChallengePackageTests(SimpleTestCase):

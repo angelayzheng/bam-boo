@@ -2,7 +2,7 @@ from contextlib import AbstractContextManager
 from typing import Protocol
 
 from play.domain.attempt import Attempt
-from play.domain.Run import Run
+from play.domain.run import Run
 
 
 class AttemptRecordingError(Exception):

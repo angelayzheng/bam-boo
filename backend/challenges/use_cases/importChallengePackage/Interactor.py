@@ -2,7 +2,7 @@ from contextlib import ExitStack
 from dataclasses import dataclass
 
 from challenges.domain.challenge import Challenge
-from challenges.domain.ChallengePackage import (
+from challenges.domain.challengePackage import (
     AudioValidationError,
     ChallengePackageError,
     challenge_from_package,

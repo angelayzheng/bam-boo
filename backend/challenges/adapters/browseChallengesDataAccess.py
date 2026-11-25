@@ -5,7 +5,7 @@ adapters/ because it is the only place allowed to import Django models.
 """
 
 from challenges import models as challenge_models
-from challenges.use_cases.browseChallenges.BrowseChallengesDataAccessInterface import (
+from challenges.use_cases.browseChallenges.DataAccessInterface import (
     BrowseChallengesDataAccessInterface,
     ChallengeRecord,
 )

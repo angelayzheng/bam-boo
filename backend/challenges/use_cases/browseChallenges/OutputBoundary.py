@@ -6,7 +6,7 @@ implements it, so the interactor never knows about JSON, views, or the frontend.
 
 from abc import ABC, abstractmethod
 
-from .BrowseChallengesOutputData import BrowseChallengesOutputData
+from .OutputData import BrowseChallengesOutputData
 
 
 class BrowseChallengesOutputBoundary(ABC):

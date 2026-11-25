@@ -3,24 +3,24 @@
 from datetime import date
 from unittest import TestCase
 
-from challenges.use_cases.browseChallenges.BrowseChallengesDataAccessInterface import (
+from challenges.use_cases.browseChallenges.DataAccessInterface import (
     BrowseChallengesDataAccessInterface,
     ChallengeRecord,
 )
-from challenges.use_cases.browseChallenges.BrowseChallengesInputData import (
+from challenges.use_cases.browseChallenges.InputData import (
     BrowseChallengesInputData,
 )
-from challenges.use_cases.browseChallenges.BrowseChallengesInteractor import (
+from challenges.use_cases.browseChallenges.Interactor import (
     BrowseChallengesInteractor,
 )
-from challenges.use_cases.browseChallenges.BrowseChallengesOutputBoundary import (
+from challenges.use_cases.browseChallenges.OutputBoundary import (
     BrowseChallengesOutputBoundary,
 )
 
 from django.contrib.auth.models import User
 from django.test import TestCase as DjangoTestCase
 
-from challenges.test_support import make_challenge
+from challenges.testSupport import make_challenge
 
 TODAY = date(2026, 10, 15)
 

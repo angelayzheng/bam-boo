@@ -196,7 +196,7 @@ class LoadVectorsCommandTests(TestCase):
 
 class VectorToneMatcherTests(TestCase):
     def setUp(self):
-        from tone.adapters.vector_tone_matcher import VectorToneMatcher
+        from tone.adapters.vectorToneMatcher import VectorToneMatcher
 
         for word, values in {
             "calm": [2, 0],

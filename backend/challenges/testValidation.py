@@ -12,7 +12,7 @@ from . import package
 from .importer import import_challenge_archive
 from .models import Challenge
 from .package import CHALLENGES_DIR
-from .test_support import (
+from .testSupport import (
     MediaTestCase,
     challenge_manifest,
     make_zip,
@@ -135,7 +135,7 @@ class ChallengeValidationTests(MediaTestCase):
         errors = self.validation_errors()
         self.assertTrue(any("stored path must be" in error for error in errors))
 
-    @override_settings(ROOT_URLCONF="challenges.test_urls")
+    @override_settings(ROOT_URLCONF="challenges.testUrls")
     def test_media_urls_are_retrievable(self):
         self.create_challenge()
         self.assert_validation_passes()
@@ -203,7 +203,7 @@ class ChallengeValidationTests(MediaTestCase):
         stdout = StringIO()
         stderr = StringIO()
         with patch(
-            "challenges.adapters.ChallengeValidator.DjangoChallengeValidator.database_errors",
+            "challenges.adapters.challengeValidator.DjangoChallengeValidator.database_errors",
             side_effect=RuntimeError("boom"),
         ):
             with self.assertRaises(CommandError) as error:

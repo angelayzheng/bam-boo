@@ -1,6 +1,6 @@
 import type { ProfileViewModel } from '../viewModels/profileViewModel'
-import ProfileStats from './ProfileStats'
-import ScoreTable from './ScoreTable'
+import ProfileStats from './profileStats'
+import ScoreTable from './scoreTable'
 
 interface ProfileProgressProps {
   viewModel: ProfileViewModel

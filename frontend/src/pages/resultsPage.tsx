@@ -1,8 +1,8 @@
 import Header from '../components/Header'
-import AchievementGrid from '../results/components/AchievementGrid'
-import ResultsActions from '../results/components/ResultsActions'
-import ResultsSummary from '../results/components/ResultsSummary'
-import ScoreSaveStatus from '../results/components/ScoreSaveStatus'
+import AchievementGrid from '../results/components/achievementGrid'
+import ResultsActions from '../results/components/resultsActions'
+import ResultsSummary from '../results/components/resultsSummary'
+import ScoreSaveStatus from '../results/components/scoreSaveStatus'
 import type {
   ResultClaimViewModel,
   ResultsViewModel,

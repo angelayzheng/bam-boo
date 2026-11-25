@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from enum import Enum
 
 from challenges.domain.challenge import Challenge
-from play.domain.Run import Run
+from play.domain.run import Run
 
 
 class PlayFailureReason(Enum):

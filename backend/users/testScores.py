@@ -7,7 +7,7 @@ from django.test import Client, TestCase
 
 from play.models import ChallengeRun
 from challenges.models import Challenge
-from challenges.test_support import make_challenge
+from challenges.testSupport import make_challenge
 from tone.models import ToneVector
 
 from .models import ChallengeAttempt, UserProfile

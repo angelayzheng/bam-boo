@@ -12,13 +12,13 @@ from django.test import SimpleTestCase, override_settings
 
 from challenges import package as package_module
 
-from challenges.adapters.MediaStore import FileSystemMediaStore
+from challenges.adapters.mediaStore import FileSystemMediaStore
 from challenges.adapters.importChallengePackage.Presenter import (
     ImportChallengePackagePresenter,
 )
 from challenges.adapters.repositories import DjangoChallengeRepository
 from challenges.domain.challenge import Challenge
-from challenges.domain.ChallengePackage import (
+from challenges.domain.challengePackage import (
     AudioValidationError,
     ChallengePackageError,
 )

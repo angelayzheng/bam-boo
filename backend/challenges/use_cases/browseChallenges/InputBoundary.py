@@ -7,7 +7,7 @@ abstraction and never on the interactor itself.
 
 from abc import ABC, abstractmethod
 
-from .BrowseChallengesInputData import BrowseChallengesInputData
+from .InputData import BrowseChallengesInputData
 
 
 class BrowseChallengesInputBoundary(ABC):

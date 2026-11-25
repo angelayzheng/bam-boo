@@ -10,15 +10,15 @@ import calendar
 from datetime import date
 from typing import Callable
 
-from .BrowseChallengesDataAccessInterface import (
+from .DataAccessInterface import (
     BrowseChallengesDataAccessInterface,
     ChallengeRecord,
 )
-from .BrowseChallengesInputBoundary import BrowseChallengesInputBoundary
-from .BrowseChallengesInputData import BrowseChallengesInputData
-from .BrowseChallengesOutputBoundary import BrowseChallengesOutputBoundary
-from .BrowseChallengesOutputData import BrowseChallengesOutputData, CalendarDay
-from challenges.domain.calendar_clock import calendar_today
+from .InputBoundary import BrowseChallengesInputBoundary
+from .InputData import BrowseChallengesInputData
+from .OutputBoundary import BrowseChallengesOutputBoundary
+from .OutputData import BrowseChallengesOutputData, CalendarDay
+from challenges.domain.calendarClock import calendar_today
 
 MIN_YEAR = 1
 MAX_YEAR = 9999

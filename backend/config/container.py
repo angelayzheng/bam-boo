@@ -195,14 +195,14 @@ _container: ApplicationContainer | None = None
 
 def build_django_container() -> ApplicationContainer:
     from challenges.adapters.archives import ZipPackageArchiveExtractor
-    from challenges.adapters.AudioValidator import FfprobeAudioValidator
-    from challenges.adapters.ChallengeValidator import DjangoChallengeValidator
-    from challenges.adapters.MediaStore import FileSystemMediaStore
-    from challenges.adapters.PackageSource import FileSystemPackageSource
+    from challenges.adapters.audioValidator import FfprobeAudioValidator
+    from challenges.adapters.challengeValidator import DjangoChallengeValidator
+    from challenges.adapters.mediaStore import FileSystemMediaStore
+    from challenges.adapters.packageSource import FileSystemPackageSource
     from challenges.adapters.repositories import DjangoChallengeRepository
     from play.adapters.repositories import DjangoAttemptRepository, DjangoRunRepository
-    from play.adapters.unit_of_work import DjangoUnitOfWork
-    from play.adapters.VectorToneMatcher import VectorToneMatcher
+    from play.adapters.unitOfWork import DjangoUnitOfWork
+    from play.adapters.vectorToneMatcher import VectorToneMatcher
     from users.adapters.repositories import DjangoProfileRepository
 
     return build_container(

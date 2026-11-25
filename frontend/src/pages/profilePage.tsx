@@ -1,9 +1,9 @@
 import type { ReactNode } from 'react'
 import Header from '../components/Header'
 import type { AuthUser, ChallengeSummary } from '../entities/types'
-import AccountDetails from '../profile/components/AccountDetails'
-import ProfileHeader from '../profile/components/ProfileHeader'
-import ProfileProgress from '../profile/components/ProfileProgress'
+import AccountDetails from '../profile/components/accountDetails'
+import ProfileHeader from '../profile/components/profileHeader'
+import ProfileProgress from '../profile/components/profileProgress'
 import { useProfileFlow } from './useProfileFlow'
 
 interface ProfilePageProps {
