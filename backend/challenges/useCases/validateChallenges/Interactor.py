@@ -1,4 +1,4 @@
-from challenges.use_cases.ports import ChallengeValidationGateway
+from challenges.useCases.ports import ChallengeValidationGateway
 
 from .InputBoundary import ValidateChallengesInputBoundary
 from .InputData import ValidateChallengesInputData

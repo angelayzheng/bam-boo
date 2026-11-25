@@ -3,17 +3,17 @@
 from datetime import date
 from unittest import TestCase
 
-from challenges.use_cases.browseChallenges.DataAccessInterface import (
+from challenges.useCases.browseChallenges.DataAccessInterface import (
     BrowseChallengesDataAccessInterface,
     ChallengeRecord,
 )
-from challenges.use_cases.browseChallenges.InputData import (
+from challenges.useCases.browseChallenges.InputData import (
     BrowseChallengesInputData,
 )
-from challenges.use_cases.browseChallenges.Interactor import (
+from challenges.useCases.browseChallenges.Interactor import (
     BrowseChallengesInteractor,
 )
-from challenges.use_cases.browseChallenges.OutputBoundary import (
+from challenges.useCases.browseChallenges.OutputBoundary import (
     BrowseChallengesOutputBoundary,
 )
 

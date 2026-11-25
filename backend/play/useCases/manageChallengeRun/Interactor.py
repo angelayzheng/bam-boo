@@ -4,11 +4,11 @@ from typing import NoReturn
 from uuid import uuid4
 
 from challenges.domain.conversationNode import ConversationNode
-from challenges.use_cases.ports import ChallengeRepository
+from challenges.useCases.ports import ChallengeRepository
 from play.domain.answerMatching import AnswerMatching
 from play.domain.run import Run
 from play.domain.starRules import StarRules
-from play.use_cases.ports import (
+from play.useCases.ports import (
     AttemptRecordingError,
     CompletedRunRecorder,
     RunRepository,

@@ -8,13 +8,13 @@ from play.adapters.recordChallengeAttempt.Presenter import (
 )
 from play.domain.run import Run
 from play.domain.attempt import Attempt
-from play.use_cases.recordChallengeAttempt.InputData import (
+from play.useCases.recordChallengeAttempt.InputData import (
     RecordChallengeAttemptInputData,
 )
-from play.use_cases.recordChallengeAttempt.Interactor import (
+from play.useCases.recordChallengeAttempt.Interactor import (
     RecordChallengeAttemptInteractor,
 )
-from play.use_cases.recordChallengeAttempt.OutputData import (
+from play.useCases.recordChallengeAttempt.OutputData import (
     RecordChallengeAttemptFailureReason,
 )
 from users.domain.profile import Profile

@@ -1,7 +1,7 @@
-from challenges.use_cases.validateChallenges.InputBoundary import (
+from challenges.useCases.validateChallenges.InputBoundary import (
     ValidateChallengesInputBoundary,
 )
-from challenges.use_cases.validateChallenges.InputData import (
+from challenges.useCases.validateChallenges.InputData import (
     ValidateChallengesInputData,
 )
 

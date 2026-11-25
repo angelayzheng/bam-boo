@@ -12,7 +12,7 @@ from challenges.adapters.validateChallenges.Controller import (
 from challenges.adapters.validateChallenges.Presenter import (
     ValidateChallengesPresenter,
 )
-from challenges.use_cases.ports import (
+from challenges.useCases.ports import (
     AudioValidator,
     ChallengeRepository,
     ChallengeValidationGateway,
@@ -20,10 +20,10 @@ from challenges.use_cases.ports import (
     PackageArchiveExtractor,
     PackageSource,
 )
-from challenges.use_cases.importChallengePackage.Interactor import (
+from challenges.useCases.importChallengePackage.Interactor import (
     ImportChallengePackageInteractor,
 )
-from challenges.use_cases.validateChallenges.Interactor import (
+from challenges.useCases.validateChallenges.Interactor import (
     ValidateChallengesInteractor,
 )
 from play.adapters.manageChallengeRun.Controller import ChallengeRunController
@@ -34,20 +34,20 @@ from play.adapters.recordChallengeAttempt.Controller import (
 from play.adapters.recordChallengeAttempt.Presenter import (
     RecordChallengeAttemptPresenter,
 )
-from play.use_cases.ports import (
+from play.useCases.ports import (
     AttemptRepository,
     RunRepository,
     ToneMatcher,
     UnitOfWork,
 )
-from play.use_cases.manageChallengeRun.Interactor import (
+from play.useCases.manageChallengeRun.Interactor import (
     ManageChallengeRunInteractor,
 )
-from play.use_cases.recordChallengeAttempt.Interactor import (
+from play.useCases.recordChallengeAttempt.Interactor import (
     RecordChallengeAttemptInteractor,
 )
-from tone.use_cases.ports import ToneVectorRepository
-from users.use_cases.ports import AuthGateway, GroupRepository, ProfileRepository
+from tone.useCases.ports import ToneVectorRepository
+from users.useCases.ports import AuthGateway, GroupRepository, ProfileRepository
 
 
 @dataclass(frozen=True, slots=True)

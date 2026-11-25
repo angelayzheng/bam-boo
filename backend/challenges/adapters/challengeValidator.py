@@ -1,5 +1,5 @@
 from challenges import models as challenge_models
-from challenges.use_cases.ports import ChallengeValidationGateway
+from challenges.useCases.ports import ChallengeValidationGateway
 from challenges.validation import ChallengeDatabaseValidator
 
 

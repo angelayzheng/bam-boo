@@ -25,14 +25,14 @@ from challenges.domain.challengePackage import (
 from challenges.adapters.importChallengePackage.Controller import (
     ImportChallengePackageController,
 )
-from challenges.use_cases.importChallengePackage.InputData import (
+from challenges.useCases.importChallengePackage.InputData import (
     ImportChallengePackageInputData,
     PackageLocation,
 )
-from challenges.use_cases.importChallengePackage.Interactor import (
+from challenges.useCases.importChallengePackage.Interactor import (
     ImportChallengePackageInteractor,
 )
-from challenges.use_cases.importChallengePackage.OutputData import (
+from challenges.useCases.importChallengePackage.OutputData import (
     ImportChallengePackageFailureData,
     ImportChallengePackageFailureReason,
     ImportChallengePackageOutputData,

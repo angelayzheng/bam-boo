@@ -8,7 +8,7 @@ from challenges.adapters.validateChallenges.Controller import (
 from challenges.adapters.validateChallenges.Presenter import (
     ValidateChallengesPresenter,
 )
-from challenges.use_cases.validateChallenges.Interactor import (
+from challenges.useCases.validateChallenges.Interactor import (
     ValidateChallengesInteractor,
 )
 

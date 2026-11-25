@@ -1,7 +1,7 @@
-from play.use_cases.manageChallengeRun.InputBoundary import (
+from play.useCases.manageChallengeRun.InputBoundary import (
     ManageChallengeRunInputBoundary,
 )
-from play.use_cases.manageChallengeRun.InputData import (
+from play.useCases.manageChallengeRun.InputData import (
     ChallengeRunInputData,
     StartChallengeRunInputData,
 )

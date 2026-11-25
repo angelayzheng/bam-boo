@@ -2,14 +2,14 @@ from datetime import datetime
 from uuid import UUID
 
 from play.domain.attempt import Attempt
-from play.use_cases.ports import (
+from play.useCases.ports import (
     AttemptRecordingError,
     AttemptRepository,
     RunRepository,
     UnitOfWork,
 )
 from users.domain.profile import Profile
-from users.use_cases.ports import ProfileRepository
+from users.useCases.ports import ProfileRepository
 
 from .InputBoundary import RecordChallengeAttemptInputBoundary
 from .InputData import RecordChallengeAttemptInputData

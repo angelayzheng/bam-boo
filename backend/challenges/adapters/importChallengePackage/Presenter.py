@@ -1,9 +1,9 @@
 from dataclasses import dataclass
 
-from challenges.use_cases.importChallengePackage.OutputBoundary import (
+from challenges.useCases.importChallengePackage.OutputBoundary import (
     ImportChallengePackageOutputBoundary,
 )
-from challenges.use_cases.importChallengePackage.OutputData import (
+from challenges.useCases.importChallengePackage.OutputData import (
     ImportChallengePackageFailureData,
     ImportChallengePackageOutputData,
     ImportChallengePackageResultData,

@@ -1,4 +1,4 @@
-from play.use_cases.manageChallengeRun.Errors import (
+from play.useCases.manageChallengeRun.Errors import (
     ToneAnswerUnknown,
     ToneUnavailable,
 )

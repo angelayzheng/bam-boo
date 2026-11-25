@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from challenges.audio import validate_audio_file
-from challenges.use_cases.ports import AudioValidator
+from challenges.useCases.ports import AudioValidator
 
 
 class FfprobeAudioValidator(AudioValidator):

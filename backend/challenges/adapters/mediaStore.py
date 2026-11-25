@@ -10,7 +10,7 @@ from django.conf import settings
 
 from challenges import package as package_module
 from challenges.domain.challengePackage import ChallengePackageError
-from challenges.use_cases.ports import MediaStore, PreparedChallengePackage
+from challenges.useCases.ports import MediaStore, PreparedChallengePackage
 
 logger = logging.getLogger(__name__)
 

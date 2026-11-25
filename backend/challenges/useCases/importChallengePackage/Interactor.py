@@ -7,7 +7,7 @@ from challenges.domain.challengePackage import (
     ChallengePackageError,
     challenge_from_package,
 )
-from challenges.use_cases.ports import (
+from challenges.useCases.ports import (
     AudioValidator,
     ChallengeRepository,
     LoadedChallengePackage,
@@ -15,7 +15,7 @@ from challenges.use_cases.ports import (
     PackageArchiveExtractor,
     PackageSource,
 )
-from play.use_cases.ports import UnitOfWork
+from play.useCases.ports import UnitOfWork
 
 from .InputBoundary import (
     ImportChallengePackageInputBoundary,

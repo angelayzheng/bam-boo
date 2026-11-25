@@ -10,10 +10,10 @@ from challenges.adapters.browseChallengesDataAccess import (
     DjangoBrowseChallengesDataAccess,
 )
 from challenges.adapters.browseChallengesPresenter import BrowseChallengesPresenter
-from challenges.use_cases.browseChallenges.InputData import (
+from challenges.useCases.browseChallenges.InputData import (
     BrowseChallengesInputData,
 )
-from challenges.use_cases.browseChallenges.Interactor import (
+from challenges.useCases.browseChallenges.Interactor import (
     BrowseChallengesInteractor,
 )
 

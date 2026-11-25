@@ -4,7 +4,7 @@ Turns BrowseChallengesOutputData into a JSON-ready dict (or an error message)
 that the Django view returns. Implements the output boundary.
 """
 
-from challenges.use_cases.browseChallenges.OutputBoundary import (
+from challenges.useCases.browseChallenges.OutputBoundary import (
     BrowseChallengesOutputBoundary,
 )
 
