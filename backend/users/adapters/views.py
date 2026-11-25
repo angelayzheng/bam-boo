@@ -15,6 +15,7 @@ from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_GET, require_http_methods, require_POST
 
 from config.container import get_container
+from users.adapters.sessionAccountGateway import DjangoSessionAccountGateway
 from users.forms import SignupForm
 from users.models import (
     AvatarChoices,
@@ -145,9 +146,14 @@ def logout_user(request):
 @require_GET
 def current_user(request):
     """GET /api/users/auth/me/: return the current signed-in user's account data."""
-    if not request.user.is_authenticated:
-        return JsonResponse({"detail": "Authentication required."}, status=401)
-    return _auth_response(request)
+    use_case = get_container().build_get_current_user_use_case(
+        accounts=DjangoSessionAccountGateway(request),
+        csrf_token=lambda: get_token(request),
+    )
+    use_case.controller.execute()
+    return JsonResponse(
+        use_case.presenter.response_body, status=use_case.presenter.status_code
+    )
 
 
 @require_GET

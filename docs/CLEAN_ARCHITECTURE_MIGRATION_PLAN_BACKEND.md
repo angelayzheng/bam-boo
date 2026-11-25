@@ -90,6 +90,8 @@ Create one directory per use case. These names describe application goals; sever
 
 The run workflow covers starting a run, reading its snapshot, grading tone and action answers, selecting responses, and advancing the conversation. Keep these operations together only while they share a clear run boundary and coherent input/output contract.
 
+`getCurrentUser` is migrated, with input/output boundaries, a request-scoped account gateway, a controller, a presenter, and container wiring. Django session access and CSRF tokens remain adapter concerns. Fake-port tests live in `users/testGetCurrentUser.py`; endpoint tests in `users/tests.py` cover the response contract, cache controls, CSRF token usability, and request isolation.
+
 Root and health status, CSRF token issuance, and static media serving are transport or infrastructure concerns; they do not need artificial use-case folders. Loading vector data is a management command, not a player-facing use case.
 
 ## Migration sequence

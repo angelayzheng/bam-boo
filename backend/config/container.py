@@ -1,3 +1,4 @@
+from collections.abc import Callable
 from dataclasses import dataclass
 
 from challenges.adapters.importChallengePackage.Controller import (
@@ -46,8 +47,18 @@ from play.useCases.manageChallengeRun.Interactor import (
 from play.useCases.recordChallengeAttempt.Interactor import (
     RecordChallengeAttemptInteractor,
 )
+from users.adapters.getCurrentUser.Controller import GetCurrentUserController
+from users.adapters.getCurrentUser.Presenter import GetCurrentUserPresenter
+from users.useCases.getCurrentUser.Interactor import GetCurrentUserInteractor
+from users.useCases.ports import CurrentAccountGateway
 from tone.useCases.ports import ToneVectorRepository
 from users.useCases.ports import AuthGateway, GroupRepository, ProfileRepository
+
+
+@dataclass(frozen=True, slots=True)
+class GetCurrentUserUseCase:
+    controller: GetCurrentUserController
+    presenter: GetCurrentUserPresenter
 
 
 @dataclass(frozen=True, slots=True)
@@ -90,6 +101,13 @@ class ApplicationContainer:
     tone_vectors: ToneVectorRepository | None = None
     auth: AuthGateway | None = None
     groups: GroupRepository | None = None
+
+    def build_get_current_user_use_case(
+        self, *, accounts: CurrentAccountGateway, csrf_token: Callable[[], str]
+    ) -> GetCurrentUserUseCase:
+        presenter = GetCurrentUserPresenter(csrf_token)
+        interactor = GetCurrentUserInteractor(accounts=accounts, presenter=presenter)
+        return GetCurrentUserUseCase(GetCurrentUserController(interactor), presenter)
 
     def build_record_challenge_attempt_use_case(self) -> RecordChallengeAttemptUseCase:
         presenter = RecordChallengeAttemptPresenter()

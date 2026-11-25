@@ -2,6 +2,7 @@ from collections.abc import Sequence
 from typing import Protocol
 
 from users.domain.profile import Profile
+from users.useCases.getCurrentUser.OutputData import GetCurrentUserOutputData
 
 
 class ProfileRepository(Protocol):
@@ -14,6 +15,10 @@ class ProfileRepository(Protocol):
     def list_top(self, limit: int) -> Sequence[Profile]: ...
 
     def save(self, profile: Profile) -> Profile: ...
+
+
+class CurrentAccountGateway(Protocol):
+    def current_account(self) -> GetCurrentUserOutputData | None: ...
 
 
 class AuthGateway(Protocol):

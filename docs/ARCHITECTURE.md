@@ -55,8 +55,8 @@ backend/
 		adapters/       Run and attempt repositories, controllers, presenters, and tone matcher
 	users/            User profiles, progress API, and session authentication
 		domain/         Framework-free Profile entity
-		useCases/      Profile, auth, and group ports
-		adapters/       Split authentication and progress endpoint adapters
+		useCases/      Account/profile interactors and shared ports
+		adapters/       Use-case controllers/presenters, gateways, repositories, and endpoint adapters
 	tone/             Numberbatch vector storage and import command used by the play tone-matcher adapter
 		domain/         Tone domain foundation
 		useCases/      Tone-vector repository port
@@ -174,6 +174,8 @@ Vite enables polling for file watching so source changes in mounted Windows work
 ## Backend
 
 The backend is being migrated toward Clean Architecture: framework-free entities live in `challenges/domain/`, `play/domain/`, and `users/domain/`; use-case port protocols live in each feature's `useCases/` package; and Django, ORM, vector, filesystem, and HTTP code stays in adapters. User authentication and progress endpoints live in `users/adapters/views.py`, with `users/views.py` retained as a compatibility export. The `play/` Django app owns challenge-run and scoring behavior. Backend folders and modules use camelCase, including `useCases/`. Files inside a use-case folder are named for their role in PascalCase (`Interactor.py`, `Presenter.py`), tests are `test<Subject>.py`, and management commands stay snake_case because Django uses the filename as the command name; see [CONTRIBUTING.md](CONTRIBUTING.md#backend-naming).
+
+`GetCurrentUser` follows the [backend migration plan](CLEAN_ARCHITECTURE_MIGRATION_PLAN_BACKEND.md) in `users/useCases/getCurrentUser/`, with its controller and presenter under `users/adapters/getCurrentUser/`. `config/container.py` wires its dependencies and creates a fresh presenter for each invocation. `DjangoSessionAccountGateway` and the CSRF token supplier are bound to each request, so the shared container retains no session identity. The interactor depends only on its account gateway and output boundary; Django session access, CSRF issuance, JSON formatting, and status mapping remain in adapters. `/api/users/auth/me/` preserves its account schema, anonymous 401, GET-only behavior, and cache controls. Fake-port coverage lives in `users/testGetCurrentUser.py`; `users/tests.py` covers the endpoint contract, CSRF token usability, and request isolation. Routes, database schema, and dependencies are unchanged.
 
 `ManageChallengeRun` owns starting runs, reading snapshots, grading tone and action answers, traversing conversation choices, and completing runs. Its interactor, input/output data, and boundaries live in `play/useCases/manageChallengeRun/`; its controller and presenter live in the matching `play/adapters/manageChallengeRun/` folder. The interactor depends on `ChallengeRepository`, `RunRepository`, `AttemptRepository`, `ProfileRepository`, `ToneMatcher`, and `UnitOfWork` ports. The presenter serializes snapshots and maps semantic failures to HTTP statuses. The Django views only parse request bodies, invoke the use case, and return presenter output. A completion locks and revalidates the run, then saves its completed state, history record, and profile score within one unit-of-work transaction.
 
