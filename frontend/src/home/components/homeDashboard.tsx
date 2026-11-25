@@ -4,10 +4,10 @@ import type {
   HomeChallengeViewModel,
   LeaderboardViewModel,
 } from '../viewModels/homeViewModel'
-import CalendarGrid from './CalendarGrid'
-import DailyChallengeCard from './DailyChallengeCard'
-import LeaderboardCard from './LeaderboardCard'
-import WeekdayStrip from './WeekdayStrip'
+import CalendarGrid from './calendarGrid'
+import DailyChallengeCard from './dailyChallengeCard'
+import LeaderboardCard from './leaderboardCard'
+import WeekdayStrip from './weekdayStrip'
 
 interface HomeDashboardProps {
   notice?: ReactNode

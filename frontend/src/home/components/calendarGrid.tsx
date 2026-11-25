@@ -1,6 +1,6 @@
 import { FlameIcon } from '../../components/icons'
 import type { CalendarViewModel } from '../viewModels/homeViewModel'
-import Stars from './Stars'
+import Stars from './stars'
 
 interface CalendarGridProps {
   viewModel: CalendarViewModel
