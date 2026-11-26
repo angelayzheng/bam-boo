@@ -19,23 +19,3 @@ class ProfileRepository(Protocol):
 
 class CurrentAccountGateway(Protocol):
     def current_account(self) -> GetCurrentUserOutputData | None: ...
-
-
-class AuthGateway(Protocol):
-    def sign_up(
-        self,
-        username: str,
-        password: str,
-        email: str = "",
-        group_id: int | None = None,
-    ) -> int: ...
-
-    def log_in(self, username: str, password: str) -> int | None: ...
-
-    def log_out(self) -> None: ...
-
-    def current_user_id(self) -> int | None: ...
-
-
-class GroupRepository(Protocol):
-    def list_groups(self) -> Sequence[tuple[int, str]]: ...

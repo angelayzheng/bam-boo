@@ -52,7 +52,7 @@ from users.adapters.getCurrentUser.Presenter import GetCurrentUserPresenter
 from users.useCases.getCurrentUser.Interactor import GetCurrentUserInteractor
 from users.useCases.ports import CurrentAccountGateway
 from tone.useCases.ports import ToneVectorRepository
-from users.useCases.ports import AuthGateway, GroupRepository, ProfileRepository
+from users.useCases.ports import ProfileRepository
 
 
 @dataclass(frozen=True, slots=True)
@@ -99,8 +99,6 @@ class ApplicationContainer:
     validation: ChallengeValidationGateway
     tone_matcher: ToneMatcher | None = None
     tone_vectors: ToneVectorRepository | None = None
-    auth: AuthGateway | None = None
-    groups: GroupRepository | None = None
 
     def build_get_current_user_use_case(
         self, *, accounts: CurrentAccountGateway, csrf_token: Callable[[], str]
@@ -186,8 +184,6 @@ def build_container(
     validation: ChallengeValidationGateway,
     tone_matcher: ToneMatcher | None = None,
     tone_vectors: ToneVectorRepository | None = None,
-    auth: AuthGateway | None = None,
-    groups: GroupRepository | None = None,
 ) -> ApplicationContainer:
     """Collect infrastructure ports at the application composition boundary."""
     return ApplicationContainer(
@@ -203,8 +199,6 @@ def build_container(
         validation=validation,
         tone_matcher=tone_matcher,
         tone_vectors=tone_vectors,
-        auth=auth,
-        groups=groups,
     )
 
 
