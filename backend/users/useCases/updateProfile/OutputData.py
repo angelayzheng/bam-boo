@@ -12,4 +12,3 @@ class UpdateProfileOutputData:
 class UpdateProfileFailureData:
     reason: str
     message: str
-    collection_error: bool = False

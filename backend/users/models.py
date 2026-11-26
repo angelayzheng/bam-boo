@@ -1,5 +1,3 @@
-from datetime import date
-
 from django.contrib.auth.models import Group, User
 from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator
@@ -62,20 +60,6 @@ class UserProfile(models.Model):
         super().clean()
         validate_scores(self.scores)
         validate_login_days(self.login_days)
-
-    def recalculate_total(self):
-        self.total_score = sum(self.scores.values())
-
-    def add_score(self, challenge_slug, score):
-        if isinstance(score, bool) or not isinstance(score, int) or not 0 <= score <= 3:
-            raise ValidationError("Score must be a whole number between 0 and 3.")
-        self.scores[challenge_slug] = score
-        self.recalculate_total()
-
-    def record_login(self, day=None):
-        day_str = (day or date.today()).isoformat()
-        if day_str not in self.login_days:
-            self.login_days = sorted([*self.login_days, day_str])
 
     def save(self, *args, **kwargs):
         self.full_clean()

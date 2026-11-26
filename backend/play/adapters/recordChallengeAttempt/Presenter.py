@@ -1,3 +1,5 @@
+from users.adapters.profileData import profile_progress_data
+
 from play.useCases.recordChallengeAttempt.OutputBoundary import (
     RecordChallengeAttemptOutputBoundary,
 )
@@ -26,19 +28,18 @@ class RecordChallengeAttemptPresenter(RecordChallengeAttemptOutputBoundary):
     def prepare_success_view(
         self, output_data: RecordChallengeAttemptOutputData
     ) -> None:
-        self.response_body = {
-            "user_id": output_data.user_id,
-            "username": output_data.username,
-            "avatar": output_data.avatar,
-            "total_score": output_data.total_score,
-            "completed_challenges": output_data.completed_challenges,
-            "scores": output_data.scores,
-            "attempt": {
-                "attempt_id": output_data.attempt.attempt_id,
-                "challenge_slug": output_data.attempt.challenge_slug,
-                "score": output_data.attempt.score,
-                "completed_at": output_data.attempt.completed_at.isoformat(),
-            },
+        self.response_body = profile_progress_data(
+            user_id=output_data.user_id,
+            username=output_data.username,
+            avatar=output_data.avatar,
+            total_score=output_data.total_score,
+            scores=output_data.scores,
+        )
+        self.response_body["attempt"] = {
+            "attempt_id": output_data.attempt.attempt_id,
+            "challenge_slug": output_data.attempt.challenge_slug,
+            "score": output_data.attempt.score,
+            "completed_at": output_data.attempt.completed_at.isoformat(),
         }
         self.status_code = 201 if output_data.created else 200
 

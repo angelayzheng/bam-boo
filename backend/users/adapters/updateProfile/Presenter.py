@@ -16,11 +16,7 @@ class UpdateProfilePresenter(UpdateProfileOutputBoundary):
         self.status_code = 200
 
     def prepare_fail_view(self, failure: UpdateProfileFailureData) -> None:
-        self.response_body = {
-            "detail": (
-                str([failure.message]) if failure.collection_error else failure.message
-            )
-        }
+        self.response_body = {"detail": failure.message}
         self.status_code = {
             "unauthenticated": 401,
             "not_found": 404,

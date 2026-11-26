@@ -5,6 +5,7 @@ from django.contrib.auth.models import Group
 from django.utils.text import slugify
 
 from users.domain.profile import Profile
+from users.domain.profileChanges import ProfileChanges
 from users.models import UserProfile
 from users.useCases.ports import (
     ProfileDetailsRepository,
@@ -103,27 +104,27 @@ class DjangoProfileDetailsRepository(ProfileDetailsRepository):
         row = query.filter(user__username=username).first()
         return None if row is None else _profile_details(row)
 
-    def update(self, user_id: int, changes: dict) -> ProfileData:
+    def update(
+        self, user_id: int, changes: ProfileChanges, *, group_id: int | None
+    ) -> ProfileData:
         row = UserProfile.objects.select_related("user", "group").get(user_id=user_id)
         user_fields = []
-        if "name" in changes:
-            row.user.first_name = changes["name"]
+        if changes.name is not None:
+            row.user.first_name = changes.name
             row.user.last_name = ""
             user_fields.extend(("first_name", "last_name"))
-        if "email" in changes:
-            row.user.email = changes["email"]
+        if changes.email is not None:
+            row.user.email = changes.email
             user_fields.append("email")
         if user_fields:
             row.user.save(update_fields=user_fields)
         profile_fields = ["updated_at"]
-        for field in ("avatar", "login_days", "group_id"):
-            if field in changes:
-                setattr(row, field, changes[field])
-                profile_fields.append(field)
-        if "challenge_scores" in changes:
-            row.scores = dict(changes["challenge_scores"])
-            row.total_score = changes["total_score"]
-            profile_fields.extend(("scores", "total_score"))
+        if changes.avatar is not None:
+            row.avatar = changes.avatar
+            profile_fields.append("avatar")
+        if changes.team is not None:
+            row.group_id = group_id
+            profile_fields.append("group")
         row.save(update_fields=profile_fields)
         return _profile_details(row)
 

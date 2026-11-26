@@ -1,4 +1,4 @@
-from users.adapters.profileData import username_profile_data
+from users.adapters.profileData import profile_progress_data, username_profile_data
 from users.useCases.viewProfile.OutputBoundary import ViewProfileOutputBoundary
 from users.useCases.viewProfile.OutputData import ViewProfileOutputData
 
@@ -13,14 +13,13 @@ class ViewProfilePresenter(ViewProfileOutputBoundary):
         self.response_body = (
             username_profile_data(profile)
             if output_data.by_username
-            else {
-                "user_id": profile.user_id,
-                "username": profile.username,
-                "avatar": profile.avatar,
-                "total_score": profile.total_score,
-                "completed_challenges": len(profile.scores),
-                "scores": dict(profile.scores),
-            }
+            else profile_progress_data(
+                user_id=profile.user_id,
+                username=profile.username,
+                avatar=profile.avatar,
+                total_score=profile.total_score,
+                scores=profile.scores,
+            )
         )
         self.status_code = 200
 

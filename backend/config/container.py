@@ -47,7 +47,7 @@ from play.useCases.recordChallengeAttempt.Interactor import (
     RecordChallengeAttemptInteractor,
 )
 from tone.useCases.ports import ToneVectorRepository
-from users.useCases.ports import AuthGateway, GroupRepository, ProfileRepository
+from users.useCases.ports import ProfileRepository
 from users.useCases.ports import (
     EmailValidator,
     ProfileDetailsRepository,
@@ -111,8 +111,6 @@ class ApplicationContainer:
     validation: ChallengeValidationGateway
     tone_matcher: ToneMatcher | None = None
     tone_vectors: ToneVectorRepository | None = None
-    auth: AuthGateway | None = None
-    groups: GroupRepository | None = None
     profile_details: ProfileDetailsRepository | None = None
     teams: TeamRepository | None = None
     email_validator: EmailValidator | None = None
@@ -176,7 +174,9 @@ class ApplicationContainer:
             unit_of_work=self.unit_of_work,
             presenter=presenter,
         )
-        return UpdateProfileUseCase(UpdateProfileController(interactor), presenter)
+        return UpdateProfileUseCase(
+            UpdateProfileController(interactor, presenter), presenter
+        )
 
     def build_import_challenge_package_use_case(self) -> ImportChallengePackageUseCase:
         presenter = ImportChallengePackagePresenter()
@@ -220,8 +220,6 @@ def build_container(
     validation: ChallengeValidationGateway,
     tone_matcher: ToneMatcher | None = None,
     tone_vectors: ToneVectorRepository | None = None,
-    auth: AuthGateway | None = None,
-    groups: GroupRepository | None = None,
     profile_details: ProfileDetailsRepository | None = None,
     teams: TeamRepository | None = None,
     email_validator: EmailValidator | None = None,
@@ -240,8 +238,6 @@ def build_container(
         validation=validation,
         tone_matcher=tone_matcher,
         tone_vectors=tone_vectors,
-        auth=auth,
-        groups=groups,
         profile_details=profile_details,
         teams=teams,
         email_validator=email_validator,

@@ -1,4 +1,3 @@
-from users.domain.profileChanges import ProfileCollectionError, validate_profile_changes
 from users.useCases.ports import (
     EmailValidator,
     ProfileDetailsRepository,
@@ -45,40 +44,18 @@ class UpdateProfileInteractor(UpdateProfileInputBoundary):
             if input_data.user_id != profile.user_id:
                 self._fail("forbidden", "You can only update your own profile.")
                 return
-            if input_data.parsing_error:
-                self._fail("invalid", input_data.parsing_error)
+            changes = input_data.changes
+            if changes.email and not self._email_validator.is_valid(changes.email):
+                self._fail("invalid", "email must be a valid email address.")
                 return
-            if not isinstance(input_data.payload, dict):
-                self._fail("invalid", "Expected a JSON object.")
-                return
-            try:
-                changes = validate_profile_changes(
-                    input_data.payload,
-                    username=profile.username,
-                    current_total=profile.total_score,
-                )
-                if changes.get("email") and not self._email_validator.is_valid(
-                    changes["email"]
-                ):
-                    raise ValueError("email must be a valid email address.")
-                if "team" in changes:
-                    matches = (
-                        self._teams.find_by_slug(changes["team"])
-                        if changes["team"]
-                        else []
+            group_id = None
+            if changes.team:
+                matches = self._teams.find_by_slug(changes.team)
+                if len(matches) != 1:
+                    self._fail(
+                        "invalid", "team must match an existing, unique team slug."
                     )
-                    if changes["team"] and len(matches) != 1:
-                        raise ValueError(
-                            "team must match an existing, unique team slug."
-                        )
-                    changes["group_id"] = matches[0] if matches else None
-            except ProfileCollectionError as exc:
-                self._presenter.prepare_fail_view(
-                    UpdateProfileFailureData("invalid", str(exc), collection_error=True)
-                )
-                return
-            except ValueError as exc:
-                self._fail("invalid", str(exc))
-                return
-            updated = self._profiles.update(profile.user_id, changes)
+                    return
+                group_id = matches[0]
+            updated = self._profiles.update(profile.user_id, changes, group_id=group_id)
         self._presenter.prepare_success_view(UpdateProfileOutputData(profile=updated))

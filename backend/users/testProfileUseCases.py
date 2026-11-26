@@ -1,6 +1,9 @@
 from contextlib import contextmanager
 from dataclasses import replace
 from unittest import TestCase
+from unittest.mock import Mock
+
+from users.domain.profileChanges import ProfileChanges
 
 from users.adapters.updateProfile.Controller import UpdateProfileController
 from users.adapters.updateProfile.Presenter import UpdateProfilePresenter
@@ -52,18 +55,14 @@ class FakeProfiles:
         self.lookups.append(("username", username, for_update))
         return self.profile if username == self.profile.username else None
 
-    def update(self, user_id, changes):
+    def update(self, user_id, changes, *, group_id):
         assert self.in_transaction
-        self.updates.append((user_id, changes))
+        self.updates.append((user_id, changes, group_id))
         fields = {
-            key: changes[key]
-            for key in ("name", "email", "avatar", "login_days")
-            if key in changes
+            key: getattr(changes, key)
+            for key in ("name", "email", "avatar", "team")
+            if getattr(changes, key) is not None
         }
-        if "challenge_scores" in changes:
-            fields.update(
-                scores=changes["challenge_scores"], total_score=changes["total_score"]
-            )
         self.profile = replace(self.profile, **fields)
         return self.profile
 
@@ -114,7 +113,6 @@ class ViewProfileTests(TestCase):
             {
                 "slug": "ada",
                 "name": "ada",
-                "email": "ada@example.com",
                 "team": "",
                 "challenge_scores": {"sample": 2},
                 "total_score": 2.0,
@@ -167,124 +165,112 @@ class UpdateProfileTests(TestCase):
             presenter=presenter,
         )
 
-    def execute(self, payload, *, username="ada", user_id=7, parsing_error=None):
+    def execute(self, changes=None, *, username="ada", user_id=7):
         self.interactor.execute(
-            UpdateProfileInputData(username, user_id, payload, parsing_error)
+            UpdateProfileInputData(
+                username=username,
+                user_id=user_id,
+                changes=ProfileChanges() if changes is None else changes,
+            )
         )
 
-    def test_updates_normalized_values_and_derives_scores_inside_a_transaction(self):
+    def test_updates_typed_account_details_without_replacing_progress(self):
         self.execute(
-            {
-                "name": "  Ada Lovelace  ",
-                "email": "ada@example.com",
-                "team": "alpha",
-                "avatar": "owl",
-                "challenge_scores": {"sample": 1, "other": 3},
-                "login_days": ["2026-10-12", "2026-10-10"],
-            }
+            ProfileChanges(
+                name="  Ada Lovelace  ",
+                email="ada@example.com",
+                team="alpha",
+                avatar="owl",
+            )
         )
-        changes = self.profiles.updates[0][1]
-        self.assertEqual(changes["name"], "Ada Lovelace")
-        self.assertEqual(changes["group_id"], 3)
-        self.assertEqual(changes["total_score"], 4)
-        self.assertEqual(changes["login_days"], ["2026-10-10", "2026-10-12"])
+        user_id, changes, group_id = self.profiles.updates[0]
+        self.assertEqual(user_id, 7)
+        self.assertEqual(changes.name, "Ada Lovelace")
+        self.assertEqual(group_id, 3)
+        self.assertEqual(self.output.successes[0].profile.scores, {"sample": 2})
         self.assertEqual(
-            self.output.successes[0].profile.scores, {"sample": 1, "other": 3}
+            self.output.successes[0].profile.login_days, ["2026-10-12", "2026-10-10"]
         )
         self.assertEqual(self.unit_of_work.commits, 1)
         self.assertEqual(self.profiles.lookups, [("username", "ada", True)])
 
-    def test_authentication_and_ownership_precede_body_validation(self):
+    def test_authentication_and_ownership_prevent_persistence(self):
         for username, user_id, reason in (
             ("missing", None, "unauthenticated"),
             ("missing", 7, "not_found"),
             ("ada", 8, "forbidden"),
-            ("ada", 7, "invalid"),
         ):
             with self.subTest(reason=reason):
-                self.execute(
-                    None,
-                    username=username,
-                    user_id=user_id,
-                    parsing_error="Invalid body.",
-                )
+                self.execute(username=username, user_id=user_id)
                 self.assertEqual(self.output.failures[-1].reason, reason)
                 self.assertFalse(hasattr(self.output.failures[-1], "status_code"))
         self.assertEqual(self.profiles.updates, [])
 
-    def test_rejects_invalid_values_without_writing(self):
-        cases = [
-            {"unknown": True},
-            {"slug": "other"},
-            {"challenge_scores": None},
-            {"challenge_scores": {"": 1}},
-            {"challenge_scores": {"sample": True}},
-            {"challenge_scores": {"sample": 4}},
-            {"challenge_scores": {"sample": 1.5}},
-            {"total_score": True},
-            {"total_score": float("nan")},
-            {"total_score": float("inf")},
-            {"total_score": 100},
-            {"name": " "},
-            {"name": 1},
-            {"name": "x" * 151},
-            {"team": None},
-            {"team": "missing"},
-            {"team": "ambiguous"},
-            {"login_days": {}},
-            {"login_days": [1]},
-            {"login_days": ["bad"]},
-            {"login_days": ["2026-10-12", "2026-10-12"]},
-            {"avatar": "unicorn"},
-            {"avatar": []},
-            {"email": 1},
-            {"email": "x" * 255},
-            {"email": "invalid"},
-        ]
-        for payload in cases:
-            with self.subTest(payload=payload):
-                self.execute(payload)
-                self.assertEqual(self.output.failures[-1].reason, "invalid")
-        self.assertEqual(len(self.output.failures), len(cases))
+    def test_rejects_invalid_email_and_missing_or_ambiguous_teams(self):
+        for changes in (
+            ProfileChanges(email="invalid"),
+            ProfileChanges(team="missing"),
+            ProfileChanges(team="ambiguous"),
+        ):
+            self.execute(changes)
+            self.assertEqual(self.output.failures[-1].reason, "invalid")
         self.assertEqual(self.profiles.updates, [])
         self.assertEqual(self.output.successes, [])
 
     def test_avatar_only_empty_patch_and_clearing_optional_values(self):
-        for payload in (
-            {"avatar": "owl"},
-            {},
-            {"team": "", "email": "", "challenge_scores": {}},
+        for changes in (
+            ProfileChanges(avatar="owl"),
+            ProfileChanges(),
+            ProfileChanges(team="", email=""),
         ):
-            self.execute(payload)
+            self.execute(changes)
         self.assertEqual(self.output.failures, [])
-        self.assertEqual(self.profiles.updates[-1][1]["group_id"], None)
-        self.assertEqual(self.profiles.profile.total_score, 0)
+        self.assertIsNone(self.profiles.updates[-1][2])
+        self.assertEqual(self.profiles.profile.total_score, 2)
         self.assertEqual(self.profiles.profile.email, "")
 
-    def test_controller_parses_transport_and_presenter_resets_errors(self):
+    def test_controller_rejects_invalid_transport_without_calling_interactor(self):
         presenter = UpdateProfilePresenter()
-        controller = UpdateProfileController(self.build_interactor(presenter))
-        for body, content_type, detail in (
-            (b"{}", "text/plain", "Expected an application/json body."),
-            (b"{", "application/json", "Expected a valid JSON object."),
-            (b"\xff", "application/json", "Expected a valid JSON object."),
-            (b"[]", "application/json", "Expected a JSON object."),
-            (
-                b'{"challenge_scores": {"sample": true}}',
-                "application/json",
-                "[\"Score for 'sample' must be a whole number.\"]",
-            ),
-            (
-                b'{"login_days": ["bad"]}',
-                "application/json",
-                "[\"Invalid login day 'bad'; expected YYYY-MM-DD.\"]",
-            ),
+        interactor = Mock()
+        controller = UpdateProfileController(interactor, presenter)
+        for body, content_type in (
+            (b"{}", "text/plain"),
+            (b"{", "application/json"),
+            (b"\xff", "application/json"),
+            (b"[]", "application/json"),
+            (b'{"challenge_scores": {"sample": 3}}', "application/json"),
+            (b'{"total_score": 2}', "application/json"),
+            (b'{"login_days": []}', "application/json"),
+            (b'{"email": null}', "application/json"),
+            (b'{"avatar": "unicorn"}', "application/json"),
+            (b'{"slug": "other"}', "application/json"),
+            (b'{"name": " "}', "application/json"),
         ):
-            controller.execute(
-                username="ada", user_id=7, body=body, content_type=content_type
-            )
-            self.assertEqual(presenter.status_code, 400)
-            self.assertEqual(presenter.response_body, {"detail": detail})
+            with self.subTest(body=body):
+                controller.execute(
+                    username="ada", user_id=7, body=body, content_type=content_type
+                )
+                self.assertEqual(presenter.status_code, 400)
+                interactor.execute.assert_not_called()
+        controller.execute(
+            username="ada",
+            user_id=7,
+            body=b'{"name": " Ada ", "email": ""}',
+            content_type="application/json",
+        )
+        interactor.execute.assert_called_once_with(
+            UpdateProfileInputData("ada", 7, ProfileChanges(name="Ada", email=""))
+        )
+
+    def test_controller_and_presenter_clear_an_old_error_on_success(self):
+        presenter = UpdateProfilePresenter()
+        controller = UpdateProfileController(
+            self.build_interactor(presenter), presenter
+        )
+        controller.execute(
+            username="ada", user_id=7, body=b"{", content_type="application/json"
+        )
+        self.assertEqual(presenter.status_code, 400)
         controller.execute(
             username="ada",
             user_id=7,
@@ -293,3 +279,4 @@ class UpdateProfileTests(TestCase):
         )
         self.assertEqual(presenter.status_code, 200)
         self.assertEqual(presenter.response_body["avatar"], "owl")
+        self.assertNotIn("email", presenter.response_body)
