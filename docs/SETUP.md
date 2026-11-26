@@ -74,13 +74,19 @@ backend/.venv/bin/python backend/manage.py load_vectors --file /play/to/numberba
 
 Combine `--file` with `--clear` to load a different file when vectors are already present.
 
-`seed_local_superuser` creates the same development account in each clone's local database:
+`seed_local_superuser` creates a development account in each clone's local database:
 
 - **Username:** `admin`
-- **Password:** `teamkale`
+- **Password:** choose it when prompted, then enter it again to confirm (input is hidden). The password must pass Django's configured password validators; there is no default password.
 - **Email:** `admin@example.test`
 
-Use these credentials on the frontend login page or at <http://127.0.0.1:8000/admin/>. The account and its profile are created together. Rerunning the command preserves an existing active superuser's password, email, and progress. If `admin` is already used by a regular or inactive account, the command stops without changing it; rename that account before rerunning. These shared credentials are for local development only, and the command requires `DEBUG=True`.
+Run the command interactively in a terminal. Blank, mismatched, or invalid passwords stop creation; rerun the command to try again. Use username `admin` and your chosen password on the frontend login page or at <http://127.0.0.1:8000/admin/>. The account and its profile are created together. Rerunning the command preserves an existing active superuser's password, email, and progress without prompting. If `admin` is already used by a regular or inactive account, the command stops without changing it; rename that account before rerunning. This account is for local development only, and the command requires `DEBUG=True`. For a deployed environment, use Django's `createsuperuser` command to create an administrator.
+
+To change an existing local admin password, run:
+
+```bash
+backend/.venv/bin/python backend/manage.py changepassword admin
+```
 
 `seed_kale_demo` imports the bundled demo challenge so the frontend has a challenge to load. Run it again with `--force` after editing the demo package.
 
@@ -162,6 +168,29 @@ For SQL access, run:
 ```bash
 backend/.venv/bin/python backend/manage.py dbshell
 ```
+
+### Reset the local database to a clean slate
+
+Stop Django with `Ctrl+C` and close database tools or other processes using SQLite. The following commands permanently delete all local database data, including users, passwords, groups, progress, challenge records, and loaded word vectors. Copy `backend/db.sqlite3` somewhere safe first if you want a backup.
+
+From the repository root, delete the database and any SQLite journal files:
+
+```bash
+rm -f backend/db.sqlite3 backend/db.sqlite3-journal backend/db.sqlite3-wal backend/db.sqlite3-shm
+```
+
+Keep the migration files in the repository; deleting them is not part of a database reset.
+
+To rebuild, first run `migrate`. It creates `backend/db.sqlite3` and applies all existing migrations, including the initial migrations that create the tables. Then recreate the admin account, import the demo challenge, and reload the word vectors:
+
+```bash
+backend/.venv/bin/python backend/manage.py migrate
+backend/.venv/bin/python backend/manage.py seed_local_superuser
+backend/.venv/bin/python backend/manage.py seed_kale_demo
+backend/.venv/bin/python backend/manage.py load_vectors
+```
+
+Choose a new admin password when prompted. Demo imports require FFmpeg as described above. Reloading vectors takes a few minutes, but reuses `data/numberbatch-en-19.08.txt.gz` if it is already downloaded. Database deletion leaves challenge media and source packages on disk; reimport any additional challenges you need and recreate any groups or other accounts. Restart Django using the command in [Run the app](#run-the-app), then sign in again with the recreated account.
 
 ## Troubleshooting
 
