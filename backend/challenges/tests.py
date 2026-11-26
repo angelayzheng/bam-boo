@@ -229,7 +229,34 @@ class ChallengeModelTests(TestCase):
     def test_challenge_detail_404(self):
         response = self.client.get("/api/challenges/missing-challenge/")
         self.assertEqual(response.status_code, 404)
-        self.assertEqual(response.json()["detail"], "Challenge not found.")
+        self.assertEqual(response.json(), {"detail": "Challenge not found."})
+
+    def test_challenge_detail_returns_metadata_without_a_playable_tree(self):
+        challenge = make_challenge(conversation_tree={})
+
+        response = self.client.get(f"/api/challenges/{challenge.slug}/")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.json(),
+            {
+                "name": challenge.name,
+                "slug": challenge.slug,
+                "challenge_date": "2026-10-14",
+                "difficulty": challenge.difficulty,
+                "category": challenge.category,
+            },
+        )
+
+    def test_challenge_detail_only_allows_get(self):
+        challenge = make_challenge()
+        for method in ("post", "put", "patch", "delete", "head"):
+            with self.subTest(method=method):
+                response = getattr(self.client, method)(
+                    f"/api/challenges/{challenge.slug}/"
+                )
+                self.assertEqual(response.status_code, 405)
+                self.assertEqual(response.headers["Allow"], "GET")
 
     def test_numeric_challenge_detail_route_is_removed(self):
         challenge = make_challenge()

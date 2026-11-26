@@ -1,6 +1,8 @@
 from collections.abc import Callable
 from dataclasses import dataclass
 
+from challenges.adapters.getChallenge.Controller import GetChallengeController
+from challenges.adapters.getChallenge.Presenter import GetChallengePresenter
 from challenges.adapters.importChallengePackage.Controller import (
     ImportChallengePackageController,
 )
@@ -21,6 +23,7 @@ from challenges.useCases.ports import (
     PackageArchiveExtractor,
     PackageSource,
 )
+from challenges.useCases.getChallenge.Interactor import GetChallengeInteractor
 from challenges.useCases.importChallengePackage.Interactor import (
     ImportChallengePackageInteractor,
 )
@@ -59,6 +62,12 @@ from users.useCases.ports import ProfileRepository
 class GetCurrentUserUseCase:
     controller: GetCurrentUserController
     presenter: GetCurrentUserPresenter
+
+
+@dataclass(frozen=True, slots=True)
+class GetChallengeUseCase:
+    controller: GetChallengeController
+    presenter: GetChallengePresenter
 
 
 @dataclass(frozen=True, slots=True)
@@ -106,6 +115,17 @@ class ApplicationContainer:
         presenter = GetCurrentUserPresenter(csrf_token)
         interactor = GetCurrentUserInteractor(accounts=accounts, presenter=presenter)
         return GetCurrentUserUseCase(GetCurrentUserController(interactor), presenter)
+
+    def build_get_challenge_use_case(self) -> GetChallengeUseCase:
+        presenter = GetChallengePresenter()
+        interactor = GetChallengeInteractor(
+            challenges=self.challenges,
+            presenter=presenter,
+        )
+        return GetChallengeUseCase(
+            controller=GetChallengeController(interactor),
+            presenter=presenter,
+        )
 
     def build_record_challenge_attempt_use_case(self) -> RecordChallengeAttemptUseCase:
         presenter = RecordChallengeAttemptPresenter()
