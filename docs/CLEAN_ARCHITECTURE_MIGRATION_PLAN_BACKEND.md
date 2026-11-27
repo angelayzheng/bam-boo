@@ -86,7 +86,9 @@ Create one directory per use case. These names describe application goals; sever
 
 - **Challenges:** `browseChallenges`, `getChallenge`, `importChallengePackage`, `validateChallenges`
 - **Play:** `manageChallengeRun`, `recordChallengeAttempt`
-- **Users:** `signUp`, `logIn`, `logOut`, `getCurrentUser`, `listGroups`, `getProfile`, `updateProfile`, `getLeaderboard`, `claimGuestAttempt`
+- **Users:** `signUp`, `logIn`, `logOut`, `getCurrentUser`, `listGroups`, `viewProfile`, `updateProfile`, `getLeaderboard`, `claimGuestAttempt`
+
+`viewProfile` and `updateProfile` are migrated, with per-use-case input/output boundaries, controllers, presenters, and container wiring. `viewProfile` is the implementation name for the former `getProfile` goal and covers both public profile read routes, preserving each response schema. `updateProfile` receives typed editable details after the controller handles JSON parsing and field selection; the interactor owns authorization, email-format validation, unique-team selection, and the account/profile transaction. Shared framework-free rules live in `users/domain/profileChanges.py`. Profile security corrections explicitly restrict writes to account details, reject score/total/login-history fields, and remove email from public responses. The domain `Profile` is the single home for score and login-day mutation rules; ORM helpers and unused auth/group ports have been removed. Numeric profile and claim presenters share a progress serializer. See `users/testProfileUseCases.py` and `users/testProfileDomain.py` for fake-port and entity tests, and `users/testProfileAPI.py` for rejection, privacy, and rollback coverage.
 
 The run workflow covers starting a run, reading its snapshot, grading tone and action answers, selecting responses, and advancing the conversation. Keep these operations together only while they share a clear run boundary and coherent input/output contract.
 

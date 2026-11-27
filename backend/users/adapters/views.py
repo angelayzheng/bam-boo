@@ -1,28 +1,18 @@
 import json
-from math import isfinite
 from uuid import UUID
 
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.models import Group
-from django.core.exceptions import ValidationError
-from django.core.validators import validate_email
 from django.db import IntegrityError, transaction
-from django.http import JsonResponse
+from django.http import Http404, JsonResponse
 from django.middleware.csrf import get_token
-from django.shortcuts import get_object_or_404
-from django.utils.text import slugify
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_GET, require_http_methods, require_POST
 
 from config.container import get_container
 from users.adapters.sessionAccountGateway import DjangoSessionAccountGateway
 from users.forms import SignupForm
-from users.models import (
-    AvatarChoices,
-    UserProfile,
-    validate_login_days,
-    validate_scores,
-)
+from users.models import UserProfile
 
 
 def _auth_payload(request):
@@ -159,21 +149,9 @@ def current_user(request):
 @require_GET
 def user_profile(request, user_id):
     """GET /api/users/<id>/profile/: return public score and progress data."""
-    profile = get_object_or_404(
-        UserProfile.objects.select_related("user"), user__pk=user_id
-    )
-    return JsonResponse(_profile_data(profile))
-
-
-def _profile_data(profile):
-    return {
-        "user_id": profile.user_id,
-        "username": profile.user.username,
-        "avatar": profile.avatar,
-        "total_score": profile.total_score,
-        "completed_challenges": len(profile.scores),
-        "scores": profile.scores,
-    }
+    use_case = get_container().build_view_profile_use_case()
+    use_case.controller.execute(user_id=user_id)
+    return _profile_response(use_case.presenter)
 
 
 @never_cache
@@ -214,163 +192,24 @@ def save_challenge_score(request, challenge_slug):
 @never_cache
 def user_by_slug(request, username):
     """GET/POST /api/users/<username>/: read a profile or update it as its owner."""
-    if request.method == "POST" and not request.user.is_authenticated:
-        return JsonResponse({"detail": "Authentication required."}, status=401)
-
-    profile = get_object_or_404(
-        UserProfile.objects.select_related("user"), user__username=username
-    )
     if request.method == "GET":
-        return JsonResponse(_user_data(profile))
-
-    if request.user.pk != profile.user_id:
-        return JsonResponse(
-            {"detail": "You can only update your own profile."}, status=403
+        use_case = get_container().build_view_profile_use_case()
+        use_case.controller.execute(username=username)
+    else:
+        use_case = get_container().build_update_profile_use_case()
+        use_case.controller.execute(
+            username=username,
+            user_id=request.user.pk if request.user.is_authenticated else None,
+            body=request.body,
+            content_type=request.content_type,
         )
-    if request.content_type != "application/json":
-        return JsonResponse(
-            {"detail": "Expected an application/json body."}, status=400
-        )
-    try:
-        payload = json.loads(request.body)
-    except ValueError, UnicodeDecodeError:
-        return JsonResponse({"detail": "Expected a valid JSON object."}, status=400)
-    if not isinstance(payload, dict):
-        return JsonResponse({"detail": "Expected a JSON object."}, status=400)
-    allowed_fields = {
-        "slug",
-        "challenge_scores",
-        "total_score",
-        "name",
-        "team",
-        "login_days",
-        "avatar",
-        "email",
-    }
-    if set(payload) - allowed_fields:
-        return JsonResponse({"detail": "Unexpected profile fields."}, status=400)
-    if payload.get("slug", username) != username:
-        return JsonResponse(
-            {"detail": "slug must match the user in the request URL."}, status=400
-        )
-    updated_scores = None
-    if "challenge_scores" in payload:
-        updated_scores = payload["challenge_scores"]
-        try:
-            validate_scores(updated_scores)
-        except ValidationError as exc:
-            return JsonResponse({"detail": str(exc)}, status=400)
-    expected_total = (
-        sum(updated_scores.values())
-        if updated_scores is not None
-        else profile.total_score
-    )
-    if "total_score" in payload:
-        total_score = payload["total_score"]
-        if (
-            isinstance(total_score, bool)
-            or not isinstance(total_score, (int, float))
-            or (isinstance(total_score, float) and not isfinite(total_score))
-            or total_score != expected_total
-        ):
-            return JsonResponse(
-                {"detail": "total_score must equal the sum of challenge_scores."},
-                status=400,
-            )
-    if "name" in payload and (
-        not isinstance(payload["name"], str)
-        or not payload["name"].strip()
-        or len(payload["name"].strip()) > 150
-    ):
-        return JsonResponse(
-            {"detail": "name must be a non-empty string of at most 150 characters."},
-            status=400,
-        )
-    if "team" in payload and not isinstance(payload["team"], str):
-        return JsonResponse({"detail": "team must be a string."}, status=400)
-    if "login_days" in payload:
-        try:
-            validate_login_days(payload["login_days"])
-        except ValidationError as exc:
-            return JsonResponse({"detail": str(exc)}, status=400)
-    if "avatar" in payload and payload["avatar"] not in AvatarChoices.values:
-        return JsonResponse(
-            {"detail": "avatar must be one of the supported avatar values."},
-            status=400,
-        )
-    if "email" in payload:
-        if not isinstance(payload["email"], str) or len(payload["email"]) > 254:
-            return JsonResponse(
-                {"detail": "email must be a string of at most 254 characters."},
-                status=400,
-            )
-        if payload["email"]:
-            try:
-                validate_email(payload["email"])
-            except ValidationError:
-                return JsonResponse(
-                    {"detail": "email must be a valid email address."}, status=400
-                )
-
-    if "team" in payload:
-        team_slug = payload["team"]
-        if not team_slug:
-            profile.group = None
-        else:
-            matching_groups = [
-                group
-                for group in Group.objects.order_by("pk")
-                if slugify(group.name) == team_slug
-            ]
-            if len(matching_groups) != 1:
-                return JsonResponse(
-                    {"detail": "team must match an existing, unique team slug."},
-                    status=400,
-                )
-            profile.group = matching_groups[0]
-    if "avatar" in payload:
-        profile.avatar = payload["avatar"]
-    if updated_scores is not None:
-        profile.scores = updated_scores
-        profile.total_score = expected_total
-    if "login_days" in payload:
-        profile.login_days = sorted(payload["login_days"])
-    if "name" in payload:
-        profile.user.first_name = payload["name"].strip()
-        profile.user.last_name = ""
-    if "email" in payload:
-        profile.user.email = payload["email"]
-
-    update_fields = ["updated_at"]
-    profile_fields = ("group", "avatar", "login_days")
-    update_fields.extend(field for field in profile_fields if field in payload)
-    if updated_scores is not None:
-        update_fields.extend(("scores", "total_score"))
-    if "team" in payload:
-        update_fields.append("group")
-    with transaction.atomic():
-        if "name" in payload or "email" in payload:
-            user_fields = []
-            if "name" in payload:
-                user_fields.extend(("first_name", "last_name"))
-            if "email" in payload:
-                user_fields.append("email")
-            profile.user.save(update_fields=user_fields)
-        profile.save(update_fields=update_fields)
-    return JsonResponse(_user_data(profile))
+    return _profile_response(use_case.presenter)
 
 
-def _user_data(profile):
-    return {
-        "slug": profile.user.username,
-        "challenge_scores": profile.scores,
-        "total_score": float(profile.total_score),
-        "name": profile.user.get_full_name().strip() or profile.user.username,
-        "team": slugify(profile.group.name) if profile.group else "",
-        "login_days": sorted(profile.login_days),
-        "avatar": profile.avatar,
-        "email": profile.user.email,
-    }
+def _profile_response(presenter):
+    if presenter.status_code == 404:
+        raise Http404("No UserProfile matches the given query.")
+    return JsonResponse(presenter.response_body, status=presenter.status_code)
 
 
 @require_GET

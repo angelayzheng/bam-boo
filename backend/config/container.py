@@ -56,6 +56,17 @@ from users.useCases.getCurrentUser.Interactor import GetCurrentUserInteractor
 from users.useCases.ports import CurrentAccountGateway
 from tone.useCases.ports import ToneVectorRepository
 from users.useCases.ports import ProfileRepository
+from users.useCases.ports import (
+    EmailValidator,
+    ProfileDetailsRepository,
+    TeamRepository,
+)
+from users.adapters.viewProfile.Controller import ViewProfileController
+from users.adapters.viewProfile.Presenter import ViewProfilePresenter
+from users.adapters.updateProfile.Controller import UpdateProfileController
+from users.adapters.updateProfile.Presenter import UpdateProfilePresenter
+from users.useCases.viewProfile.Interactor import ViewProfileInteractor
+from users.useCases.updateProfile.Interactor import UpdateProfileInteractor
 
 
 @dataclass(frozen=True, slots=True)
@@ -80,6 +91,18 @@ class RecordChallengeAttemptUseCase:
 class ManageChallengeRunUseCase:
     controller: ChallengeRunController
     presenter: ChallengeRunPresenter
+
+
+@dataclass(frozen=True, slots=True)
+class ViewProfileUseCase:
+    controller: ViewProfileController
+    presenter: ViewProfilePresenter
+
+
+@dataclass(frozen=True, slots=True)
+class UpdateProfileUseCase:
+    controller: UpdateProfileController
+    presenter: UpdateProfilePresenter
 
 
 @dataclass(frozen=True, slots=True)
@@ -108,6 +131,9 @@ class ApplicationContainer:
     validation: ChallengeValidationGateway
     tone_matcher: ToneMatcher | None = None
     tone_vectors: ToneVectorRepository | None = None
+    profile_details: ProfileDetailsRepository | None = None
+    teams: TeamRepository | None = None
+    email_validator: EmailValidator | None = None
 
     def build_get_current_user_use_case(
         self, *, accounts: CurrentAccountGateway, csrf_token: Callable[[], str]
@@ -162,6 +188,34 @@ class ApplicationContainer:
             presenter=presenter,
         )
 
+    def build_view_profile_use_case(self) -> ViewProfileUseCase:
+        if self.profile_details is None:
+            raise RuntimeError("Profile details repository is required.")
+        presenter = ViewProfilePresenter()
+        interactor = ViewProfileInteractor(
+            profiles=self.profile_details, presenter=presenter
+        )
+        return ViewProfileUseCase(ViewProfileController(interactor), presenter)
+
+    def build_update_profile_use_case(self) -> UpdateProfileUseCase:
+        if (
+            self.profile_details is None
+            or self.teams is None
+            or self.email_validator is None
+        ):
+            raise RuntimeError("Profile update dependencies are required.")
+        presenter = UpdateProfilePresenter()
+        interactor = UpdateProfileInteractor(
+            profiles=self.profile_details,
+            teams=self.teams,
+            email_validator=self.email_validator,
+            unit_of_work=self.unit_of_work,
+            presenter=presenter,
+        )
+        return UpdateProfileUseCase(
+            UpdateProfileController(interactor, presenter), presenter
+        )
+
     def build_import_challenge_package_use_case(self) -> ImportChallengePackageUseCase:
         presenter = ImportChallengePackagePresenter()
         interactor = ImportChallengePackageInteractor(
@@ -204,6 +258,9 @@ def build_container(
     validation: ChallengeValidationGateway,
     tone_matcher: ToneMatcher | None = None,
     tone_vectors: ToneVectorRepository | None = None,
+    profile_details: ProfileDetailsRepository | None = None,
+    teams: TeamRepository | None = None,
+    email_validator: EmailValidator | None = None,
 ) -> ApplicationContainer:
     """Collect infrastructure ports at the application composition boundary."""
     return ApplicationContainer(
@@ -219,6 +276,9 @@ def build_container(
         validation=validation,
         tone_matcher=tone_matcher,
         tone_vectors=tone_vectors,
+        profile_details=profile_details,
+        teams=teams,
+        email_validator=email_validator,
     )
 
 
@@ -235,7 +295,12 @@ def build_django_container() -> ApplicationContainer:
     from play.adapters.repositories import DjangoAttemptRepository, DjangoRunRepository
     from play.adapters.unitOfWork import DjangoUnitOfWork
     from play.adapters.vectorToneMatcher import VectorToneMatcher
-    from users.adapters.repositories import DjangoProfileRepository
+    from users.adapters.emailValidator import DjangoEmailValidator
+    from users.adapters.repositories import (
+        DjangoProfileDetailsRepository,
+        DjangoProfileRepository,
+        DjangoTeamRepository,
+    )
 
     return build_container(
         challenges=DjangoChallengeRepository(),
@@ -249,6 +314,9 @@ def build_django_container() -> ApplicationContainer:
         media=FileSystemMediaStore(),
         validation=DjangoChallengeValidator(),
         tone_matcher=VectorToneMatcher(),
+        profile_details=DjangoProfileDetailsRepository(),
+        teams=DjangoTeamRepository(),
+        email_validator=DjangoEmailValidator(),
     )
 
 

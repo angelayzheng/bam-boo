@@ -185,7 +185,8 @@ class CalendarEndpointTests(DjangoTestCase):
 
     def test_authenticated_user_sees_their_scores(self):
         user = User.objects.create_user(username="agent", password="pw")
-        user.profile.add_score("greeting", 2)
+        user.profile.scores = {"greeting": 2}
+        user.profile.total_score = 2
         user.profile.save()
         self.client.force_login(user)
 

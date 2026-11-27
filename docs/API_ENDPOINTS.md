@@ -206,22 +206,29 @@ Returns the requested user's profile:
   "name": "<full name or username>",
   "team": "<team slug or empty string>",
   "login_days": ["<YYYY-MM-DD>"],
-  "avatar": "fox",
-  "email": "<email or empty string>"
+  "avatar": "fox"
 }
 ```
 
-Avatar values are `fox`, `owl`, `bear`, `cat`, `robot`, and `ghost`. A missing
-user returns status 404 with a `detail` string.
+Avatar values are `fox`, `owl`, `bear`, `cat`, `robot`, and `ghost`. Public profile
+responses never include email; the account owner reads it through
+`GET /api/users/auth/me/`. A missing user returns Django's HTML 404 response.
 
 ### `POST /api/users/<username>/`
 
-Updates the signed-in user's own profile. The request may include any subset of
-the fields in the GET response. `slug`, if supplied, must match the URL;
-`total_score` must equal the sum of `challenge_scores`. The successful response
-is the same profile object shown above. Anonymous requests return 401, attempts
-to update another user's profile return 403, and invalid input returns 400;
-errors use `{"detail":"<message>"}`.
+Updates the signed-in user's own account details. The request accepts any subset
+of `name`, `team`, `avatar`, and `email`, all strings. Empty email/team clears the
+field; omitted fields are preserved. `slug`, if supplied, must match the URL.
+`challenge_scores`, `total_score`, and `login_days` are read-only: each is rejected
+with 400, including unchanged values. Scores are written through completed-run
+recording, and login history cannot be supplied by a profile client.
+
+The successful response is the public profile object above and omits email even
+when email was updated. Malformed bodies, unknown fields, and invalid types
+return 400 before use-case dispatch. For valid input, anonymous requests return
+401, attempts to update another user's profile return 403, and unknown users
+return HTML 404. CSRF protection still applies. Other errors use
+`{"detail":"<message>"}`.
 
 ### `GET /api/users/leaderboard/`
 

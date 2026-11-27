@@ -1,4 +1,3 @@
-from datetime import date
 from io import StringIO
 from unittest.mock import call, patch
 
@@ -67,7 +66,8 @@ class LocalSuperuserCommandTests(TestCase):
         user.save()
         profile = user.profile
         profile.avatar = "owl"
-        profile.add_score("forgot-password-x3", 2)
+        profile.scores = {"forgot-password-x3": 2}
+        profile.total_score = 2
         profile.save()
         self.password_prompt.reset_mock()
         output = self.seed()
@@ -366,37 +366,12 @@ class UserProfileModelTests(TestCase):
         self.assertNotEqual(user.password, "s3cure-pass")
         self.assertTrue(user.check_password("s3cure-pass"))
 
-    def test_add_score_updates_total(self):
-        user = User.objects.create_user(username="ada", password="s3cure-pass")
-        profile = user.profile
-        profile.add_score("morning-greeting", 2)
-        profile.add_score("server-outage", 1)
-        profile.save()
-        profile.refresh_from_db()
-        self.assertEqual(profile.scores, {"morning-greeting": 2, "server-outage": 1})
-        self.assertEqual(profile.total_score, 3)
-
-    def test_add_score_rejects_out_of_range(self):
-        user = User.objects.create_user(username="ada", password="s3cure-pass")
-        with self.assertRaises(ValidationError):
-            user.profile.add_score("morning-greeting", 4)
-
     def test_scores_validator_rejects_non_numeric(self):
         user = User.objects.create_user(username="ada", password="s3cure-pass")
         profile = user.profile
         profile.scores = {"morning-greeting": "high"}
         with self.assertRaises(ValidationError):
             profile.save()
-
-    def test_record_login_appends_sorted_unique_days(self):
-        user = User.objects.create_user(username="ada", password="s3cure-pass")
-        profile = user.profile
-        profile.record_login(date(2026, 10, 14))
-        profile.record_login(date(2026, 10, 14))
-        profile.record_login(date(2026, 10, 12))
-        profile.save()
-        profile.refresh_from_db()
-        self.assertEqual(profile.login_days, ["2026-10-12", "2026-10-14"])
 
     def test_login_days_validator_rejects_bad_format(self):
         user = User.objects.create_user(username="ada", password="s3cure-pass")
@@ -410,7 +385,8 @@ class UserProfileApiTests(TestCase):
     def test_profile_endpoint(self):
         user = User.objects.create_user(username="ada", password="s3cure-pass")
         profile = user.profile
-        profile.add_score("forgot-password-x3", 3)
+        profile.scores = {"forgot-password-x3": 3}
+        profile.total_score = 3
         profile.save()
 
         response = self.client.get(f"/api/users/{user.id}/profile/")
@@ -436,9 +412,11 @@ class UserProfileApiTests(TestCase):
     def test_leaderboard_orders_by_total_score(self):
         low = User.objects.create_user(username="low", password="s3cure-pass")
         high = User.objects.create_user(username="high", password="s3cure-pass")
-        low.profile.add_score("challenge-one", 1)
+        low.profile.scores = {"challenge-one": 1}
+        low.profile.total_score = 1
         low.profile.save()
-        high.profile.add_score("challenge-one", 3)
+        high.profile.scores = {"challenge-one": 3}
+        high.profile.total_score = 3
         high.profile.save()
 
         payload = self.client.get("/api/users/leaderboard/").json()
