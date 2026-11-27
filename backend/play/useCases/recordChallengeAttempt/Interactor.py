@@ -158,7 +158,6 @@ class RecordChallengeAttemptInteractor(RecordChallengeAttemptInputBoundary):
             username=profile.username,
             avatar=profile.avatar,
             total_score=profile.total_score,
-            completed_challenges=len(profile.scores),
             scores=dict(profile.scores),
             attempt=AttemptOutputData(
                 id=attempt.record_id,

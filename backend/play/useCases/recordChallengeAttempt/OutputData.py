@@ -35,7 +35,6 @@ class RecordChallengeAttemptOutputData:
     username: str
     avatar: str
     total_score: int
-    completed_challenges: int
     scores: dict[str, int]
     attempt: AttemptOutputData
     created: bool
