@@ -65,14 +65,42 @@ from users.adapters.viewProfile.Controller import ViewProfileController
 from users.adapters.viewProfile.Presenter import ViewProfilePresenter
 from users.adapters.updateProfile.Controller import UpdateProfileController
 from users.adapters.updateProfile.Presenter import UpdateProfilePresenter
+from users.adapters.signUp.Controller import SignUpController
+from users.adapters.signUp.Presenter import SignUpPresenter
+from users.adapters.logIn.Controller import LogInController
+from users.adapters.logIn.Presenter import LogInPresenter
+from users.adapters.logOut.Controller import LogOutController
+from users.adapters.logOut.Presenter import LogOutPresenter
 from users.useCases.viewProfile.Interactor import ViewProfileInteractor
 from users.useCases.updateProfile.Interactor import UpdateProfileInteractor
+from users.useCases.ports import AuthenticationGateway
+from users.useCases.signUp.Interactor import SignUpInteractor
+from users.useCases.logIn.Interactor import LogInInteractor
+from users.useCases.logOut.Interactor import LogOutInteractor
 
 
 @dataclass(frozen=True, slots=True)
 class GetCurrentUserUseCase:
     controller: GetCurrentUserController
     presenter: GetCurrentUserPresenter
+
+
+@dataclass(frozen=True, slots=True)
+class SignUpUseCase:
+    controller: SignUpController
+    presenter: SignUpPresenter
+
+
+@dataclass(frozen=True, slots=True)
+class LogInUseCase:
+    controller: LogInController
+    presenter: LogInPresenter
+
+
+@dataclass(frozen=True, slots=True)
+class LogOutUseCase:
+    controller: LogOutController
+    presenter: LogOutPresenter
 
 
 @dataclass(frozen=True, slots=True)
@@ -141,6 +169,31 @@ class ApplicationContainer:
         presenter = GetCurrentUserPresenter(csrf_token)
         interactor = GetCurrentUserInteractor(accounts=accounts, presenter=presenter)
         return GetCurrentUserUseCase(GetCurrentUserController(interactor), presenter)
+
+    def build_sign_up_use_case(
+        self, *, authentication: AuthenticationGateway, csrf_token: Callable[[], str]
+    ) -> SignUpUseCase:
+        presenter = SignUpPresenter(csrf_token)
+        interactor = SignUpInteractor(
+            authentication=authentication, presenter=presenter
+        )
+        return SignUpUseCase(SignUpController(interactor), presenter)
+
+    def build_log_in_use_case(
+        self, *, authentication: AuthenticationGateway, csrf_token: Callable[[], str]
+    ) -> LogInUseCase:
+        presenter = LogInPresenter(csrf_token)
+        interactor = LogInInteractor(authentication=authentication, presenter=presenter)
+        return LogInUseCase(LogInController(interactor), presenter)
+
+    def build_log_out_use_case(
+        self, *, authentication: AuthenticationGateway
+    ) -> LogOutUseCase:
+        presenter = LogOutPresenter()
+        interactor = LogOutInteractor(
+            authentication=authentication, presenter=presenter
+        )
+        return LogOutUseCase(LogOutController(interactor), presenter)
 
     def build_get_challenge_use_case(self) -> GetChallengeUseCase:
         presenter = GetChallengePresenter()

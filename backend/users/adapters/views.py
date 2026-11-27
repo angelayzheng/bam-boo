@@ -1,9 +1,7 @@
 import json
 from uuid import UUID
 
-from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.models import Group
-from django.db import IntegrityError, transaction
 from django.http import Http404, JsonResponse
 from django.middleware.csrf import get_token
 from django.views.decorators.cache import never_cache
@@ -11,7 +9,7 @@ from django.views.decorators.http import require_GET, require_http_methods, requ
 
 from config.container import get_container
 from users.adapters.sessionAccountGateway import DjangoSessionAccountGateway
-from users.forms import SignupForm
+from users.adapters.authenticationGateway import DjangoAuthenticationGateway
 from users.models import UserProfile
 
 
@@ -31,17 +29,6 @@ def _auth_payload(request):
         if not payload.get(field):
             raise ValueError(f"{field} is required.")
     return payload
-
-
-def _auth_response(request, status=200):
-    user = request.user
-    return JsonResponse(
-        {
-            "user": {"id": user.pk, "username": user.username, "email": user.email},
-            "csrfToken": get_token(request),
-        },
-        status=status,
-    )
 
 
 @never_cache
@@ -76,35 +63,19 @@ def signup(request):
             {"errors": {"group_id": ["Group must be a positive integer ID or null."]}},
             status=400,
         )
-    form = SignupForm(
-        data={
-            "username": payload["username"],
-            "email": payload.get("email", ""),
-            "group_id": group_id,
-            "password1": payload["password"],
-            "password2": payload["password"],
-        }
+    use_case = get_container().build_sign_up_use_case(
+        authentication=DjangoAuthenticationGateway(request),
+        csrf_token=lambda: get_token(request),
     )
-    if not form.is_valid():
-        errors = {}
-        for field, messages in form.errors.items():
-            key = "password" if field in ("password1", "password2") else field
-            errors.setdefault(key, []).extend(messages)
-        return JsonResponse({"errors": errors}, status=400)
-    try:
-        with transaction.atomic():
-            user = form.save()
-            if form.cleaned_data["group_id"] is not None:
-                profile = user.profile
-                profile.group = form.cleaned_data["group_id"]
-                profile.save(update_fields=["group", "updated_at"])
-    except IntegrityError:
-        return JsonResponse(
-            {"errors": {"username": ["A user with that username already exists."]}},
-            status=400,
-        )
-    login(request, user)
-    return _auth_response(request, status=201)
+    use_case.controller.execute(
+        username=payload["username"],
+        password=payload["password"],
+        email=payload.get("email", ""),
+        group_id=group_id,
+    )
+    return JsonResponse(
+        use_case.presenter.response_body, status=use_case.presenter.status_code
+    )
 
 
 @never_cache
@@ -115,21 +86,29 @@ def login_user(request):
         payload = _auth_payload(request)
     except ValueError as exc:
         return JsonResponse({"detail": str(exc)}, status=400)
-    user = authenticate(
-        request, username=payload["username"], password=payload["password"]
+    use_case = get_container().build_log_in_use_case(
+        authentication=DjangoAuthenticationGateway(request),
+        csrf_token=lambda: get_token(request),
     )
-    if user is None:
-        return JsonResponse({"detail": "Invalid username or password."}, status=401)
-    login(request, user)
-    return _auth_response(request)
+    use_case.controller.execute(
+        username=payload["username"], password=payload["password"]
+    )
+    return JsonResponse(
+        use_case.presenter.response_body, status=use_case.presenter.status_code
+    )
 
 
 @never_cache
 @require_POST
 def logout_user(request):
     """POST /api/users/auth/logout/: end the current session."""
-    logout(request)
-    return JsonResponse({"detail": "Logged out."})
+    use_case = get_container().build_log_out_use_case(
+        authentication=DjangoAuthenticationGateway(request)
+    )
+    use_case.controller.execute()
+    return JsonResponse(
+        use_case.presenter.response_body, status=use_case.presenter.status_code
+    )
 
 
 @never_cache

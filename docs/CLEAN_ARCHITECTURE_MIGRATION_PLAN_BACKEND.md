@@ -96,6 +96,8 @@ The former `GetChallengeForPlay` goal is covered by `manageChallengeRun.start_ch
 
 `getCurrentUser` is migrated, with input/output boundaries, a request-scoped account gateway, a controller, a presenter, and container wiring. Django session access and CSRF tokens remain adapter concerns. Fake-port tests live in `users/testGetCurrentUser.py`; endpoint tests in `users/tests.py` cover the response contract, cache controls, CSRF token usability, and request isolation.
 
+`signUp`, `logIn`, and `logOut` are migrated into dedicated folders under `users/useCases/`. Their interactors depend on the shared `AuthenticationGateway` port; `DjangoAuthenticationGateway` owns `UserCreationForm`, ORM writes, Django credential checks, and session operations. Controllers receive parsed input from the views, presenters preserve the existing status codes and JSON payloads, and request-scoped gateways and CSRF token providers are passed through container builders. Fake-port coverage is in `users/testAuthUseCases.py`; endpoint contract coverage remains in `users/tests.py` and `users/testGroups.py`.
+
 Root and health status, CSRF token issuance, and static media serving are transport or infrastructure concerns; they do not need artificial use-case folders. Loading vector data is a management command, not a player-facing use case.
 
 ## Migration sequence

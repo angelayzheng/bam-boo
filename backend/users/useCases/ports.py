@@ -1,5 +1,6 @@
 from collections.abc import Sequence
 from contextlib import AbstractContextManager
+from dataclasses import dataclass
 from typing import Protocol
 
 from users.useCases.profileData import ProfileData
@@ -46,3 +47,30 @@ class UnitOfWork(Protocol):
 
 class CurrentAccountGateway(Protocol):
     def current_account(self) -> GetCurrentUserOutputData | None: ...
+
+
+@dataclass(frozen=True, slots=True)
+class AuthenticatedAccount:
+    user_id: int
+    username: str
+    email: str
+
+
+@dataclass(frozen=True, slots=True)
+class AccountCreationResult:
+    account: AuthenticatedAccount | None
+    errors: dict[str, list[str]]
+
+
+class AuthenticationGateway(Protocol):
+    def create_account(
+        self, *, username: str, password: str, email: str, group_id: int | None
+    ) -> AccountCreationResult: ...
+
+    def authenticate(
+        self, *, username: str, password: str
+    ) -> AuthenticatedAccount | None: ...
+
+    def start_session(self, account: AuthenticatedAccount) -> None: ...
+
+    def end_session(self) -> None: ...

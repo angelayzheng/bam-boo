@@ -1,6 +1,7 @@
 from io import StringIO
 from unittest.mock import call, patch
 
+from django.contrib.auth import authenticate
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
 from django.core.management import call_command
@@ -240,6 +241,31 @@ class AuthenticationApiTests(TestCase):
         self.assertFalse(Session.objects.filter(session_key=session_key).exists())
         self.assertEqual(self.client.get(self.base_url + "me/").status_code, 401)
         self.assertEqual(self.post("logout").status_code, 200)
+
+    def test_password_reset_between_authentication_and_session_start_invalidates_login(
+        self,
+    ):
+        User.objects.create_user(username="ada", password=self.password)
+        original_password = "ResetDuringLogin!2026"
+
+        def authenticate_then_reset(request, *, username, password):
+            user = authenticate(request, username=username, password=password)
+            changed_user = User.objects.get(username=username)
+            changed_user.set_password(original_password)
+            changed_user.save(update_fields=["password"])
+            return user
+
+        with patch(
+            "users.adapters.authenticationGateway.authenticate",
+            side_effect=authenticate_then_reset,
+        ):
+            response = self.post(
+                "login", {"username": "ada", "password": self.password}
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(self.client.get(self.base_url + "me/").status_code, 401)
+        self.assertNotIn("_auth_user_id", self.client.session)
 
     def test_login_rejects_invalid_credentials_and_inactive_accounts(self):
         User.objects.create_user(username="ada", password=self.password)

@@ -8,6 +8,9 @@ import type {
 import type { ChallengeOutputBoundary } from '../../boundaries/challengeOutputBoundary'
 import type { AttemptGateway } from '../../boundaries/dataAccessInterfaces'
 
+export const TONE_MIN_LENGTH = 1
+export const TONE_MAX_LENGTH = 200
+
 export class SubmitToneInteractor implements SubmitToneInputBoundary {
   private readonly store: SessionStore
   private readonly gateway: AttemptGateway
@@ -26,7 +29,7 @@ export class SubmitToneInteractor implements SubmitToneInputBoundary {
   setTone(input: ToneInputData): void {
     const session = this.store.get()
     if (!session) return
-    session.changeTone(input.answer)
+    session.changeTone(input.answer.slice(0, TONE_MAX_LENGTH))
     this.present(session)
   }
 
@@ -36,7 +39,16 @@ export class SubmitToneInteractor implements SubmitToneInputBoundary {
     const state = session.snapshot()
     if (state.tonePending || state.stage !== 'tone') return
 
-    session.changeTone(input.answer)
+    const answer = input.answer.trim()
+    if (answer.length < TONE_MIN_LENGTH || answer.length > TONE_MAX_LENGTH) {
+      session.recordToneError(
+        `Tone must be between ${TONE_MIN_LENGTH} and ${TONE_MAX_LENGTH} characters.`,
+      )
+      this.present(session)
+      return
+    }
+
+    session.changeTone(answer)
     session.beginToneSubmission()
     this.present(session)
 
