@@ -2,6 +2,7 @@ from collections.abc import Sequence
 from typing import Protocol
 
 from users.domain.profile import Profile
+from users.useCases.getCurrentUser.OutputData import GetCurrentUserOutputData
 
 
 class ProfileRepository(Protocol):
@@ -16,21 +17,5 @@ class ProfileRepository(Protocol):
     def save(self, profile: Profile) -> Profile: ...
 
 
-class AuthGateway(Protocol):
-    def sign_up(
-        self,
-        username: str,
-        password: str,
-        email: str = "",
-        group_id: int | None = None,
-    ) -> int: ...
-
-    def log_in(self, username: str, password: str) -> int | None: ...
-
-    def log_out(self) -> None: ...
-
-    def current_user_id(self) -> int | None: ...
-
-
-class GroupRepository(Protocol):
-    def list_groups(self) -> Sequence[tuple[int, str]]: ...
+class CurrentAccountGateway(Protocol):
+    def current_account(self) -> GetCurrentUserOutputData | None: ...

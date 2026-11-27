@@ -92,6 +92,8 @@ The run workflow covers starting a run, reading its snapshot, grading tone and a
 
 The former `GetChallengeForPlay` goal is covered by `manageChallengeRun.start_challenge` and `get_run` for playable snapshots; the separate `getChallenge` use case retrieves public metadata through `GET /api/challenges/<slug>/`. The former `GradeTone` goal is `manageChallengeRun.submit_tone`, using the `ToneMatcher` port. Starting, resuming, and grading tone have isolated fake-port coverage in `play/testManageChallengeRun.py`, alongside the endpoint tests in `users/testScores.py`. Metadata retrieval has fake-port tests in `challenges/testGetChallenge.py` and endpoint coverage in `challenges/tests.py`.
 
+`getCurrentUser` is migrated, with input/output boundaries, a request-scoped account gateway, a controller, a presenter, and container wiring. Django session access and CSRF tokens remain adapter concerns. Fake-port tests live in `users/testGetCurrentUser.py`; endpoint tests in `users/tests.py` cover the response contract, cache controls, CSRF token usability, and request isolation.
+
 Root and health status, CSRF token issuance, and static media serving are transport or infrastructure concerns; they do not need artificial use-case folders. Loading vector data is a management command, not a player-facing use case.
 
 ## Migration sequence

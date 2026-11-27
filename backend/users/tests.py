@@ -264,6 +264,38 @@ class AuthenticationApiTests(TestCase):
         for action in ("csrf", "me"):
             self.assertEqual(self.post(action).status_code, 405)
 
+    def test_current_user_keeps_account_csrf_cache_and_request_isolation_contract(self):
+        users = [
+            User.objects.create_user(username="ada", email="ada@example.com"),
+            User.objects.create_user(username="grace", email="grace@example.com"),
+        ]
+        for user in users:
+            client = Client(enforce_csrf_checks=True)
+            client.force_login(user)
+            response = client.get(self.base_url + "me/")
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(set(response.json()), {"user", "csrfToken"})
+            self.assertEqual(
+                response.json()["user"],
+                {
+                    "id": user.pk,
+                    "username": user.username,
+                    "email": user.email,
+                },
+            )
+            self.assertIn("no-store", response["Cache-Control"])
+            self.assertEqual(
+                client.post(
+                    self.base_url + "logout/",
+                    HTTP_X_CSRFTOKEN=response.json()["csrfToken"],
+                ).status_code,
+                200,
+            )
+        anonymous = self.client.get(self.base_url + "me/")
+        self.assertEqual(anonymous.status_code, 401)
+        self.assertEqual(anonymous.json(), {"detail": "Authentication required."})
+        self.assertIn("no-store", anonymous["Cache-Control"])
+
 
 class UserProfileModelTests(TestCase):
     def test_profile_auto_created_with_defaults(self):
