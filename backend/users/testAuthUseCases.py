@@ -29,8 +29,8 @@ class FakeAuthenticationGateway:
     def authenticate(self, **values):
         return self.account
 
-    def start_session(self, user_id):
-        self.started_sessions.append(user_id)
+    def start_session(self, account):
+        self.started_sessions.append(account.user_id)
 
     def end_session(self):
         self.ended_sessions += 1

@@ -19,5 +19,5 @@ class LogInInteractor:
         if account is None:
             self._presenter.present(LogInOutputData(401))
             return
-        self._authentication.start_session(account.user_id)
+        self._authentication.start_session(account)
         self._presenter.present(LogInOutputData(200, account=account))

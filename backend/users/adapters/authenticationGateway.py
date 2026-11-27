@@ -14,6 +14,7 @@ class DjangoAuthenticationGateway(AuthenticationGateway):
 
     def __init__(self, request):
         self._request = request
+        self._session_user = None
 
     @staticmethod
     def _account(user) -> AuthenticatedAccount:
@@ -42,6 +43,7 @@ class DjangoAuthenticationGateway(AuthenticationGateway):
         try:
             with transaction.atomic():
                 user = form.save()
+                self._session_user = user
                 if form.cleaned_data["group_id"] is not None:
                     profile = user.profile
                     profile.group = form.cleaned_data["group_id"]
@@ -57,12 +59,13 @@ class DjangoAuthenticationGateway(AuthenticationGateway):
         self, *, username: str, password: str
     ) -> AuthenticatedAccount | None:
         user = authenticate(self._request, username=username, password=password)
+        self._session_user = user
         return self._account(user) if user is not None else None
 
-    def start_session(self, user_id: int) -> None:
-        from django.contrib.auth.models import User
-
-        login(self._request, User.objects.get(pk=user_id))
+    def start_session(self, account: AuthenticatedAccount) -> None:
+        if self._session_user is None or self._session_user.pk != account.user_id:
+            raise RuntimeError("No matching authenticated user is available.")
+        login(self._request, self._session_user)
 
     def end_session(self) -> None:
         logout(self._request)

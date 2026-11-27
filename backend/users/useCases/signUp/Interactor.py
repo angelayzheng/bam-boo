@@ -22,5 +22,5 @@ class SignUpInteractor:
         if result.account is None:
             self._presenter.present(SignUpOutputData(400, errors=result.errors))
             return
-        self._authentication.start_session(result.account.user_id)
+        self._authentication.start_session(result.account)
         self._presenter.present(SignUpOutputData(201, account=result.account))
