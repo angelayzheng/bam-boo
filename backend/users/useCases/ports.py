@@ -5,6 +5,7 @@ from typing import Protocol
 from users.useCases.profileData import ProfileData
 from users.domain.profile import Profile
 from users.domain.profileChanges import ProfileChanges
+from users.useCases.getCurrentUser.OutputData import GetCurrentUserOutputData
 
 
 class ProfileRepository(Protocol):
@@ -41,3 +42,7 @@ class EmailValidator(Protocol):
 
 class UnitOfWork(Protocol):
     def atomic(self) -> AbstractContextManager[None]: ...
+
+
+class CurrentAccountGateway(Protocol):
+    def current_account(self) -> GetCurrentUserOutputData | None: ...

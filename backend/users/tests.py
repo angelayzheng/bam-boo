@@ -1,4 +1,5 @@
 from io import StringIO
+from unittest.mock import call, patch
 
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
@@ -12,20 +13,35 @@ from .models import UserProfile
 
 @override_settings(DEBUG=True)
 class LocalSuperuserCommandTests(TestCase):
+    password = "DemoOnly!Maple7Quartz"
+
+    def setUp(self):
+        self.password_prompt = self.enterContext(
+            patch(
+                "users.management.commands.seed_local_superuser.getpass",
+                return_value=self.password,
+            )
+        )
+
     def seed(self):
         output = StringIO()
         call_command("seed_local_superuser", stdout=output)
         return output.getvalue()
 
-    def test_creates_default_superuser_and_profile_with_hashed_password(self):
-        self.seed()
+    def test_creates_superuser_and_profile_with_prompted_hashed_password(self):
+        output = self.seed()
+        self.assertEqual(
+            self.password_prompt.call_args_list,
+            [call("Password: "), call("Password (again): ")],
+        )
+        self.assertNotIn(self.password, output)
         user = User.objects.get(username="admin")
         self.assertEqual(user.email, "admin@example.test")
         self.assertTrue(user.is_active)
         self.assertTrue(user.is_staff)
         self.assertTrue(user.is_superuser)
-        self.assertTrue(user.check_password("teamkale"))
-        self.assertNotEqual(user.password, "teamkale")
+        self.assertTrue(user.check_password(self.password))
+        self.assertNotEqual(user.password, self.password)
         self.assertEqual(user.profile.avatar, "fox")
 
     def test_seeded_account_can_use_auth_api_and_admin(self):
@@ -34,7 +50,7 @@ class LocalSuperuserCommandTests(TestCase):
         token = client.get("/api/users/auth/csrf/").json()["csrfToken"]
         response = client.post(
             "/api/users/auth/login/",
-            data={"username": "admin", "password": "teamkale"},
+            data={"username": "admin", "password": self.password},
             content_type="application/json",
             HTTP_X_CSRFTOKEN=token,
         )
@@ -53,7 +69,9 @@ class LocalSuperuserCommandTests(TestCase):
         profile.scores = {"forgot-password-x3": 2}
         profile.total_score = 2
         profile.save()
+        self.password_prompt.reset_mock()
         output = self.seed()
+        self.password_prompt.assert_not_called()
         user.refresh_from_db()
         profile.refresh_from_db()
         self.assertIn("already exists", output)
@@ -76,6 +94,7 @@ class LocalSuperuserCommandTests(TestCase):
                 )
                 with self.assertRaisesMessage(CommandError, "No account was changed"):
                     self.seed()
+                self.password_prompt.assert_not_called()
                 user.refresh_from_db()
                 self.assertTrue(user.check_password("ExistingPassword!2026"))
                 self.assertEqual(user.is_superuser, flags.get("is_superuser", False))
@@ -83,10 +102,38 @@ class LocalSuperuserCommandTests(TestCase):
                 self.assertEqual(user.is_active, flags.get("is_active", True))
                 user.delete()
 
+    def test_invalid_passwords_do_not_create_an_account_or_profile(self):
+        for password, confirmation, error in (
+            ("", "", "cannot be blank"),
+            ("   ", "   ", "cannot be blank"),
+            (self.password, "different", "do not match"),
+            ("short", "short", "too short"),
+            ("password", "password", "too common"),
+            ("123456789", "123456789", "entirely numeric"),
+            ("admin", "admin", "too similar"),
+        ):
+            with self.subTest(password=password):
+                self.password_prompt.side_effect = [password, confirmation]
+                with self.assertRaisesMessage(CommandError, error):
+                    self.seed()
+                self.assertFalse(User.objects.exists())
+                self.assertFalse(UserProfile.objects.exists())
+
+    def test_cancelled_password_entry_does_not_create_an_account_or_profile(self):
+        for error in (EOFError, KeyboardInterrupt):
+            for responses in ([error], [self.password, error]):
+                with self.subTest(error=error, responses=responses):
+                    self.password_prompt.side_effect = responses
+                    with self.assertRaisesMessage(CommandError, "entry cancelled"):
+                        self.seed()
+                    self.assertFalse(User.objects.exists())
+                    self.assertFalse(UserProfile.objects.exists())
+
     @override_settings(DEBUG=False)
     def test_shared_account_is_not_created_outside_debug_mode(self):
         with self.assertRaisesMessage(CommandError, "requires DEBUG=True"):
             self.seed()
+        self.password_prompt.assert_not_called()
         self.assertFalse(User.objects.exists())
 
 
@@ -263,6 +310,38 @@ class AuthenticationApiTests(TestCase):
             )
         for action in ("csrf", "me"):
             self.assertEqual(self.post(action).status_code, 405)
+
+    def test_current_user_keeps_account_csrf_cache_and_request_isolation_contract(self):
+        users = [
+            User.objects.create_user(username="ada", email="ada@example.com"),
+            User.objects.create_user(username="grace", email="grace@example.com"),
+        ]
+        for user in users:
+            client = Client(enforce_csrf_checks=True)
+            client.force_login(user)
+            response = client.get(self.base_url + "me/")
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(set(response.json()), {"user", "csrfToken"})
+            self.assertEqual(
+                response.json()["user"],
+                {
+                    "id": user.pk,
+                    "username": user.username,
+                    "email": user.email,
+                },
+            )
+            self.assertIn("no-store", response["Cache-Control"])
+            self.assertEqual(
+                client.post(
+                    self.base_url + "logout/",
+                    HTTP_X_CSRFTOKEN=response.json()["csrfToken"],
+                ).status_code,
+                200,
+            )
+        anonymous = self.client.get(self.base_url + "me/")
+        self.assertEqual(anonymous.status_code, 401)
+        self.assertEqual(anonymous.json(), {"detail": "Authentication required."})
+        self.assertIn("no-store", anonymous["Cache-Control"])
 
 
 class UserProfileModelTests(TestCase):
